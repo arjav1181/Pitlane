@@ -351,9 +351,11 @@ export function GalleryPage() {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete {selectedIds.size} video{selectedIds.size > 1 ? "s" : ""}?</DialogTitle>
+            <DialogTitle>
+              Delete {selectedIds.size} short{selectedIds.size > 1 ? "s" : ""}?
+            </DialogTitle>
             <DialogDescription>
-              This will permanently delete the selected videos and their artifacts. This action cannot be undone.
+              The rendered files go with them. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

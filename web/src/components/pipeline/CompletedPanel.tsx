@@ -2,6 +2,7 @@ import { Play } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { CostBreakdown, CriticReview, DirectorScore, JobSummary } from "@/hooks/useApi";
 import { withApiKey } from "@/lib/apiKey";
+import { firstPosterUrl } from "@/lib/scene-assets";
 import { formatArchetypeName } from "@/lib/utils";
 import { CostBreakdownCard } from "./CostBreakdownCard";
 import { CriticScoreCard } from "./CriticScoreCard";
@@ -67,6 +68,11 @@ export function CompletedPanel({
   const displayScore = score ?? fetchedScore;
   const displayCritic = criticReview ?? job.criticReview;
   const sceneCount = displayScore?.scenes.length ?? null;
+  // A still from the short itself, so the player is not an empty black box
+  // before it is played.
+  const poster = job.runDir
+    ? firstPosterUrl(job.id, job.runDir, displayScore?.scenes)
+    : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -76,7 +82,13 @@ export function CompletedPanel({
         <div className="shrink-0 sm:w-[248px]">
           <div className="flex aspect-[9/16] w-full items-center justify-center overflow-hidden rounded-xl border border-border bg-black">
             {videoUrl ? (
-              <video src={videoUrl} controls playsInline className="h-full w-full object-contain">
+              <video
+                src={videoUrl}
+                poster={poster ?? undefined}
+                controls
+                playsInline
+                className="h-full w-full object-contain"
+              >
                 <track kind="captions" />
               </video>
             ) : (
