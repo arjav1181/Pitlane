@@ -1,0 +1,75 @@
+/**
+ * Options for the Remotion render step.
+ *
+ * The renderer is driven programmatically (`renderMedia`/`selectComposition`
+ * from `@remotion/renderer`), not through the Remotion CLI. That matters for
+ * the timeout: the CLI reads `--delay-render-timeout-in-milliseconds` and
+ * forwards it to the renderer, but `renderMedia` never reads
+ * `@remotion/cli/config`. Setting the CLI config therefore has no effect on a
+ * programmatic render — the renderer keeps its own default of 30s, which it
+ * reports to the browser as a 28s delayRender budget (the renderer reserves
+ * the last 2s of the timeout for reporting the failure).
+ *
+ * On a small CPU-only machine extracting a frame from a stock clip can take
+ * longer than that, so the timeout has to be passed to the renderer directly.
+ */
+
+export interface RenderTimeoutOptions {
+  /** Timeout handed to `renderMedia`/`selectComposition`, in milliseconds. */
+  timeoutInMilliseconds: number;
+  /**
+   * How many browser tabs render frames in parallel.
+   *
+   * The default is the number of CPUs, which on a 2 vCPU Space means two
+   * Chrome instances plus the frame-extraction threads competing for the same
+   * two cores. Each tab then gets slower, not faster.
+   */
+  concurrency: number;
+  /**
+   * Size of the OffthreadVideo frame cache, in bytes.
+   *
+   * `null` means "half of the system memory available when the render
+   * starts". On a Space with a small memory allowance that can be tiny, which
+   * makes the renderer re-extract the same frame over and over. A fixed
+   * budget is predictable.
+   */
+  offthreadVideoCacheSizeInBytes: number;
+}
+
+/** Default render timeout. Long enough for a CPU-only box to extract a frame. */
+export const DEFAULT_RENDER_TIMEOUT_MS = 120_000;
+
+/** Default OffthreadVideo frame cache: 1 GB. */
+export const DEFAULT_OFFTHREAD_CACHE_BYTES = 1024 * 1024 * 1024;
+
+function positiveInt(raw: string | undefined, fallback: number): number {
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
+/**
+ * Resolve the render options from the environment.
+ *
+ * - `OPENREELS_RENDER_TIMEOUT_MS` — render timeout in milliseconds.
+ * - `OPENREELS_RENDER_CONCURRENCY` — parallel browser tabs (1 = serial).
+ * - `OPENREELS_RENDER_OFFTHREAD_CACHE_MB` — OffthreadVideo frame cache in MB.
+ */
+export function resolveRenderOptions(
+  env: NodeJS.ProcessEnv = process.env,
+): RenderTimeoutOptions {
+  const timeoutInMilliseconds = positiveInt(
+    env["OPENREELS_RENDER_TIMEOUT_MS"],
+    DEFAULT_RENDER_TIMEOUT_MS,
+  );
+  const concurrency = positiveInt(env["OPENREELS_RENDER_CONCURRENCY"], 1);
+  const cacheMb = positiveInt(
+    env["OPENREELS_RENDER_OFFTHREAD_CACHE_MB"],
+    DEFAULT_OFFTHREAD_CACHE_BYTES / (1024 * 1024),
+  );
+
+  return {
+    timeoutInMilliseconds,
+    concurrency,
+    offthreadVideoCacheSizeInBytes: cacheMb * 1024 * 1024,
+  };
+}

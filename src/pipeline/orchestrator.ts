@@ -27,6 +27,7 @@ import {
 } from "../providers/stock/adaptive-resolver.js";
 import { resolveAIVideo, type VideoResolution } from "../providers/video/video-resolver.js";
 import { getTotalDurationInFrames, mapScoreToProps } from "../remotion/lib/score-to-props.js";
+import { resolveRenderOptions } from "./render-options.js";
 import type { ArchetypeConfig } from "../schema/archetype.js";
 import type { DirectorScore } from "../schema/director-score.js";
 import { sanitizeScoreForNoAiAssets } from "../schema/no-ai-assets.js";
@@ -955,17 +956,19 @@ function buildPipelineWorkflow(
 
       cb.onProgress?.("assembly", { type: "rendering", totalFrames });
 
-      // The default delayRender timeout is 28s. On a small CPU-only machine the
-      // renderer can spend longer extracting a frame from a stock clip, which
-      // fails the whole render with a timeout error. remotion.config.ts is only
-      // read by the Remotion CLI, so the client config has to be set here.
-      const { Config: RemotionConfig } = await import("@remotion/cli/config");
-      RemotionConfig.setDelayRenderTimeoutInMilliseconds(120_000);
+      // The renderer is driven programmatically, so the delayRender timeout has
+      // to be handed to the renderer directly. The Remotion CLI reads its own
+      // `--delay-render-timeout-in-milliseconds` flag and forwards it, but
+      // `renderMedia` never reads `@remotion/cli/config` — setting that config
+      // here silently kept the renderer at its 30s default (28s delayRender
+      // budget), which failed the render on a CPU-only machine.
+      const renderOptions = resolveRenderOptions();
 
       const composition = await selectComposition({
         serveUrl: bundled,
         id: "OpenReelsVideo",
         inputProps: compositionProps as unknown as Record<string, unknown>,
+        timeoutInMilliseconds: renderOptions.timeoutInMilliseconds,
       });
 
       assemblyResult.videoPath = path.join(runDir, "final.mp4");
@@ -981,6 +984,9 @@ function buildPipelineWorkflow(
         codec: "h264",
         outputLocation: assemblyResult.videoPath,
         inputProps: compositionProps as unknown as Record<string, unknown>,
+        timeoutInMilliseconds: renderOptions.timeoutInMilliseconds,
+        concurrency: renderOptions.concurrency,
+        offthreadVideoCacheSizeInBytes: renderOptions.offthreadVideoCacheSizeInBytes,
       });
 
       const dur = (Date.now() - start) / 1000;
