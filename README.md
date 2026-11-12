@@ -58,7 +58,7 @@ openreels "the apollo 13 disaster, from explosion to miraculous return" --provid
 ### Web UI
 
 <div align="center">
-<img src=".github/assets/demo.gif" alt="OpenReels Web UI demo" width="800" />
+<img src=".github/assets/demo.gif" alt="Pitlane web app" width="800" />
 
 **Live pipeline visualization.** Watch research, script, voiceover, visuals, music, and assembly stages stream in real time.
 </div>
@@ -129,7 +129,7 @@ Mix and match providers or go all-in on one ecosystem:
 ### Web UI (recommended)
 
 ```bash
-git clone https://github.com/tsensei/OpenReels.git
+git clone https://github.com/arjav1181/OpenReels.git
 cd OpenReels
 cp .env.example .env   # fill in your API keys
 docker compose up      # starts Redis + API + Worker
@@ -187,7 +187,7 @@ docker compose run worker npx tsx src/index.ts --yes "5 stoic lessons that chang
 **Prerequisites:** Node.js 22+, pnpm, ffprobe
 
 ```bash
-git clone https://github.com/tsensei/OpenReels.git
+git clone https://github.com/arjav1181/OpenReels.git
 cd OpenReels
 pnpm install
 cp .env.example .env   # fill in your API keys
@@ -317,11 +317,12 @@ The rewrite moves from Python to TypeScript for native [Remotion](https://www.re
 
 ## Status
 
-v0.17.0 shipped. See [CHANGELOG.md](CHANGELOG.md) for full version history and [TODOS.md](TODOS.md) for known issues and roadmap.
+See [CHANGELOG.md](CHANGELOG.md) for the full version history and [TODOS.md](TODOS.md) for known issues and the roadmap.
 
-## Star History
+## Credits
 
-If OpenReels is useful to you, consider giving it a star. It helps others discover the project.
+Pitlane is built on [tsensei/OpenReels](https://github.com/tsensei/OpenReels), which provided the
+pipeline and the Remotion renderer. If that project is useful to you, consider giving it a star.
 
 [![Star History Chart](https://api.star-history.com/svg?repos=tsensei/OpenReels&type=Date)](https://star-history.com/#tsensei/OpenReels&Date)
 
