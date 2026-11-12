@@ -129,7 +129,7 @@ Mix and match providers or go all-in on one ecosystem:
 ### Web UI (recommended)
 
 ```bash
-git clone https://github.com/arjav1181/OpenReels.git
+git clone https://github.com/arjav1181/Pitlane.git
 cd OpenReels
 cp .env.example .env   # fill in your API keys
 docker compose up      # starts Redis + API + Worker
@@ -187,7 +187,7 @@ docker compose run worker npx tsx src/index.ts --yes "5 stoic lessons that chang
 **Prerequisites:** Node.js 22+, pnpm, ffprobe
 
 ```bash
-git clone https://github.com/arjav1181/OpenReels.git
+git clone https://github.com/arjav1181/Pitlane.git
 cd OpenReels
 pnpm install
 cp .env.example .env   # fill in your API keys
