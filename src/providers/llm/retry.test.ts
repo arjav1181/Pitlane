@@ -81,4 +81,26 @@ describe("withRateLimitRetry", () => {
     );
     expect(fn).toHaveBeenCalledTimes(3);
   });
+
+  it("stops retrying once the budget is spent", async () => {
+    const fn = vi.fn<() => Promise<string>>().mockRejectedValue(new Error("Too Many Requests"));
+    const sleep = vi.fn(noSleep);
+
+    await expect(
+      withRateLimitRetry(fn, { sleep, budgetMs: 0, maxRetries: 5 }),
+    ).rejects.toThrow("Too Many Requests");
+    // The budget is already spent, so the error is re-thrown without waiting.
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("keeps retrying while the budget allows it", async () => {
+    const fn = vi.fn<() => Promise<string>>().mockRejectedValue(new Error("Too Many Requests"));
+    const sleep = vi.fn(noSleep);
+
+    await expect(
+      withRateLimitRetry(fn, { sleep, budgetMs: 60_000, maxRetries: 2 }),
+    ).rejects.toThrow("Too Many Requests");
+    expect(fn).toHaveBeenCalledTimes(3);
+  });
 });

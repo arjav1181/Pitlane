@@ -19,6 +19,16 @@ export interface RetryOptions {
   baseDelayMs?: number;
   /** Upper bound for a single delay. Default 30s. */
   maxDelayMs?: number;
+  /**
+   * Upper bound on the total time spent retrying, in milliseconds.
+   *
+   * A gateway that answers every request with a rate limit would otherwise
+   * keep one model busy for six attempts - and each attempt can take up to
+   * the request timeout - long enough to eat a whole fallback chain's budget
+   * before the next model is ever tried. Once the budget is spent the error
+   * is re-thrown, so the caller can move on to a backup model.
+   */
+  budgetMs?: number;
   /** Injectable for tests. */
   sleep?: (ms: number) => Promise<void>;
   /** Injectable for tests; must return a value in [0, 1). */
@@ -80,9 +90,11 @@ export async function withRateLimitRetry<T>(
   const maxRetries = options.maxRetries ?? 5;
   const baseDelayMs = options.baseDelayMs ?? 2_000;
   const maxDelayMs = options.maxDelayMs ?? 30_000;
+  const budgetMs = options.budgetMs;
   const sleep =
     options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const random = options.random ?? Math.random;
+  const startedAt = Date.now();
 
   let lastError: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -96,6 +108,14 @@ export async function withRateLimitRetry<T>(
       const exponential = Math.min(baseDelayMs * 2 ** attempt, maxDelayMs);
       // Jitter avoids several workers retrying against the same window.
       const delayMs = hinted ?? Math.round(exponential * (0.8 + random() * 0.4));
+
+      // The retry budget is spent: re-throw so the caller can fail over to a
+      // backup model instead of waiting out a rate limit that may last hours.
+      if (budgetMs !== undefined && Date.now() - startedAt + delayMs > budgetMs) {
+        options.onRetry?.({ attempt: attempt + 1, delayMs, error });
+        throw error;
+      }
+
       options.onRetry?.({ attempt: attempt + 1, delayMs, error });
       await sleep(delayMs);
     }

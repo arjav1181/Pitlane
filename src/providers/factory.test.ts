@@ -78,9 +78,13 @@ vi.mock("./llm/openrouter.js", () => ({
   OpenRouterLLM: vi.fn().mockImplementation(() => ({ id: "openrouter", generate: vi.fn() })),
 }));
 vi.mock("./llm/openai-compatible.js", () => ({
-  OpenAICompatibleLLM: vi
-    .fn()
-    .mockImplementation(() => ({ id: "openai-compatible", generate: vi.fn() })),
+  OpenAICompatibleLLM: vi.fn().mockImplementation(() => ({
+    id: "openai-compatible",
+    generate: vi.fn(),
+    setRetryBudgetMs: vi.fn(function (this: { retryBudgetMs?: number }, ms?: number) {
+      this.retryBudgetMs = ms;
+    }),
+  })),
 }));
 vi.mock("./search/tavily.js", () => ({
   createTavilySearchTools: vi.fn((apiKey?: string) => ({ tavily_search: { apiKey } })),
@@ -498,6 +502,26 @@ describe("createProviders", () => {
       "openrouter/google/gemini-2.5-flash",
       "gemini/gemini-2.5-flash-lite",
     ]);
+  });
+
+  it("bounds the retry window of every model in a chain", () => {
+    createProviders({
+      llm: "openai-compatible",
+      tts: "elevenlabs",
+      image: "gemini",
+      llmBaseUrl: "https://gateway.example/v1",
+      llmModel: "gemini/gemini-2.5-flash",
+      llmFallbackModels: ["gemini/gemini-2.5-flash-lite"],
+      keys: { OPENREELS_LLM_API_KEY: "test-compat-key" },
+    });
+
+    const budgets = vi
+      .mocked(OpenAICompatibleLLM)
+      .mock.results.map((result) => (result.value as { retryBudgetMs?: number } | undefined)?.retryBudgetMs);
+    expect(budgets).toHaveLength(2);
+    for (const budget of budgets) {
+      expect(budget).toBeGreaterThan(0);
+    }
   });
 
   it("dedupes the primary model from the fallback list", () => {

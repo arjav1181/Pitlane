@@ -132,6 +132,22 @@ function buildLLM(
   config: ProviderConfig,
   keys: Record<string, string>,
   searchTools: Record<string, unknown> | undefined,
+  retryBudgetMs?: number,
+): LLMProvider {
+  const llm = buildProvider(provider, model, config, keys, searchTools);
+  if (retryBudgetMs !== undefined) {
+    const budgetAware = llm as { setRetryBudgetMs?: (ms: number | undefined) => void };
+    budgetAware.setRetryBudgetMs?.(retryBudgetMs);
+  }
+  return llm;
+}
+
+function buildProvider(
+  provider: LLMProviderKey,
+  model: string | undefined,
+  config: ProviderConfig,
+  keys: Record<string, string>,
+  searchTools: Record<string, unknown> | undefined,
 ): LLMProvider {
   switch (provider) {
     case "openai":
@@ -171,6 +187,19 @@ function resolveFallbackBudgetMs(): number {
   return Number.isFinite(raw) && raw > 0 ? raw : 300_000;
 }
 
+/**
+ * How long a single model may spend retrying a rate limit before the chain
+ * moves on (default 45 seconds).
+ *
+ * Without this, a rate-limited model can spend six attempts - each of them
+ * up to the request timeout - inside the chain's budget, so the backup model
+ * is never reached.
+ */
+function resolveFallbackRetryBudgetMs(): number {
+  const raw = Number(process.env["OPENREELS_LLM_FALLBACK_RETRY_BUDGET_MS"]);
+  return Number.isFinite(raw) && raw > 0 ? raw : 45_000;
+}
+
 export function createProviders(config: ProviderConfig): Providers {
   const k = config.keys ?? {};
   const searchTools = resolveSearchTools(config.llm, config.searchProvider, k);
@@ -178,7 +207,6 @@ export function createProviders(config: ProviderConfig): Providers {
   const primaryModel =
     config.llmModel ??
     (config.llm === "openai-compatible" ? process.env["OPENREELS_LLM_MODEL"] : undefined);
-  const primaryLLM = buildLLM(config.llm, primaryModel, config, k, searchTools);
 
   const seenModels = new Set<string>([primaryModel ?? ""]);
   const fallbackModels = resolveFallbackModels(config).filter((model) => {
@@ -187,12 +215,19 @@ export function createProviders(config: ProviderConfig): Providers {
     return true;
   });
 
+  // Inside a chain every model gets a bounded retry window, so a rate-limited
+  // model is abandoned quickly enough for the next one to be tried.
+  const retryBudgetMs =
+    fallbackModels.length > 0 ? resolveFallbackRetryBudgetMs() : undefined;
+
+  const primaryLLM = buildLLM(config.llm, primaryModel, config, k, searchTools, retryBudgetMs);
+
   let llm: LLMProvider = primaryLLM;
   if (fallbackModels.length > 0) {
     const entries = [
       { provider: primaryLLM, label: `${config.llm}:${primaryModel ?? "default"}` },
       ...fallbackModels.map((model) => ({
-        provider: buildLLM(config.llm, model, config, k, searchTools),
+        provider: buildLLM(config.llm, model, config, k, searchTools, retryBudgetMs),
         label: `${config.llm}:${model}`,
       })),
     ];

@@ -114,8 +114,27 @@ export abstract class BaseLLM implements LLMProvider {
   /** Injected search tools override native createSearchTools(). */
   protected injectedSearchTools?: Record<string, unknown>;
 
+  /**
+   * Upper bound on the time this provider may spend retrying a rate limit.
+   *
+   * `undefined` means no bound, which is right for a provider used on its own.
+   * The factory sets it when the provider is one link in a fallback chain, so a
+   * dead model is abandoned quickly enough for the next one to be tried.
+   */
+  protected retryBudgetMs?: number;
+
   constructor(searchTools?: Record<string, unknown>) {
     this.injectedSearchTools = searchTools;
+  }
+
+  /**
+   * Bound how long this provider may spend retrying a rate limit.
+   *
+   * Used by the fallback chain: one model that is being rate limited should
+   * be abandoned quickly enough that the backup model is actually reached.
+   */
+  setRetryBudgetMs(budgetMs: number | undefined): void {
+    this.retryBudgetMs = budgetMs;
   }
 
   /** Return an AI SDK LanguageModel for the configured provider + model. */
@@ -294,6 +313,10 @@ export abstract class BaseLLM implements LLMProvider {
   /** Shared retry policy for gateway rate limiting. */
   private retryOptions() {
     return {
+      // A provider inside a fallback chain gets a bounded retry window, so one
+      // rate-limited model cannot spend the whole chain budget before the
+      // backup model is tried.
+      budgetMs: this.retryBudgetMs,
       onRetry: ({
         attempt,
         delayMs,
