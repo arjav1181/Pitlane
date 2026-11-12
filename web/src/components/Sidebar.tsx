@@ -66,7 +66,7 @@ export function Sidebar({ collapsed, onToggle, stats }: SidebarProps) {
               to={item.path}
               title={collapsed ? item.label : undefined}
               className={cn(
-                "relative flex h-9 items-center rounded-lg text-sm transition-colors",
+                "relative flex h-9 items-center rounded-md text-sm transition-colors",
                 collapsed ? "justify-center px-0" : "gap-2.5 px-3",
                 active
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"

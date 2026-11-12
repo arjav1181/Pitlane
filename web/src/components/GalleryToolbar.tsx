@@ -64,13 +64,13 @@ export function GalleryToolbar({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search"
-          className="h-9 rounded-lg border-border bg-surface-inset pl-9 text-sm text-foreground placeholder:text-text-faint"
+          className="h-9 rounded-md border-border bg-surface-inset pl-9 text-sm text-foreground placeholder:text-text-faint"
         />
       </div>
 
       {/* Archetype filter */}
       <Select value={archetypeFilter} onValueChange={(v) => v && onArchetypeChange(v)}>
-        <SelectTrigger className="h-9 w-auto min-w-[120px] rounded-lg border-border bg-surface-inset text-xs">
+        <SelectTrigger className="h-9 w-auto min-w-[120px] rounded-md border-border bg-surface-inset text-xs">
           <SelectValue placeholder="All styles">
             {archetypeFilter === "all"
               ? "All styles"
@@ -92,7 +92,7 @@ export function GalleryToolbar({
         value={statusFilter}
         onValueChange={(v) => onStatusChange(v as StatusFilter)}
       >
-        <SelectTrigger className="h-9 w-auto min-w-[120px] rounded-lg border-border bg-surface-inset text-xs">
+        <SelectTrigger className="h-9 w-auto min-w-[120px] rounded-md border-border bg-surface-inset text-xs">
           <SelectValue>
             {STATUS_LABELS[statusFilter] ?? "All statuses"}
           </SelectValue>
@@ -107,7 +107,7 @@ export function GalleryToolbar({
 
       {/* Sort */}
       <Select value={sortBy} onValueChange={(v) => onSortChange(v as SortBy)}>
-        <SelectTrigger className="h-9 w-auto min-w-[120px] rounded-lg border-border bg-surface-inset text-xs">
+        <SelectTrigger className="h-9 w-auto min-w-[120px] rounded-md border-border bg-surface-inset text-xs">
           <SelectValue>{SORT_LABELS[sortBy] ?? "Newest first"}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -119,7 +119,7 @@ export function GalleryToolbar({
       </Select>
 
       {/* View toggle */}
-      <div className="flex rounded-lg border border-border overflow-hidden">
+      <div className="flex rounded-md border border-border overflow-hidden">
         <button
           type="button"
           onClick={() => onViewModeChange("grid")}

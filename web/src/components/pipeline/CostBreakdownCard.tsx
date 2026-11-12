@@ -15,7 +15,7 @@ export function CostBreakdownCard({ estimate, actual, variant = "compact" }: Cos
 
   if (variant === "compact") {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-border bg-card px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 py-3">
         <span className="shrink-0 text-[13px] text-text-subtle">
           {actual ? "COST BREAKDOWN" : "COST ESTIMATE"}
         </span>
@@ -37,7 +37,7 @@ export function CostBreakdownCard({ estimate, actual, variant = "compact" }: Cos
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-border bg-card px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 py-3">
       <span className="shrink-0 text-[13px] text-text-subtle">
         COST BREAKDOWN
       </span>

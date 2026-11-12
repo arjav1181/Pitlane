@@ -295,7 +295,7 @@ export function HomePage() {
                 <Select value={platform} onValueChange={(v) => v && setPlatform(v)}>
                   <SelectTrigger
                     size="sm"
-                    className="h-8 gap-1.5 rounded-lg border-border bg-transparent px-3 text-xs font-medium text-text-subtle"
+                    className="h-8 gap-1.5 rounded-md border-border bg-transparent px-3 text-xs font-medium text-text-subtle"
                   >
                     <MonitorPlay className="size-3.5 text-text-faint" strokeWidth={1.75} />
                     <SelectValue>{displayName(platform)}</SelectValue>
@@ -313,7 +313,7 @@ export function HomePage() {
                 <Select value={pacing} onValueChange={(v) => setPacing(v ?? "")}>
                   <SelectTrigger
                     size="sm"
-                    className="h-8 gap-1.5 rounded-lg border-border bg-transparent px-3 text-xs font-medium text-text-subtle"
+                    className="h-8 gap-1.5 rounded-md border-border bg-transparent px-3 text-xs font-medium text-text-subtle"
                   >
                     <Gauge className="size-3.5 text-text-faint" strokeWidth={1.75} />
                     <SelectValue placeholder="Auto pace" />
@@ -331,7 +331,7 @@ export function HomePage() {
                   type="button"
                   onClick={() => setShowAdvanced(!showAdvanced)}
                   className={cn(
-                    "flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors",
+                    "flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors",
                     showAdvanced
                       ? "border-text-faint bg-surface-inset text-foreground"
                       : "border-border bg-transparent text-text-subtle hover:text-foreground",
@@ -434,7 +434,7 @@ export function HomePage() {
                           Model ID
                         </label>
                         <Input
-                          className="h-9 rounded-lg text-sm"
+                          className="h-9 rounded-md text-sm"
                           placeholder={
                             llmProvider === "openrouter" ? "anthropic/claude-sonnet-4" : "llama3:8b"
                           }
@@ -450,7 +450,7 @@ export function HomePage() {
                           Base URL
                         </label>
                         <Input
-                          className="h-9 rounded-lg text-sm"
+                          className="h-9 rounded-md text-sm"
                           placeholder="http://localhost:11434/v1"
                           value={llmBaseUrl}
                           onChange={(e) => setLlmBaseUrl(e.target.value)}
@@ -555,7 +555,7 @@ export function HomePage() {
                         Creative direction
                       </label>
                       <textarea
-                        className="min-h-[72px] w-full resize-y rounded-lg border border-border bg-transparent px-3 py-2 text-sm placeholder:text-text-faint focus:ring-1 focus:ring-ring/40 focus:outline-none"
+                        className="min-h-[72px] w-full resize-y rounded-md border border-border bg-transparent px-3 py-2 text-sm placeholder:text-text-faint focus:ring-1 focus:ring-ring/40 focus:outline-none"
                         placeholder="Visual style, mood, script notes, music"
                         value={directionText}
                         onChange={(e) => {
@@ -578,7 +578,7 @@ export function HomePage() {
                         <Input
                           type="file"
                           accept=".json"
-                          className="h-9 rounded-lg text-sm file:mr-2 file:rounded-md file:border-0 file:bg-surface-inset file:px-2 file:py-1 file:text-xs file:font-medium file:text-text-subtle"
+                          className="h-9 rounded-md text-sm file:mr-2 file:rounded-md file:border-0 file:bg-surface-inset file:px-2 file:py-1 file:text-xs file:font-medium file:text-text-subtle"
                           onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (!file) {
@@ -686,7 +686,7 @@ export function HomePage() {
                   key={s}
                   type="button"
                   onClick={() => setTopic(s)}
-                  className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-[13px] text-text-subtle transition-colors hover:border-text-faint hover:text-foreground"
+                  className="rounded-md border border-border bg-transparent px-3 py-1.5 text-[13px] text-text-subtle transition-colors hover:border-text-faint hover:text-foreground"
                 >
                   {s}
                 </button>
@@ -824,7 +824,7 @@ function CompatibleAuthFields({
           </label>
           <Input
             id="llm-auth-header"
-            className="h-9 rounded-lg text-sm"
+            className="h-9 rounded-md text-sm"
             placeholder="x-api-key"
             value={headerName}
             onChange={(e) => onHeaderNameChange(e.target.value)}
@@ -843,7 +843,7 @@ function CompatibleAuthFields({
           <div className="relative">
             <Input
               id="llm-api-key"
-              className="h-9 rounded-lg pr-9 text-sm"
+              className="h-9 rounded-md pr-9 text-sm"
               type={showApiKey ? "text" : "password"}
               placeholder="Uses OPENREELS_LLM_API_KEY if empty"
               autoComplete="off"

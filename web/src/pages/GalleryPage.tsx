@@ -185,8 +185,8 @@ export function GalleryPage() {
   if (loading) {
     return (
       <div className="px-6 py-8 lg:px-10">
-        <div className="mb-5 h-8 w-24 animate-pulse rounded-lg bg-card" />
-        <div className="mb-5 h-9 w-full animate-pulse rounded-lg bg-card" />
+        <div className="mb-5 h-8 w-24 animate-pulse rounded-md bg-card" />
+        <div className="mb-5 h-9 w-full animate-pulse rounded-md bg-card" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="flex flex-col overflow-hidden rounded-xl border border-border bg-card">
@@ -277,7 +277,7 @@ export function GalleryPage() {
           <Button
             variant="destructive"
             size="sm"
-            className="gap-1.5 rounded-lg"
+            className="gap-1.5 rounded-md"
             onClick={() => setDeleteDialogOpen(true)}
           >
             <Trash2 className="size-3.5" />
@@ -334,7 +334,7 @@ export function GalleryPage() {
         <div className="mt-6 flex justify-center">
           <Button
             variant="outline"
-            className="rounded-lg border-border px-6"
+            className="rounded-md border-border px-6"
             onClick={handleLoadMore}
             disabled={loadingMore}
           >
