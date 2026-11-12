@@ -1,22 +1,29 @@
-# OpenReels
+# Pitlane
 
-[![GitHub stars](https://img.shields.io/github/stars/tsensei/OpenReels?style=flat&color=f5c542)](https://github.com/tsensei/OpenReels/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.18.0-green.svg)](CHANGELOG.md)
 [![Tests](https://img.shields.io/badge/tests-611%20passing-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6.svg)]()
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg)]()
 
-Open-source AI pipeline that turns any topic into a publish-ready YouTube/Instagram/TikTok Short. One command. Research, script, voiceover, AI-generated visuals, AI-generated music, animated captions, scene transitions. Out comes a vertical MP4, ready to upload.
+Pitlane is the render bay behind a motoring channel. It takes one researched, fact-checked
+story and cuts it into a finished vertical short — script, voiceover, footage, captions, music
+and render — on your own server, on a schedule.
 
-Web UI with live pipeline visualization, REST API, Docker, and CLI. Bring your own API keys.
+The topic is researched and verified before anything is rendered: every figure in a video has to
+come from a source that was actually read, or the short is not made. The footage is stock, the
+graphics are procedural, and the render is yours.
 
-## About this fork
+The web app is the control room. A REST API drives it from anything that can make an HTTP
+request.
 
-This is a fork of [tsensei/OpenReels](https://github.com/tsensei/OpenReels), used as the render
-engine behind an automated publishing pipeline. Changes on top of upstream:
+## What changed on top of upstream
 
-- **Automation REST API** — versioned endpoints with OpenAPI 3.1 schema and interactive docs,
+Pitlane started as a fork of [tsensei/OpenReels](https://github.com/tsensei/OpenReels), which
+provided the pipeline and the renderer. The changes here are what turned it into an unattended
+publishing system:
+
+- **Automation REST API** — versioned endpoints with an OpenAPI 3.1 schema and interactive docs,
   optional authentication, idempotent job creation, batch creation, filtered listing, retry,
   cancel, delete, artifact listing, and server-sent events for progress.
 - **Stock-only mode** — `noAiAssets` disables AI image and video generation, leaving stock
@@ -26,7 +33,7 @@ engine behind an automated publishing pipeline. Changes on top of upstream:
   fails instead of blocking the queue.
 - **Model fallback chain** — a job can list backup models; the render falls back to the next
   model when the primary fails, with a bounded retry window per model.
-- **Stock-only pipeline** — the render skips its own web research when the caller supplies a
+- **One research pass** — the render skips its own web research when the caller supplies a
   verified direction, so one job makes the calls it needs and no more.
 
 Publishing is owned by the calling automation, so YouTube support has been removed from the

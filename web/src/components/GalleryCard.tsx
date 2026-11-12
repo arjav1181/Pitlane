@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { JobSummary, DirectorScore } from "@/hooks/useApi";
-import { getSceneAssetUrl } from "@/lib/scene-assets";
+import { firstPosterUrl } from "@/lib/scene-assets";
 import { cn, formatArchetypeName } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertTriangle, LoaderCircle } from "lucide-react";
@@ -22,19 +22,8 @@ export function GalleryCard({ job, bulkMode, selected, onToggleSelect, timeAgo }
   const criticScore = job.criticReview?.score;
   const cost = job.actualCost?.totalCost ?? job.costEstimate?.totalCost;
 
-  // The first scene that actually has a frame.
-  let thumbnailUrl: string | null = null;
-  if (job.runDir && score?.scenes) {
-    for (let i = 0; i < score.scenes.length; i++) {
-      const scene = score.scenes[i];
-      if (!scene) continue;
-      const url = getSceneAssetUrl(job.id, job.runDir, scene, i);
-      if (url) {
-        thumbnailUrl = url;
-        break;
-      }
-    }
-  }
+  // The first scene that has a still frame. Video scenes have no poster.
+  const thumbnailUrl = job.runDir ? firstPosterUrl(job.id, job.runDir, score?.scenes) : null;
   const [imgError, setImgError] = useState(false);
 
   return (

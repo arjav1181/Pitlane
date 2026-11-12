@@ -40,3 +40,44 @@ export function getSceneAssetUrl(
       return null;
   }
 }
+
+/**
+ * A still frame for a scene, or null when the scene has no still.
+ *
+ * Video scenes have no poster frame on disk - the asset is the clip itself -
+ * so a thumbnail pointing at one renders as a broken image. Only still
+ * scenes can be used as a poster.
+ */
+export function getScenePosterUrl(
+  jobId: string,
+  runDir: string,
+  scene: DirectorScoreScene,
+  index: number,
+  fallbacks?: SceneFallbacks,
+): string | null {
+  const url = getSceneAssetUrl(jobId, runDir, scene, index, fallbacks);
+  if (!url) return null;
+  return url.endsWith(".mp4") ? null : url;
+}
+
+/**
+ * The first still frame of a finished short, used as its poster.
+ *
+ * Walks the scenes in order and returns the first one that has a still, so
+ * a short whose first scene is footage still gets a picture.
+ */
+export function firstPosterUrl(
+  jobId: string,
+  runDir: string,
+  scenes: DirectorScoreScene[] | undefined,
+  fallbacks?: SceneFallbacks,
+): string | null {
+  if (!scenes) return null;
+  for (let i = 0; i < scenes.length; i++) {
+    const scene = scenes[i];
+    if (!scene) continue;
+    const url = getScenePosterUrl(jobId, runDir, scene, i, fallbacks);
+    if (url) return url;
+  }
+  return null;
+}

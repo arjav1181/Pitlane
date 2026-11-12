@@ -39,16 +39,16 @@ import {
   saveCredentials,
   saveRememberPreference,
 } from "@/lib/credentials";
-import { getSceneAssetUrl } from "@/lib/scene-assets";
+import { firstPosterUrl } from "@/lib/scene-assets";
 import { cn } from "@/lib/utils";
 
 /** Topics the channel actually runs, grouped the way a motoring channel thinks. */
 const TOPIC_CATEGORIES: Record<string, string[]> = {
   Engineering: [
     "Why independent rear suspension changed Fords",
-    "How a 1964 275 GTB won Le Mans",
     "What made a V12 reliable in the wet",
     "The geometry that stopped a nose dive",
+    "Why a six-cylinder could beat a twelve",
   ],
   Racing: [
     "How the 1964 275 GTB won Le Mans",
@@ -257,10 +257,10 @@ export function HomePage() {
   const hasTopic = topic.trim().length > 0;
 
   return (
-    <div className="min-h-screen px-6 py-10 lg:px-10">
-      <div className="mx-auto flex max-w-[1120px] flex-col gap-12 lg:flex-row lg:items-start lg:gap-16">
+    <div className="min-h-screen px-6 py-10 lg:px-10 lg:py-12">
+      <div className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-[1240px] flex-col gap-12 lg:flex-row lg:items-center lg:gap-14">
         {/* Compose column */}
-        <div className="flex w-full max-w-[600px] flex-col gap-10">
+        <div className="flex w-full max-w-[640px] flex-col gap-10">
           <div>
             <h1 className="text-[28px] leading-tight font-medium tracking-tight text-foreground">
               Make a vertical short from one researched fact
@@ -624,25 +624,32 @@ export function HomePage() {
           {archetypes.length > 0 && (
             <div className="w-full">
               <h3 className="mb-3 text-[13px] font-medium text-text-subtle">Visual style</h3>
-              <ScrollArea className="w-full">
-                <div className="flex gap-2 pb-3">
+              <div className="relative">
+                <ScrollArea className="w-full">
+                  <div className="flex gap-2 pb-3">
                   {/* Auto Style card */}
                   <ArchetypeCard
                     archetype={null}
                     selected={archetype === ""}
                     onClick={() => setArchetype("")}
                   />
-                  {archetypes.map((a) => (
-                    <ArchetypeCard
-                      key={a.name}
-                      archetype={a}
-                      selected={archetype === a.name}
-                      onClick={() => setArchetype(a.name)}
-                    />
-                  ))}
-                </div>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
+                    {archetypes.map((a) => (
+                      <ArchetypeCard
+                        key={a.name}
+                        archetype={a}
+                        selected={archetype === a.name}
+                        onClick={() => setArchetype(a.name)}
+                      />
+                    ))}
+                  </div>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+                {/* The strip continues past the edge, so fade it out */}
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-background to-transparent"
+                />
+              </div>
             </div>
           )}
 
@@ -701,17 +708,20 @@ export function HomePage() {
  */
 function LastRendered({ job }: { job: JobSummary | null }) {
   const frame = job?.runDir ? firstFrame(job) : null;
+  const [broken, setBroken] = useState(false);
+  const showFrame = frame && !broken;
 
   return (
-    <aside className="w-full shrink-0 lg:sticky lg:top-10 lg:w-[280px]">
+    <aside className="w-full shrink-0 lg:sticky lg:top-10 lg:w-[320px]">
       <div className="rounded-xl border border-border bg-surface-sunken p-3">
         <div className="relative aspect-[9/16] w-full overflow-hidden rounded-lg bg-card">
-          {frame ? (
+          {showFrame ? (
             <img
               src={frame}
-              alt={job?.topic ?? ""}
+              alt=""
               className="h-full w-full object-cover"
               loading="lazy"
+              onError={() => setBroken(true)}
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center px-4 text-center text-[13px] leading-relaxed text-text-faint">
@@ -732,17 +742,10 @@ function LastRendered({ job }: { job: JobSummary | null }) {
   );
 }
 
-/** First scene of a finished short that actually has a frame. */
+/** First still frame of a finished short. Video scenes have no poster. */
 function firstFrame(job: JobSummary): string | null {
-  const scenes = job.score?.scenes;
-  if (!scenes || !job.runDir) return null;
-  for (let i = 0; i < scenes.length; i++) {
-    const scene = scenes[i];
-    if (!scene) continue;
-    const url = getSceneAssetUrl(job.id, job.runDir, scene, i);
-    if (url) return url;
-  }
-  return null;
+  if (!job.runDir) return null;
+  return firstPosterUrl(job.id, job.runDir, job.score?.scenes);
 }
 
 interface RememberCredentialsToggleProps {

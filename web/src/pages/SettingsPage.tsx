@@ -1,4 +1,4 @@
-import { KeyRound, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,7 +133,7 @@ export function SettingsPage() {
 
         {/* Server access (OPENREELS_API_KEY) */}
         <section>
-          <h2 className="mb-1 text-sm font-semibold text-foreground">Server Access</h2>
+          <h2 className="mb-1 text-[15px] font-medium text-foreground">Server access</h2>
           <p className="mb-4 text-[13px] text-text-subtle">
             If the server was started with{" "}
             <code className="font-mono text-[12px]">OPENREELS_API_KEY</code>, enter it here. It is
@@ -254,14 +254,9 @@ function SavedCredentialsSection({
 
   return (
     <section>
-      <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
-        <KeyRound className="size-4 text-text-faint" strokeWidth={1.75} />
-        Saved Credentials
-      </h2>
+      <h2 className="mb-1 text-[15px] font-medium text-foreground">Saved credentials</h2>
       <p className="mb-4 text-[13px] text-text-subtle">
-        Credentials remembered by this browser. They are stored in{" "}
-        <code className="font-mono text-[12px]">localStorage</code> and are only sent to the API
-        when you start a job.
+        Kept in this browser and only sent to the API when you start a job
       </p>
       {saved ? (
         <div className="overflow-hidden rounded-xl border border-border bg-card">

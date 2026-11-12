@@ -11,6 +11,20 @@ import { cn, formatArchetypeName } from "@/lib/utils";
 import type { Archetype } from "@/hooks/useApi";
 
 export type SortBy = "newest" | "oldest" | "cost" | "score";
+
+const STATUS_LABELS: Record<string, string> = {
+  all: "All statuses",
+  completed: "Completed",
+  failed: "Failed",
+  running: "Live",
+};
+
+const SORT_LABELS: Record<string, string> = {
+  newest: "Newest first",
+  oldest: "Oldest first",
+  cost: "Highest cost",
+  score: "Highest score",
+};
 export type StatusFilter = "all" | "completed" | "failed" | "running";
 export type ViewMode = "grid" | "list";
 
@@ -57,7 +71,11 @@ export function GalleryToolbar({
       {/* Archetype filter */}
       <Select value={archetypeFilter} onValueChange={(v) => v && onArchetypeChange(v)}>
         <SelectTrigger className="h-9 w-auto min-w-[120px] rounded-lg border-border bg-surface-inset text-xs">
-          <SelectValue placeholder="All styles" />
+          <SelectValue placeholder="All styles">
+            {archetypeFilter === "all"
+              ? "All styles"
+              : formatArchetypeName(archetypeFilter)}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All styles</SelectItem>
@@ -74,8 +92,10 @@ export function GalleryToolbar({
         value={statusFilter}
         onValueChange={(v) => onStatusChange(v as StatusFilter)}
       >
-        <SelectTrigger className="h-9 w-auto min-w-[110px] rounded-lg border-border bg-surface-inset text-xs">
-          <SelectValue />
+        <SelectTrigger className="h-9 w-auto min-w-[120px] rounded-lg border-border bg-surface-inset text-xs">
+          <SelectValue>
+            {STATUS_LABELS[statusFilter] ?? "All statuses"}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All statuses</SelectItem>
@@ -87,8 +107,8 @@ export function GalleryToolbar({
 
       {/* Sort */}
       <Select value={sortBy} onValueChange={(v) => onSortChange(v as SortBy)}>
-        <SelectTrigger className="h-9 w-auto min-w-[100px] rounded-lg border-border bg-surface-inset text-xs">
-          <SelectValue />
+        <SelectTrigger className="h-9 w-auto min-w-[120px] rounded-lg border-border bg-surface-inset text-xs">
+          <SelectValue>{SORT_LABELS[sortBy] ?? "Newest first"}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="newest">Newest first</SelectItem>
