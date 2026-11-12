@@ -102,6 +102,12 @@ const createJobSchema = {
         videoModel: { type: "string" },
         music: { type: "string" },
         llmModel: { type: "string" },
+        llmFallbackModels: {
+          type: "array",
+          items: { type: "string" },
+          maxItems: 5,
+          description: "Ordered backup model IDs tried when the primary model fails.",
+        },
         llmBaseUrl: { type: "string", format: "uri" },
         llmAuthType: { type: "string", enum: ["auto", "none", "bearer", "custom-header"] },
         llmAuthHeader: { type: "string" },

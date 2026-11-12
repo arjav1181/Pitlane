@@ -11,6 +11,8 @@ export interface JobProviders {
   videoModel?: string;
   music?: string;
   llmModel?: string;
+  /** Ordered backup models tried when the primary LLM call fails. */
+  llmFallbackModels?: string[];
   llmBaseUrl?: string;
   llmAuthType?: LLMAuthType;
   llmAuthHeader?: string;

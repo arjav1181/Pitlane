@@ -299,6 +299,60 @@ describe("createJobFromBody", () => {
       expect(bodyOf(customHeader)["error"]).toMatch(/llmAuthHeader/);
     });
 
+    it("validates llmFallbackModels and enqueues them trimmed", async () => {
+      const ctx = makeContext();
+      const base = {
+        llm: "openai-compatible",
+        llmBaseUrl: "http://localhost:11434/v1",
+        llmModel: "primary-model",
+      };
+
+      const notArray = await createJobFromBody(
+        { topic: "x", providers: { ...base, llmFallbackModels: "auto/gemini" } },
+        undefined,
+        ctx,
+      );
+      expect(notArray.status).toBe(400);
+      expect(bodyOf(notArray)["error"]).toMatch(/must be an array/);
+
+      const empty = await createJobFromBody(
+        { topic: "x", providers: { ...base, llmFallbackModels: ["auto/gemini", " "] } },
+        undefined,
+        ctx,
+      );
+      expect(empty.status).toBe(400);
+      expect(bodyOf(empty)["error"]).toMatch(/non-empty strings/);
+
+      const tooMany = await createJobFromBody(
+        {
+          topic: "x",
+          providers: { ...base, llmFallbackModels: ["a", "b", "c", "d", "e", "f"] },
+        },
+        undefined,
+        ctx,
+      );
+      expect(tooMany.status).toBe(400);
+
+      const ok = await createJobFromBody(
+        {
+          topic: "x",
+          providers: {
+            ...base,
+            llmFallbackModels: ["  auto/gemini  ", "openrouter/google/gemini-2.5-flash"],
+          },
+        },
+        undefined,
+        ctx,
+      );
+      expect(ok.status).toBe(201);
+      const [, data] = ctx.add.mock.calls[0]!;
+      const payload = data as { providers: { llmFallbackModels: string[] } };
+      expect(payload.providers.llmFallbackModels).toEqual([
+        "auto/gemini",
+        "openrouter/google/gemini-2.5-flash",
+      ]);
+    });
+
     it("rejects an invalid DirectorScore", async () => {
       const ctx = makeContext();
       const invalid = await createJobFromBody(

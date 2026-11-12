@@ -27,6 +27,87 @@ function requestSignal(): AbortSignal {
   return AbortSignal.timeout(ms);
 }
 
+function isAbortLike(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const name = (error as { name?: unknown }).name;
+  return name === "AbortError" || name === "TimeoutError";
+}
+
+function statusCodeOf(error: unknown): number | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  const status = (error as { statusCode?: unknown }).statusCode ?? (error as { status?: unknown }).status;
+  return typeof status === "number" ? status : undefined;
+}
+
+/**
+ * True only when the failure means "this endpoint cannot produce structured
+ * output", in which case the same model may still succeed with a plain JSON
+ * instruction. Network, auth, rate-limit and truncation failures are excluded:
+ * retrying those as text just repeats the request and multiplies the timeout.
+ */
+function isStructuredOutputUnsupported(error: unknown): boolean {
+  if (isAbortLike(error)) return false;
+  if (!error || typeof error !== "object") return false;
+
+  const status = statusCodeOf(error);
+  if (
+    status !== undefined &&
+    (status === 401 || status === 403 || status === 408 || status === 429 || status >= 500)
+  ) {
+    return false;
+  }
+
+  // Truncated output means the model ran out of tokens, not that the endpoint
+  // lacks structured-output support.
+  if ((error as { finishReason?: unknown }).finishReason === "length") return false;
+
+  const name = (error as { name?: unknown }).name;
+  if (name === "UnsupportedFunctionalityError") return true;
+  if (
+    name === "AI_NoObjectGeneratedError" ||
+    name === "AI_JSONParseError" ||
+    name === "AI_TypeValidationError"
+  ) {
+    return true;
+  }
+
+  const msg = (error instanceof Error ? error.message : String(error)).toLowerCase();
+  if (
+    msg.includes("timeout") ||
+    msg.includes("timed out") ||
+    msg.includes("aborted") ||
+    msg.includes("rate limit") ||
+    msg.includes("too many requests") ||
+    msg.includes("unauthorized") ||
+    msg.includes("forbidden") ||
+    msg.includes("econnreset") ||
+    msg.includes("econnrefused") ||
+    msg.includes("enotfound") ||
+    msg.includes("socket hang up") ||
+    msg.includes("fetch failed") ||
+    msg.includes("model not found") ||
+    msg.includes("does not exist")
+  ) {
+    return false;
+  }
+
+  return (
+    msg.includes("structured output") ||
+    msg.includes("structured-output") ||
+    msg.includes("no object generated") ||
+    msg.includes("did not match schema") ||
+    msg.includes("response_format") ||
+    msg.includes("response format") ||
+    msg.includes("json_schema") ||
+    msg.includes("json schema") ||
+    msg.includes("json mode") ||
+    msg.includes("output_format") ||
+    msg.includes("unsupported") ||
+    msg.includes("not supported") ||
+    msg.includes("does not support")
+  );
+}
+
 export abstract class BaseLLM implements LLMProvider {
   abstract readonly id: LLMProviderKey;
 
@@ -185,22 +266,20 @@ export abstract class BaseLLM implements LLMProvider {
     const languageModel = this.createLanguageModel();
 
     const structured = await this.generateStructuredOutput(languageModel, opts).catch((err) => {
-      // Endpoints without structured-output or tool support (some OpenAI-compatible
-      // gateways, Gemini via a compatibility layer) still return valid JSON in the
-      // message body. Fall back to plain text generation and validate it locally.
+      // Only capability problems are worth retrying as plain JSON. Timeouts,
+      // aborts, auth failures and exhausted rate limits must propagate so the
+      // caller (or the fallback model chain) can move on instead of repeating
+      // the same doomed request two more times.
+      if (!isStructuredOutputUnsupported(err)) throw err;
       console.warn(
-        `[${this.id}] Structured output failed, retrying as plain JSON. ` +
+        `[${this.id}] Structured output unsupported, retrying as plain JSON. ` +
           `Original error: ${err instanceof Error ? err.message : String(err)}`,
       );
       return null;
     });
 
-    if (structured === null) {
+    if (structured === null || structured.output == null) {
       return this.generateStructuredFromText(opts, languageModel);
-    }
-
-    if (structured.output == null) {
-      throw new Error(`${this.id} did not return structured output`);
     }
 
     return {

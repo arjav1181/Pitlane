@@ -243,11 +243,50 @@ describe("BaseLLM", () => {
       expect(result.usage).toEqual({ inputTokens: 500, outputTokens: 200 });
     });
 
-    it("throws when output is null", async () => {
+    it("falls back to plain JSON when structured output is null", async () => {
       mockGenerateText.mockResolvedValueOnce({
         output: null,
         usage: { inputTokens: 100, outputTokens: 50 },
       } as any);
+      mockGenerateText.mockResolvedValueOnce({
+        text: '{"result":"from text"}',
+        usage: { inputTokens: 80, outputTokens: 20 },
+      } as any);
+
+      const result = await llm.generate({
+        systemPrompt: "test",
+        userMessage: "test",
+        schema: testSchema,
+      });
+
+      expect(result.data).toEqual({ result: "from text" });
+      expect(mockGenerateText).toHaveBeenCalledTimes(2);
+    });
+
+    it("falls back to plain JSON only when structured output is unsupported", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      mockGenerateText.mockRejectedValueOnce(new Error("response_format is not supported"));
+      mockGenerateText.mockResolvedValueOnce({
+        text: '{"result":"from text"}',
+        usage: { inputTokens: 80, outputTokens: 20 },
+      } as any);
+
+      const result = await llm.generate({
+        systemPrompt: "test",
+        userMessage: "test",
+        schema: testSchema,
+      });
+
+      expect(result.data).toEqual({ result: "from text" });
+      expect(mockGenerateText).toHaveBeenCalledTimes(2);
+      warnSpy.mockRestore();
+    });
+
+    it("propagates timeouts instead of retrying them as plain JSON", async () => {
+      const timeout = Object.assign(new Error("The operation was aborted due to timeout"), {
+        name: "TimeoutError",
+      });
+      mockGenerateText.mockRejectedValueOnce(timeout);
 
       await expect(
         llm.generate({
@@ -255,7 +294,38 @@ describe("BaseLLM", () => {
           userMessage: "test",
           schema: testSchema,
         }),
-      ).rejects.toThrow("anthropic did not return structured output");
+      ).rejects.toThrow("timeout");
+      expect(mockGenerateText).toHaveBeenCalledTimes(1);
+    });
+
+    it("propagates auth failures instead of retrying them as plain JSON", async () => {
+      mockGenerateText.mockRejectedValueOnce(
+        Object.assign(new Error("Unauthorized"), { statusCode: 401 }),
+      );
+
+      await expect(
+        llm.generate({
+          systemPrompt: "test",
+          userMessage: "test",
+          schema: testSchema,
+        }),
+      ).rejects.toThrow("Unauthorized");
+      expect(mockGenerateText).toHaveBeenCalledTimes(1);
+    });
+
+    it("propagates truncated structured output", async () => {
+      mockGenerateText.mockRejectedValueOnce(
+        Object.assign(new Error("No object generated"), { finishReason: "length" }),
+      );
+
+      await expect(
+        llm.generate({
+          systemPrompt: "test",
+          userMessage: "test",
+          schema: testSchema,
+        }),
+      ).rejects.toThrow("No object generated");
+      expect(mockGenerateText).toHaveBeenCalledTimes(1);
     });
   });
 

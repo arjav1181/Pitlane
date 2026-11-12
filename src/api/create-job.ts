@@ -271,6 +271,22 @@ export async function createJobFromBody(
     if (configError) return badRequest(configError);
   }
 
+  const fallbackModelsRaw = providers["llmFallbackModels"];
+  if (fallbackModelsRaw !== undefined && fallbackModelsRaw !== null) {
+    if (!Array.isArray(fallbackModelsRaw)) {
+      return badRequest("providers.llmFallbackModels must be an array of model IDs");
+    }
+    if (fallbackModelsRaw.length > 5) {
+      return badRequest("providers.llmFallbackModels supports at most 5 models");
+    }
+    if (fallbackModelsRaw.some((model) => typeof model !== "string" || !model.trim())) {
+      return badRequest("providers.llmFallbackModels must contain non-empty strings");
+    }
+  }
+  const llmFallbackModels = Array.isArray(fallbackModelsRaw)
+    ? (fallbackModelsRaw as string[]).map((model) => model.trim())
+    : undefined;
+
   let validatedScore: unknown | undefined;
   const score = body["score"];
   if (score !== undefined && score !== null) {
@@ -356,6 +372,7 @@ export async function createJobFromBody(
       videoModel: providers["videoModel"] as string | undefined,
       music: (providers["music"] as string | undefined) ?? "bundled",
       llmModel: providers["llmModel"] as string | undefined,
+      llmFallbackModels,
       llmBaseUrl: providers["llmBaseUrl"] as string | undefined,
       // Leave undefined when omitted so the worker can fall back to env.
       llmAuthType: llmAuthType as LLMAuthType | undefined,

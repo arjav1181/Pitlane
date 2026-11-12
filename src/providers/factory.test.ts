@@ -4,6 +4,7 @@ import { DisabledImageProvider } from "./image/disabled.js";
 import { GeminiImage } from "./image/gemini.js";
 import { OpenAIImage } from "./image/openai.js";
 import { AnthropicLLM } from "./llm/anthropic.js";
+import { FallbackLLM } from "./llm/fallback.js";
 import { GeminiLLM } from "./llm/gemini.js";
 import { OpenAILLM } from "./llm/openai.js";
 import { OpenAICompatibleLLM } from "./llm/openai-compatible.js";
@@ -99,6 +100,7 @@ describe("createProviders", () => {
     delete process.env["OPENREELS_LLM_AUTH"];
     delete process.env["OPENREELS_LLM_AUTH_HEADER"];
     delete process.env["OPENREELS_LLM_API_KEY"];
+    delete process.env["OPENREELS_LLM_FALLBACK_MODELS"];
   });
 
   it("creates default providers with BYOK keys (pexels primary)", () => {
@@ -469,6 +471,66 @@ describe("createProviders", () => {
 
     const args = vi.mocked(AnthropicLLM).mock.calls[0]!;
     expect(args[0]).toBe("claude-opus-4-6");
+  });
+
+  it("wraps ordered fallback models in a FallbackLLM", () => {
+    const providers = createProviders({
+      llm: "openai-compatible",
+      tts: "elevenlabs",
+      image: "gemini",
+      llmBaseUrl: "https://gateway.example/v1",
+      llmModel: "gemini/gemini-2.5-flash",
+      llmFallbackModels: [
+        "openrouter/google/gemini-2.5-flash",
+        "gemini/gemini-2.5-flash-lite",
+      ],
+      keys: { OPENREELS_LLM_API_KEY: "test-compat-key" },
+    });
+
+    expect(providers.llm).toBeInstanceOf(FallbackLLM);
+    expect((providers.llm as FallbackLLM).labels).toEqual([
+      "openai-compatible:gemini/gemini-2.5-flash",
+      "openai-compatible:openrouter/google/gemini-2.5-flash",
+      "openai-compatible:gemini/gemini-2.5-flash-lite",
+    ]);
+    expect(vi.mocked(OpenAICompatibleLLM).mock.calls.map((call) => call[1])).toEqual([
+      "gemini/gemini-2.5-flash",
+      "openrouter/google/gemini-2.5-flash",
+      "gemini/gemini-2.5-flash-lite",
+    ]);
+  });
+
+  it("dedupes the primary model from the fallback list", () => {
+    const providers = createProviders({
+      llm: "openai-compatible",
+      tts: "elevenlabs",
+      image: "gemini",
+      llmBaseUrl: "https://gateway.example/v1",
+      llmModel: "gemini/gemini-2.5-flash",
+      llmFallbackModels: ["gemini/gemini-2.5-flash", " ", "auto/gemini"],
+      keys: { OPENREELS_LLM_API_KEY: "test-compat-key" },
+    });
+
+    expect((providers.llm as FallbackLLM).labels).toEqual([
+      "openai-compatible:gemini/gemini-2.5-flash",
+      "openai-compatible:auto/gemini",
+    ]);
+  });
+
+  it("reads fallback models from the environment when not configured", () => {
+    process.env["OPENREELS_LLM_FALLBACK_MODELS"] = "auto/gemini, gemini/gemini-2.5-flash-lite";
+    const providers = createProviders({
+      llm: "openai-compatible",
+      tts: "elevenlabs",
+      image: "gemini",
+      llmBaseUrl: "https://gateway.example/v1",
+      llmModel: "gemini/gemini-2.5-flash",
+      keys: { OPENREELS_LLM_API_KEY: "test-compat-key" },
+    });
+
+    expect((providers.llm as FallbackLLM).labels).toContain(
+      "openai-compatible:gemini/gemini-2.5-flash-lite",
+    );
   });
 
   it("passes videoModel to GeminiVideo but not FalVideo", () => {

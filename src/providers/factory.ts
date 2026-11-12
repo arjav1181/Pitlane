@@ -23,6 +23,7 @@ import { DisabledImageProvider } from "./image/disabled.js";
 import { GeminiImage } from "./image/gemini.js";
 import { OpenAIImage } from "./image/openai.js";
 import { AnthropicLLM } from "./llm/anthropic.js";
+import { FallbackLLM } from "./llm/fallback.js";
 import { GeminiLLM } from "./llm/gemini.js";
 import { OpenAILLM } from "./llm/openai.js";
 import { createOpenAICompatibleProvider, OpenAICompatibleLLM } from "./llm/openai-compatible.js";
@@ -53,6 +54,8 @@ export interface ProviderConfig {
   kokoroVoice?: string;
   keys?: Record<string, string>;
   llmModel?: string;
+  /** Ordered backup model IDs tried when the primary model fails. */
+  llmFallbackModels?: string[];
   llmBaseUrl?: string;
   llmAuthType?: LLMAuthType;
   llmAuthHeader?: string;
@@ -122,36 +125,81 @@ function resolveAuthType(configured?: LLMAuthType): LLMAuthType {
     : "auto";
 }
 
+/** Build one LLM instance for a provider/model pair. */
+function buildLLM(
+  provider: LLMProviderKey,
+  model: string | undefined,
+  config: ProviderConfig,
+  keys: Record<string, string>,
+  searchTools: Record<string, unknown> | undefined,
+): LLMProvider {
+  switch (provider) {
+    case "openai":
+      return new OpenAILLM(model, keys["OPENAI_API_KEY"], searchTools);
+    case "gemini":
+      return new GeminiLLM(model, keys["GOOGLE_API_KEY"], searchTools);
+    case "openrouter":
+      return new OpenRouterLLM(model, keys["OPENROUTER_API_KEY"], searchTools);
+    case "openai-compatible": {
+      const baseUrl = config.llmBaseUrl ?? process.env["OPENREELS_LLM_BASE_URL"];
+      if (!baseUrl) throw new Error("llmBaseUrl is required for openai-compatible provider");
+      if (!model) throw new Error("llmModel is required for openai-compatible provider");
+      const apiKey = keys["OPENREELS_LLM_API_KEY"] ?? process.env["OPENREELS_LLM_API_KEY"];
+      return new OpenAICompatibleLLM(baseUrl, model, apiKey, searchTools, {
+        type: resolveAuthType(config.llmAuthType),
+        headerName: config.llmAuthHeader ?? process.env["OPENREELS_LLM_AUTH_HEADER"],
+      });
+    }
+    case "anthropic":
+    default:
+      return new AnthropicLLM(model, keys["ANTHROPIC_API_KEY"], searchTools);
+  }
+}
+
+/** Ordered backup model IDs from the request, falling back to the env list. */
+function resolveFallbackModels(config: ProviderConfig): string[] {
+  const raw =
+    config.llmFallbackModels ??
+    process.env["OPENREELS_LLM_FALLBACK_MODELS"]?.split(",") ??
+    [];
+  return raw.map((model) => model.trim()).filter(Boolean);
+}
+
+/** Total wall-clock budget for all fallback attempts (default 5 minutes). */
+function resolveFallbackBudgetMs(): number {
+  const raw = Number(process.env["OPENREELS_LLM_FALLBACK_BUDGET_MS"]);
+  return Number.isFinite(raw) && raw > 0 ? raw : 300_000;
+}
+
 export function createProviders(config: ProviderConfig): Providers {
   const k = config.keys ?? {};
   const searchTools = resolveSearchTools(config.llm, config.searchProvider, k);
 
-  let llm: LLMProvider;
-  switch (config.llm) {
-    case "openai":
-      llm = new OpenAILLM(config.llmModel, k["OPENAI_API_KEY"], searchTools);
-      break;
-    case "gemini":
-      llm = new GeminiLLM(config.llmModel, k["GOOGLE_API_KEY"], searchTools);
-      break;
-    case "openrouter":
-      llm = new OpenRouterLLM(config.llmModel, k["OPENROUTER_API_KEY"], searchTools);
-      break;
-    case "openai-compatible": {
-      const baseUrl = config.llmBaseUrl ?? process.env["OPENREELS_LLM_BASE_URL"];
-      const model = config.llmModel ?? process.env["OPENREELS_LLM_MODEL"];
-      if (!baseUrl) throw new Error("llmBaseUrl is required for openai-compatible provider");
-      if (!model) throw new Error("llmModel is required for openai-compatible provider");
-      const apiKey = k["OPENREELS_LLM_API_KEY"] ?? process.env["OPENREELS_LLM_API_KEY"];
-      llm = new OpenAICompatibleLLM(baseUrl, model, apiKey, searchTools, {
-        type: resolveAuthType(config.llmAuthType),
-        headerName: config.llmAuthHeader ?? process.env["OPENREELS_LLM_AUTH_HEADER"],
-      });
-      break;
-    }
-    default:
-      llm = new AnthropicLLM(config.llmModel, k["ANTHROPIC_API_KEY"], searchTools);
-      break;
+  const primaryModel =
+    config.llmModel ??
+    (config.llm === "openai-compatible" ? process.env["OPENREELS_LLM_MODEL"] : undefined);
+  const primaryLLM = buildLLM(config.llm, primaryModel, config, k, searchTools);
+
+  const seenModels = new Set<string>([primaryModel ?? ""]);
+  const fallbackModels = resolveFallbackModels(config).filter((model) => {
+    if (seenModels.has(model)) return false;
+    seenModels.add(model);
+    return true;
+  });
+
+  let llm: LLMProvider = primaryLLM;
+  if (fallbackModels.length > 0) {
+    const entries = [
+      { provider: primaryLLM, label: `${config.llm}:${primaryModel ?? "default"}` },
+      ...fallbackModels.map((model) => ({
+        provider: buildLLM(config.llm, model, config, k, searchTools),
+        label: `${config.llm}:${model}`,
+      })),
+    ];
+    llm = new FallbackLLM(entries, {
+      budgetMs: resolveFallbackBudgetMs(),
+    });
+    console.log(`[providers] LLM fallback chain: ${entries.map((e) => e.label).join(" -> ")}`);
   }
 
   // Providers that lack native timestamps get wrapped with the alignment decorator.

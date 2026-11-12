@@ -164,6 +164,7 @@ const worker = new Worker<JobData>(
       music: (providers.music as MusicProviderKey) ?? "bundled",
       keys,
       llmModel: providers.llmModel,
+      llmFallbackModels: providers.llmFallbackModels,
       llmBaseUrl: providers.llmBaseUrl,
       llmAuthType: providers.llmAuthType,
       llmAuthHeader: providers.llmAuthHeader,
