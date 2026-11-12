@@ -18,6 +18,9 @@ All notable changes to OpenReels will be documented in this file.
 - **Configurable CORS**: `OPENREELS_CORS_ORIGIN` accepts `*`, a comma-separated allowlist, or `false`.
 - **Graceful server shutdown**: SIGTERM/SIGINT close the HTTP server, queue, and Redis connections with a 10-second force-exit guard.
 
+### Fixed
+- **Jobs orphaned by a server restart are failed instead of blocking the queue**: a render takes far longer than the BullMQ lock, so the lock is held for ten minutes at a time. Replacing the container mid-render left the job in the active set until that lock expired - and with a concurrency of one it blocked every other job meanwhile, while the API kept reporting it as `running`. BullMQ then re-ran it, burning the slot for another full pipeline. The worker now checks the active set on startup and fails any job whose lock is gone, so the slot is freed immediately and the caller can retry.
+
 ### Changed
 - **Structured-output fallback is limited to capability errors**: the plain-JSON retry now only happens when the endpoint genuinely cannot produce structured output. Timeouts, `401`/`403`/`429`/`5xx`, cancellation and `finishReason: "length"` propagate to the caller, so a backup model can take over instead of the same rate-limited model being retried as text. Previously every structured-output error was retried as plain JSON, which multiplied the request count and turned a single rate-limit window into a ~27 minute stall per attempt.
 - **LLM requests time out after 180s**: a silent gateway connection could previously leave a job "running" forever. Every request now carries an abort signal (`OPENREELS_LLM_TIMEOUT_MS` overrides the ceiling), so a stuck provider fails the stage instead of hanging the job.
