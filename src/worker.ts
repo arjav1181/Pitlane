@@ -34,6 +34,11 @@ import type {
 
 const REDIS_URL = process.env["REDIS_URL"] ?? "redis://localhost:6379";
 const QUEUE_NAME = "openreels";
+/**
+ * How often to look for jobs a restart orphaned. BullMQ checks for stalled
+ * jobs every 30 seconds, so this has to be more frequent to win the race.
+ */
+const ORPHAN_RECOVERY_INTERVAL_MS = 5_000;
 const JOBS_DIR = process.env["JOBS_DIR"] ?? path.join(process.cwd(), "jobs");
 const MAX_JOBS = process.env["MAX_JOBS"] ? Number(process.env["MAX_JOBS"]) : 0;
 const ALLOW_PRIVATE_CALLBACKS =
@@ -458,8 +463,21 @@ worker.on("completed", (job) => {
   console.log(`[worker] Job ${job.id} completed`);
 });
 
-// Free the single worker slot from jobs a restart left behind. Runs once,
-// before the first job is picked up.
+/**
+ * Keep the worker slot free from jobs a restart orphaned.
+ *
+ * BullMQ moves a stalled job back to the wait list and re-runs it, which
+ * burns the single slot for another full pipeline. The check here runs more
+ * often than BullMQ's own stalled detection, so the job is failed and
+ * removed before BullMQ gets to it.
+ */
+const orphanRecoveryTimer = setInterval(() => {
+  void recoverOrphanedJobs().catch((err) => {
+    console.warn("[worker] Orphan recovery failed:", err);
+  });
+}, ORPHAN_RECOVERY_INTERVAL_MS);
+orphanRecoveryTimer.unref();
+
 void recoverOrphanedJobs().catch((err) => {
   console.warn("[worker] Orphan recovery failed:", err);
 });
