@@ -11,6 +11,24 @@ Open-source AI pipeline that turns any topic into a publish-ready YouTube/Instag
 
 Web UI with live pipeline visualization, REST API, Docker, and CLI. Bring your own API keys.
 
+## About this fork
+
+This is a fork of [tsensei/OpenReels](https://github.com/tsensei/OpenReels), used as the render
+engine behind an automated publishing pipeline. Changes on top of upstream:
+
+- **Automation REST API** — versioned endpoints with OpenAPI 3.1 schema and interactive docs,
+  optional authentication, idempotent job creation, batch creation, filtered listing, retry,
+  cancel, delete, artifact listing, and server-sent events for progress.
+- **Stock-only mode** — `noAiAssets` disables AI image and video generation, leaving stock
+  footage and procedural text cards. No image or video API key is required.
+- **Render resilience** — the Remotion delayRender timeout is now passed to the renderer
+  correctly, and LLM rate limits are retried with backoff.
+- **Model fallback chain** — a job can list backup models; the render falls back to the next
+  model when the primary fails.
+
+Publishing is owned by the calling automation, so YouTube support has been removed from the
+engine itself.
+
 ## Demo
 
 <div align="center">
