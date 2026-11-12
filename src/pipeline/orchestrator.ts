@@ -460,6 +460,22 @@ function buildPipelineWorkflow(
         };
       }
 
+      // The caller supplied a direction: the topic, the fact and its source
+      // were already researched and verified upstream (that is what the
+      // direction contains), and the director reads the direction directly.
+      // Running our own web research here would be a redundant LLM call that
+      // can stall the whole job on a rate limit without changing the result.
+      if (opts.direction?.trim()) {
+        cb.onStageSkip?.("research", "Direction supplied by the caller");
+        log.stages.push({ name: "research", duration: 0, status: "skipped" });
+        return {
+          summary: `Topic: ${inputData.topic}`,
+          key_facts: [] as string[],
+          mood: "informative",
+          sources: [] as string[],
+        };
+      }
+
       cb.onStageStart?.("research");
       const start = Date.now();
       try {
