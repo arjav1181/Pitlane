@@ -49,8 +49,17 @@ describe("apiKeysMatch", () => {
   });
 });
 
+describe("public paths", () => {
+  it("leaves only the health check public", () => {
+    expect(requiresApiAuth("/api/v1/health")).toBe(false);
+    expect(requiresApiAuth("/api/v1/openapi.json")).toBe(true);
+    expect(requiresApiAuth("/api/v1/docs")).toBe(true);
+    expect(requiresApiAuth("/api/v1/jobs")).toBe(true);
+  });
+});
+
 describe("requiresApiAuth", () => {
-  it("keeps health, OpenAPI, and docs public", () => {
+  it("keeps the health check public", () => {
     for (const path of PUBLIC_API_PATHS) {
       expect(requiresApiAuth(path)).toBe(false);
       expect(requiresApiAuth(`${path}/`)).toBe(false);

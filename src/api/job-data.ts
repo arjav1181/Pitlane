@@ -40,6 +40,8 @@ export interface JobData {
   noMusic?: boolean;
   noVideo?: boolean;
   noAiAssets?: boolean;
+  /** Skip the quality review stage. It is advisory only and costs ~10% of the wall clock. */
+  skipReview?: boolean;
   direction?: string;
   score?: Record<string, unknown>;
   metadata?: Record<string, unknown>;

@@ -135,11 +135,8 @@ export function SettingsPage() {
         <section>
           <h2 className="mb-1 text-[15px] font-medium text-foreground">Server access</h2>
           <p className="mb-4 text-[13px] text-text-subtle">
-            If the server was started with{" "}
-            <code className="font-mono text-[12px]">OPENREELS_API_KEY</code>, enter it here. It is
-            stored in this browser&apos;s{" "}
-            <code className="font-mono text-[12px]">localStorage</code> and sent with every API
-            request.
+            The key this browser sends with every API request. It is kept in this browser and
+            never leaves it.
           </p>
           <div className="rounded-xl border border-border bg-card p-4">
             <label
@@ -180,7 +177,7 @@ export function SettingsPage() {
                 onClick={() => {
                   clearApiKey();
                   setServerApiKey("");
-                  setServerKeyStatus("Cleared.");
+                  setServerKeyStatus("Cleared. The next request will ask for it again.");
                   refreshHealth();
                 }}
               >
@@ -189,8 +186,8 @@ export function SettingsPage() {
             </div>
             <p className="mt-2 text-[11px] text-text-faint">
               {health?.apiKeyRequired
-                ? "This server requires an API key."
-                : "This server does not require an API key."}
+                ? "This server is locked."
+                : "This server is open."}
               {serverKeyStatus ? ` ${serverKeyStatus}` : ""}
             </p>
           </div>
@@ -198,7 +195,7 @@ export function SettingsPage() {
 
         {/* API Keys */}
         <section>
-          <h2 className="mb-1 text-sm font-semibold text-foreground">API Keys</h2>
+          <h2 className="mb-1 text-[15px] font-medium text-foreground">API keys</h2>
           <p className="mb-4 text-[13px] text-text-subtle">
             API keys are configured server-side via environment variables.
           </p>

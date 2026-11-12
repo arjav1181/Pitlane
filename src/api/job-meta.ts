@@ -26,6 +26,7 @@ export interface JobMeta {
   noMusic?: boolean;
   noVideo?: boolean;
   noAiAssets?: boolean;
+  skipReview?: boolean;
   retryOf?: string;
   metadata?: Record<string, unknown>;
   /** Provider configuration snapshot (never includes keys). */

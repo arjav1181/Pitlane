@@ -130,7 +130,12 @@ interface RunLog {
   direction?: string;
   replay?: boolean;
   noAiAssets?: boolean;
+  /** Skip the advisory quality review stage. */
+  skipReview?: boolean;
 }
+
+/** Sound cues copied into the render's public directory. */
+const SFX_CUES = ["whoosh.mp3", "impact.mp3"] as const;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Visual asset resolution (used by the visuals step)
@@ -923,6 +928,16 @@ function buildPipelineWorkflow(
 
       fs.copyFileSync(ttsResult.voiceoverPath!, path.join(publicDir, "voiceover.mp3"));
 
+      // Sound cues: a whoosh under each cut and an impact on each title card.
+      const sfxDir = path.join(publicDir, "sfx");
+      fs.mkdirSync(sfxDir, { recursive: true });
+      for (const cue of SFX_CUES) {
+        const source = path.resolve(process.cwd(), "assets", "sfx", cue);
+        if (fs.existsSync(source)) {
+          fs.copyFileSync(source, path.join(sfxDir, cue));
+        }
+      }
+
       let musicFilePath = visualsResult.musicFilePath;
       if (musicFilePath) {
         try {
@@ -998,6 +1013,11 @@ function buildPipelineWorkflow(
         },
         serveUrl: bundled,
         codec: "h264",
+        // CRF 23 rather than the renderer default of 18. A vertical short of
+        // this length came out at 38MB, which is slow to upload off the box
+        // and to serve; YouTube re-encodes it anyway, so the difference is
+        // invisible on the channel.
+        crf: renderOptions.crf,
         outputLocation: assemblyResult.videoPath,
         inputProps: compositionProps as unknown as Record<string, unknown>,
         timeoutInMilliseconds: renderOptions.timeoutInMilliseconds,
@@ -1029,6 +1049,15 @@ function buildPipelineWorkflow(
       // Replay mode: skip critic (it evaluates the score text, not the rendered video)
       if (opts.replayScore) {
         cb.onStageSkip?.("critic", "Replaying from saved score");
+        log.stages.push({ name: "critic", duration: 0, status: "skipped" });
+        return { done: true };
+      }
+
+      // The review is advisory: it scores the script, nothing acts on it, and it
+      // costs about a tenth of the wall clock. Callers that publish on a
+      // schedule turn it off.
+      if (opts.skipReview) {
+        cb.onStageSkip?.("critic", "Review disabled");
         log.stages.push({ name: "critic", duration: 0, status: "skipped" });
         return { done: true };
       }

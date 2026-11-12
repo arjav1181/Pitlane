@@ -45,12 +45,14 @@ export function apiKeysMatch(provided: string | null, expected: string): boolean
   return timingSafeEqual(providedDigest, expectedDigest);
 }
 
-/** Paths that stay public even when OPENREELS_API_KEY is configured. */
-export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
-  "/api/v1/health",
-  "/api/v1/openapi.json",
-  "/api/v1/docs",
-]);
+/**
+ * Paths that stay public even when OPENREELS_API_KEY is configured.
+ *
+ * Only the health check: the web app reads it to find out whether a key is
+ * needed before it can show the sign-in screen. The API schema and the
+ * interactive docs are not public - they describe the whole surface.
+ */
+export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set(["/api/v1/health"]);
 
 /** Whether a request path requires authentication. */
 export function requiresApiAuth(pathname: string): boolean {

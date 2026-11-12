@@ -51,6 +51,14 @@ const JOBS_DIR = process.env["JOBS_DIR"] ?? path.join(process.cwd(), "jobs");
 const MAX_JOBS = process.env["MAX_JOBS"] ? Number(process.env["MAX_JOBS"]) : 0;
 const WEB_DIST = path.join(process.cwd(), "web", "dist");
 const API_KEY = process.env["OPENREELS_API_KEY"]?.trim() || null;
+/**
+ * Fail closed: refuse every API request when no key is configured.
+ *
+ * A public deployment that forgets to set the key would otherwise expose the
+ * whole API to anyone who finds the URL. With this on, a missing key is a
+ * 503 rather than an open door.
+ */
+const AUTH_REQUIRED = (process.env["OPENREELS_AUTH_REQUIRED"] ?? "").toLowerCase() === "true";
 const ALLOW_PRIVATE_CALLBACKS =
   (process.env["OPENREELS_ALLOW_PRIVATE_CALLBACKS"] ?? "").toLowerCase() === "true";
 const CORS_ORIGIN = process.env["OPENREELS_CORS_ORIGIN"];
@@ -101,8 +109,17 @@ await app.register(fastifyStatic, {
 
 // --- API key authentication ---
 app.addHook("onRequest", async (request, reply) => {
-  if (!API_KEY) return;
   const pathname = (request.raw.url ?? request.url).split("?")[0] ?? request.url;
+
+  // Fail closed: without a configured key there is nothing to check against.
+  if (!API_KEY) {
+    if (!AUTH_REQUIRED) return;
+    if (!pathname.startsWith("/api/v1/")) return;
+    return reply
+      .status(503)
+      .send({ error: "Server is not configured for authentication" });
+  }
+
   if (!requiresApiAuth(pathname)) return;
 
   const provided = extractApiKey(
@@ -161,6 +178,7 @@ app.get("/api/v1/health", async () => {
     redis: redisOk ? "connected" : "disconnected",
     jobsDir: jobsDirStats ? "exists" : "missing",
     apiKeyRequired: API_KEY !== null,
+    authRequired: AUTH_REQUIRED,
     callbacks: true,
     noAiAssets: true,
     keys: {

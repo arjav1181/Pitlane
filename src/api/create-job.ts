@@ -223,7 +223,7 @@ export async function createJobFromBody(
   if (dryRun !== undefined && typeof dryRun !== "boolean") {
     return badRequest("dryRun must be a boolean");
   }
-  for (const flag of ["noMusic", "noVideo", "noAiAssets"]) {
+  for (const flag of ["noMusic", "noVideo", "noAiAssets", "skipReview"]) {
     const value = body[flag];
     if (value !== undefined && typeof value !== "boolean") {
       return badRequest(`${flag} must be a boolean`);
@@ -357,6 +357,7 @@ export async function createJobFromBody(
     platform: typeof platform === "string" && platform ? platform : "youtube",
     dryRun: dryRun === true,
     noMusic: body["noMusic"] === true,
+    skipReview: body["skipReview"] === true,
     noVideo: body["noVideo"] === true,
     noAiAssets: body["noAiAssets"] === true || noAiAssetsDefault(),
     ...(typeof direction === "string" && direction.trim() ? { direction: direction.trim() } : {}),
@@ -435,6 +436,7 @@ export async function retryJob(
         noMusic: meta.noMusic === true,
         noVideo: meta.noVideo === true,
         noAiAssets: meta.noAiAssets === true,
+        skipReview: meta.skipReview === true,
         ...(meta.score ? { score: meta.score as Record<string, unknown> } : {}),
         ...(meta.metadata ? { metadata: meta.metadata } : {}),
         providers: request?.providers ?? {

@@ -4,7 +4,7 @@ import { flip } from "@remotion/transitions/flip";
 import { slide } from "@remotion/transitions/slide";
 import { wipe } from "@remotion/transitions/wipe";
 import React from "react";
-import { AbsoluteFill, Audio, Composition, staticFile } from "remotion";
+import { AbsoluteFill, Audio, Composition, Sequence, staticFile } from "remotion";
 import type { TransitionType } from "../../schema/director-score";
 import { MusicTrack } from "../audio/MusicTrack";
 import { AIImageBeat } from "../beats/AIImageBeat";
@@ -109,8 +109,23 @@ const Main: React.FC<CompositionProps> = ({
 }) => {
   const style = CAPTION_STYLES[captionStyle] ?? CAPTION_STYLES.clean!;
 
+  // Where each scene starts on the timeline, so a whoosh can lead each cut.
+  const sceneStarts: number[] = [];
+  let elapsed = 0;
+  for (const scene of scenes) {
+    sceneStarts.push(elapsed);
+    elapsed += scene.durationInFrames;
+  }
+
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
+      {/* Transition whooshes — a short sweep under each cut */}
+      {scenes.slice(1).map((_, i) => (
+        <Sequence key={`whoosh-${i}`} from={Math.max(0, sceneStarts[i + 1]! - 6)}>
+          <Audio src={staticFile("sfx/whoosh.mp3")} volume={0.28} />
+        </Sequence>
+      ))}
+
       {/* Scene beats with transitions */}
       <TransitionSeries>
         {scenes.map((scene, i) => {
@@ -161,7 +176,7 @@ const Main: React.FC<CompositionProps> = ({
       {voiceoverSrc && <Audio src={resolveAsset(voiceoverSrc)!} />}
 
       {/* Background music — flat volume under continuous voiceover */}
-      {musicSrc && <MusicTrack src={resolveAsset(musicSrc)!} />}
+      {musicSrc && <MusicTrack src={resolveAsset(musicSrc)!} words={allWords} />}
     </AbsoluteFill>
   );
 };

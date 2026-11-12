@@ -38,6 +38,7 @@ import { ElevenLabsTTS } from "./tts/elevenlabs.js";
 import { GeminiTTS } from "./tts/gemini.js";
 import { InworldTTS } from "./tts/inworld.js";
 import { KokoroTTS } from "./tts/kokoro.js";
+import { PiperTTS } from "./tts/piper.js";
 import { OpenAITTS } from "./tts/openai.js";
 import { WhisperAligner } from "./tts/whisper-aligner.js";
 import { FalVideo } from "./video/fal.js";
@@ -245,6 +246,9 @@ export function createProviders(config: ProviderConfig): Providers {
   switch (config.tts) {
     case "kokoro":
       tts = new AlignedTTSProvider(new KokoroTTS(config.kokoroVoice), aligner);
+      break;
+    case "piper":
+      tts = new AlignedTTSProvider(new PiperTTS(), aligner);
       break;
     case "gemini-tts":
       tts = new AlignedTTSProvider(new GeminiTTS(undefined, k["GOOGLE_API_KEY"]), aligner);

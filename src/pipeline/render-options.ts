@@ -14,7 +14,7 @@
  * longer than that, so the timeout has to be passed to the renderer directly.
  */
 
-export interface RenderTimeoutOptions {
+export interface RenderOptions {
   /** Timeout handed to `renderMedia`/`selectComposition`, in milliseconds. */
   timeoutInMilliseconds: number;
   /**
@@ -25,6 +25,14 @@ export interface RenderTimeoutOptions {
    * two cores. Each tab then gets slower, not faster.
    */
   concurrency: number;
+  /**
+   * H.264 constant rate factor for the rendered file.
+   *
+   * The renderer's default is 18, which produced a 38MB file for a one minute
+   * vertical short - slow to upload and slow to serve. 23 is visually clean at
+   * 1080x1920 and roughly a third of the size.
+   */
+  crf: number;
   /**
    * Size of the OffthreadVideo frame cache, in bytes.
    *
@@ -42,6 +50,9 @@ export const DEFAULT_RENDER_TIMEOUT_MS = 120_000;
 /** Default OffthreadVideo frame cache: 1 GB. */
 export const DEFAULT_OFFTHREAD_CACHE_BYTES = 1024 * 1024 * 1024;
 
+/** Default H.264 CRF. 23 is visually clean for 1080x1920 and a third the size. */
+export const DEFAULT_CRF = 23;
+
 function positiveInt(raw: string | undefined, fallback: number): number {
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
@@ -56,7 +67,7 @@ function positiveInt(raw: string | undefined, fallback: number): number {
  */
 export function resolveRenderOptions(
   env: NodeJS.ProcessEnv = process.env,
-): RenderTimeoutOptions {
+): RenderOptions {
   const timeoutInMilliseconds = positiveInt(
     env["OPENREELS_RENDER_TIMEOUT_MS"],
     DEFAULT_RENDER_TIMEOUT_MS,
@@ -67,9 +78,12 @@ export function resolveRenderOptions(
     DEFAULT_OFFTHREAD_CACHE_BYTES / (1024 * 1024),
   );
 
+  const crf = positiveInt(env["OPENREELS_RENDER_CRF"], DEFAULT_CRF);
+
   return {
     timeoutInMilliseconds,
     concurrency,
+    crf,
     offthreadVideoCacheSizeInBytes: cacheMb * 1024 * 1024,
   };
 }

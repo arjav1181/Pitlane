@@ -77,6 +77,8 @@ export interface PipelineOptions {
    * media when available and procedural text cards otherwise.
    */
   noAiAssets?: boolean;
+  /** Skip the advisory quality review stage. */
+  skipReview?: boolean;
   direction?: string;
   replayScore?: DirectorScore;
 }

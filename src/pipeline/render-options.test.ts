@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_CRF,
   DEFAULT_OFFTHREAD_CACHE_BYTES,
   DEFAULT_RENDER_TIMEOUT_MS,
   resolveRenderOptions,
@@ -30,6 +31,16 @@ describe("resolveRenderOptions", () => {
     });
     expect(options.concurrency).toBe(2);
     expect(options.offthreadVideoCacheSizeInBytes).toBe(512 * 1024 * 1024);
+  });
+
+  it("uses a CRF that keeps the file a third of the renderer default", () => {
+    const options = resolveRenderOptions({});
+    expect(options.crf).toBe(DEFAULT_CRF);
+    expect(options.crf).toBe(23);
+  });
+
+  it("reads the CRF from the environment", () => {
+    expect(resolveRenderOptions({ OPENREELS_RENDER_CRF: "20" }).crf).toBe(20);
   });
 
   it("falls back to the defaults for invalid values", () => {

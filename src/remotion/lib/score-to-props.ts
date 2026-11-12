@@ -18,6 +18,9 @@ export interface SceneProps {
   sourceDurationInSeconds?: number;
   transition: TransitionType;
   transitionDurationFrames: number;
+  /** Position of this scene in the short, for the chapter marker. */
+  sceneIndex?: number;
+  sceneCount?: number;
 }
 
 export interface CompositionProps {
@@ -96,6 +99,8 @@ export function mapScoreToProps(
       sourceDurationInSeconds: assets.sceneSourceDurations[i] ?? undefined,
       transition: scene.transition ?? archetype.defaultTransition ?? "none",
       transitionDurationFrames: archetype.transitionDurationFrames ?? 15,
+      sceneIndex: i,
+      sceneCount: score.scenes.length,
     };
   });
 

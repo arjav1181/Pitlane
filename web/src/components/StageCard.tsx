@@ -93,7 +93,7 @@ export function StageCard({
           : status === "error"
             ? "Failed"
             : status === "skipped"
-              ? "Skipped"
+              ? (detail ?? "Skipped")
               : "Waiting";
 
   const isLive = status === "running";

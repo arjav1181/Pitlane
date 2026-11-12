@@ -175,12 +175,14 @@ const worker = new Worker<JobData>(
       noMusic,
       noVideo,
       noAiAssets: noAiAssetsRequested,
+      skipReview: skipReviewRequested,
       direction,
       score,
       metadata,
       providers,
       keys,
     } = job.data;
+    const skipReview = skipReviewRequested === true;
     const noAiAssets =
       noAiAssetsRequested === true ||
       (process.env["OPENREELS_NO_AI_ASSETS"] ?? "").toLowerCase() === "true";
@@ -204,6 +206,7 @@ const worker = new Worker<JobData>(
     if (noMusic) meta.noMusic = true;
     if (noVideo) meta.noVideo = true;
     if (noAiAssets) meta.noAiAssets = true;
+    if (skipReview) meta.skipReview = true;
     if (metadata) meta.metadata = metadata;
 
     // Initialize all stages as pending
@@ -384,6 +387,7 @@ const worker = new Worker<JobData>(
         videoProvider: providers.video as VideoProviderKey | undefined,
         noVideo: noVideo === true,
         noAiAssets: noAiAssets === true,
+        skipReview,
         archetype,
         pacing,
         platform,

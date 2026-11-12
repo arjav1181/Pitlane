@@ -71,6 +71,7 @@ const PRICING = {
     elevenlabs: 0.00018, // $0.18 per 1K chars (avg of Creator $0.20 and Pro $0.17, Multilingual v2)
     inworld: 0.00001, // $0.01 per 1K chars (Inworld TTS-1.5 Max: $10/1M chars)
     kokoro: 0, // Free — local inference
+    piper: 0, // Free — local inference
     "gemini-tts": 0.00002, // ~$0.02/1K chars (Gemini 2.5 Flash TTS: $0.50/1M text in + $10/1M audio out, ~2 audio tokens per char)
     "openai-tts": 0.00005, // ~$0.05 per 1K chars (gpt-4o-mini-tts: $0.60/1M text tokens in + $12/1M audio tokens out)
   } satisfies Record<TTSProviderKey, number>,

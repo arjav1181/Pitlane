@@ -12,7 +12,13 @@ export type SearchProviderKey = "native" | "tavily" | "none";
  */
 export type LLMAuthType = "auto" | "none" | "bearer" | "custom-header";
 export const LLM_AUTH_TYPES: readonly LLMAuthType[] = ["auto", "none", "bearer", "custom-header"];
-export type TTSProviderKey = "elevenlabs" | "inworld" | "kokoro" | "gemini-tts" | "openai-tts";
+export type TTSProviderKey =
+  | "elevenlabs"
+  | "inworld"
+  | "kokoro"
+  | "piper"
+  | "gemini-tts"
+  | "openai-tts";
 export type ImageProviderKey = "gemini" | "openai";
 export type StockProviderKey = "pexels" | "pixabay";
 export type VideoProviderKey = "gemini" | "fal";
