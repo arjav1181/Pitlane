@@ -122,15 +122,23 @@ async function deliverJobCallback(
  * of one it blocks every other job meanwhile. BullMQ would eventually re-run
  * it, burning the slot for another full pipeline; failing it instead frees
  * the slot immediately and leaves the caller free to retry.
+ *
+ * `force` is used on startup, where the worker that owned the active jobs
+ * died with the previous container: every active job is orphaned, whatever
+ * its lock still says.
  */
-async function recoverOrphanedJobs(): Promise<void> {
+async function recoverOrphanedJobs(force = false): Promise<void> {
   const queue = new Queue<JobData>(QUEUE_NAME, { connection: redis });
   try {
     const candidates = await listActiveJobs(queue, redis);
-    const orphans = selectOrphanedJobs(candidates, (id) => {
-      const meta = readJobMeta(JOBS_DIR, id);
-      return Boolean(meta && ["completed", "failed", "cancelled"].includes(meta.status));
-    });
+    const orphans = selectOrphanedJobs(
+      candidates,
+      (id) => {
+        const meta = readJobMeta(JOBS_DIR, id);
+        return Boolean(meta && ["completed", "failed", "cancelled"].includes(meta.status));
+      },
+      force,
+    );
 
     for (const orphan of orphans) {
       console.warn(`[worker] Failing orphaned job ${orphan.id}: ${orphan.reason}`);
@@ -478,7 +486,7 @@ const orphanRecoveryTimer = setInterval(() => {
 }, ORPHAN_RECOVERY_INTERVAL_MS);
 orphanRecoveryTimer.unref();
 
-void recoverOrphanedJobs().catch((err) => {
+void recoverOrphanedJobs(true).catch((err) => {
   console.warn("[worker] Orphan recovery failed:", err);
 });
 

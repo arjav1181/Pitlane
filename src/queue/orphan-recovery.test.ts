@@ -38,6 +38,24 @@ describe("selectOrphanedJobs", () => {
     const orphans = selectOrphanedJobs([{ id: "", locked: false }], () => false);
     expect(orphans).toHaveLength(0);
   });
+
+  it("treats every active job as orphaned when forced", () => {
+    const orphans = selectOrphanedJobs(
+      [
+        { id: "live", locked: true },
+        { id: "dead", locked: false },
+      ],
+      () => false,
+      true,
+    );
+    expect(orphans.map((o) => o.id)).toEqual(["live", "dead"]);
+    expect(orphans[0]?.reason).toMatch(/interrupted/i);
+  });
+
+  it("still skips finalised jobs when forced", () => {
+    const orphans = selectOrphanedJobs([{ id: "done", locked: true }], () => true, true);
+    expect(orphans).toHaveLength(0);
+  });
 });
 
 describe("removeFromQueue", () => {

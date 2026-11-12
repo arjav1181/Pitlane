@@ -47,19 +47,27 @@ export interface OrphanedJob {
  *
  * Jobs the API has already finalised are skipped - their metadata is
  * settled, only the queue entry is stale.
+ *
+ * `force` treats every active job as orphaned. That is right right after a
+ * restart: the worker that owned those locks died with the previous
+ * container, and the lock key survives for up to the lock duration, so
+ * waiting for it to expire would idle the only worker slot for minutes.
  */
 export function selectOrphanedJobs(
   candidates: OrphanCandidate[],
   isFinalised: (id: string) => boolean,
+  force = false,
 ): OrphanedJob[] {
   const orphans: OrphanedJob[] = [];
   for (const candidate of candidates) {
     if (!candidate.id) continue;
-    if (!isOrphaned(candidate)) continue;
+    if (!force && !isOrphaned(candidate)) continue;
     if (isFinalised(candidate.id)) continue;
     orphans.push({
       id: candidate.id,
-      reason: "Job was orphaned by a server restart and never finished.",
+      reason: force
+        ? "Job was interrupted by a server restart and never finished."
+        : "Job was orphaned by a server restart and never finished.",
     });
   }
   return orphans;
