@@ -1,9 +1,9 @@
 ---
 title: CI/CD Integration
-description: Integrate OpenReels into CI/CD pipelines with Docker builds and automated video generation.
+description: Integrate Pitlane into CI/CD pipelines with Docker builds and automated video generation.
 ---
 
-OpenReels includes a GitHub Actions workflow for building and publishing Docker images, and can be integrated into automated pipelines for batch video generation.
+Pitlane includes a GitHub Actions workflow for building and publishing Docker images, and can be integrated into automated pipelines for batch video generation.
 
 ## GitHub Actions — Docker Build
 
@@ -84,7 +84,7 @@ Images are built for both `linux/amd64` and `linux/arm64`, with GitHub Actions c
 
 ## Automated Video Generation
 
-You can use OpenReels in CI to generate videos as part of an automated pipeline.
+You can use Pitlane in CI to generate videos as part of an automated pipeline.
 
 ### The `--yes` Flag
 
@@ -119,7 +119,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build OpenReels
+      - name: Build Pitlane
         run: docker build -t openreels .
 
       - name: Generate video

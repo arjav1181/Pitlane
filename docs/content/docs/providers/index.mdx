@@ -1,9 +1,9 @@
 ---
 title: Providers
-description: Overview of all provider categories in OpenReels — LLM, TTS, image, video, music, and stock footage — with the provider matrix, BYOK model, and cost comparison.
+description: Overview of all provider categories in Pitlane — LLM, TTS, image, video, music, and stock footage — with the provider matrix, BYOK model, and cost comparison.
 ---
 
-OpenReels uses a pluggable provider system. Each stage of the pipeline (scripting, voiceover, visuals, music) can use a different provider. You pick what fits your budget and quality needs.
+Pitlane uses a pluggable provider system. Each stage of the pipeline (scripting, voiceover, visuals, music) can use a different provider. You pick what fits your budget and quality needs.
 
 ## Provider matrix
 
@@ -38,7 +38,7 @@ pnpm start "topic" --provider google --tts-provider elevenlabs
 
 ## Bring Your Own Keys (BYOK)
 
-OpenReels never stores API keys on the server. You provide them via environment variables (`.env` file or system env). The web UI's Home page lets you enter keys per job — they are sent with each API request and never persisted server-side. An optional **Remember credentials** toggle (off by default) can save them in your browser's `localStorage` instead.
+Pitlane never stores API keys on the server. You provide them via environment variables (`.env` file or system env). The web UI's Home page lets you enter keys per job — they are sent with each API request and never persisted server-side. An optional **Remember credentials** toggle (off by default) can save them in your browser's `localStorage` instead.
 
 Minimum to run:
 - **One LLM key** — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GOOGLE_API_KEY`

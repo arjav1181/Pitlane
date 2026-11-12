@@ -1,15 +1,15 @@
 ---
 title: Docker & Docker Compose
-description: Deploy OpenReels with Docker Compose — Redis, API server, and worker in one command.
+description: Deploy Pitlane with Docker Compose — Redis, API server, and worker in one command.
 ---
 
-Docker Compose is the recommended way to run OpenReels. It starts three services: Redis (job queue), the API server (web UI + REST API), and the worker (pipeline execution).
+Docker Compose is the recommended way to run Pitlane. It starts three services: Redis (job queue), the API server (web UI + REST API), and the worker (pipeline execution).
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/tsensei/OpenReels.git
-cd OpenReels
+git clone https://github.com/arjav1181/OpenReels.git
+cd Pitlane
 cp .env.example .env
 # Edit .env with your API keys
 docker compose up

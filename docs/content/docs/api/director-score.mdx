@@ -3,7 +3,7 @@ title: DirectorScore Schema
 description: The DirectorScore JSON schema that drives the entire video generation pipeline.
 ---
 
-The **DirectorScore** is the central data structure in OpenReels. Produced by the Creative Director agent, it is a complete plan for the video: emotional arc, visual style, music mood, and a sequence of scenes. Every downstream stage (TTS, visuals, assembly, critic) reads from this score.
+The **DirectorScore** is the central data structure in Pitlane. Produced by the Creative Director agent, it is a complete plan for the video: emotional arc, visual style, music mood, and a sequence of scenes. Every downstream stage (TTS, visuals, assembly, critic) reads from this score.
 
 The schema is defined in `src/schema/director-score.ts` using [Zod](https://zod.dev/).
 

@@ -1,9 +1,9 @@
 ---
 title: Pipeline Architecture
-description: How OpenReels transforms a topic into a rendered video through a 6-stage Mastra workflow.
+description: How Pitlane transforms a topic into a rendered video through a 6-stage Mastra workflow.
 ---
 
-OpenReels uses a linear 6-stage pipeline built on [Mastra](https://mastra.ai/) workflows. Each stage is a `createStep` that receives the output of the previous stage, with shared state passed through closures for non-serializable data like provider instances and callbacks.
+Pitlane uses a linear 6-stage pipeline built on [Mastra](https://mastra.ai/) workflows. Each stage is a `createStep` that receives the output of the previous stage, with shared state passed through closures for non-serializable data like provider instances and callbacks.
 
 ## The 6 stages
 

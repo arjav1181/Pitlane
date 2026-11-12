@@ -3,7 +3,7 @@ title: TTS Providers
 description: Configure text-to-speech for voiceover generation — ElevenLabs, Inworld, Kokoro (free local), Gemini TTS, and OpenAI TTS.
 ---
 
-The TTS provider generates the voiceover audio and word-level timestamps that drive karaoke-style animated captions. Every TTS provider in OpenReels produces both an audio file and a `WordTimestamp[]` array mapping each word to its start/end time in the audio.
+The TTS provider generates the voiceover audio and word-level timestamps that drive karaoke-style animated captions. Every TTS provider in Pitlane produces both an audio file and a `WordTimestamp[]` array mapping each word to its start/end time in the audio.
 
 ## Supported providers
 
@@ -36,7 +36,7 @@ pnpm start "topic" --provider local
 Animated captions require word-level timestamps — the exact start and end time of every word in the voiceover audio. Providers handle this differently:
 
 **Native timestamps** (no extra processing):
-- **ElevenLabs** — Returns character-level timestamps with the audio. OpenReels aggregates these into word timestamps.
+- **ElevenLabs** — Returns character-level timestamps with the audio. Pitlane aggregates these into word timestamps.
 - **Inworld** — Returns word-level timestamps directly via `WORD` timestamp mode.
 
 **Whisper alignment** (automatic post-processing):

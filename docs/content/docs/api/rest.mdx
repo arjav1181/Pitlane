@@ -1,9 +1,9 @@
 ---
 title: REST API
-description: Complete reference for the OpenReels HTTP API — job management, authentication, idempotency, webhooks, artifacts, and automation.
+description: Complete reference for the Pitlane HTTP API — job management, authentication, idempotency, webhooks, artifacts, and automation.
 ---
 
-The OpenReels API server is a Fastify application that manages video generation jobs through a BullMQ queue backed by Redis. Every endpoint is prefixed with `/api/v1`.
+The Pitlane API server is a Fastify application that manages video generation jobs through a BullMQ queue backed by Redis. Every endpoint is prefixed with `/api/v1`.
 
 For automation, use the machine-readable OpenAPI 3.1 document at [`/api/v1/openapi.json`](/api/v1/openapi.json) or the interactive reference at [`/api/v1/docs`](/api/v1/docs). This page explains the behavior behind the schema.
 
@@ -146,7 +146,7 @@ Returns the feature flags, provider catalog, platform specifications, and server
   "callbacks": {
     "events": ["job.completed", "job.failed", "job.cancelled"],
     "signature": "HMAC-SHA256",
-    "signatureHeader": "X-OpenReels-Signature",
+    "signatureHeader": "X-Pitlane-Signature",
     "signatureFormat": "sha256=<hex digest of `${timestamp}.${rawBody}`>"
   },
   "idempotency": { "header": "Idempotency-Key" },
@@ -575,11 +575,11 @@ Failed and cancelled deliveries also include `error`.
 
 | Header | Description |
 |---|---|
-| `X-OpenReels-Event` | Event name |
-| `X-OpenReels-Job-Id` | Job ID |
-| `X-OpenReels-Delivery` | Unique delivery UUID |
-| `X-OpenReels-Timestamp` | Unix seconds used in the signature |
-| `X-OpenReels-Signature` | `sha256=<hex>` when a secret is configured |
+| `X-Pitlane-Event` | Event name |
+| `X-Pitlane-Job-Id` | Job ID |
+| `X-Pitlane-Delivery` | Unique delivery UUID |
+| `X-Pitlane-Timestamp` | Unix seconds used in the signature |
+| `X-Pitlane-Signature` | `sha256=<hex>` when a secret is configured |
 | `User-Agent` | `OpenReels/<version>` |
 
 ### Verifying the signature
