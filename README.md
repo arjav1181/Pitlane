@@ -2,8 +2,8 @@
 
 [![GitHub stars](https://img.shields.io/github/stars/tsensei/OpenReels?style=flat&color=f5c542)](https://github.com/tsensei/OpenReels/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.13.1-green.svg)](CHANGELOG.md)
-[![Tests](https://img.shields.io/badge/tests-288%20passing-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-0.18.0-green.svg)](CHANGELOG.md)
+[![Tests](https://img.shields.io/badge/tests-611%20passing-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6.svg)]()
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg)]()
 
@@ -22,9 +22,12 @@ engine behind an automated publishing pipeline. Changes on top of upstream:
 - **Stock-only mode** — `noAiAssets` disables AI image and video generation, leaving stock
   footage and procedural text cards. No image or video API key is required.
 - **Render resilience** — the Remotion delayRender timeout is now passed to the renderer
-  correctly, and LLM rate limits are retried with backoff.
+  correctly, LLM rate limits are retried with backoff, and a job orphaned by a server restart
+  fails instead of blocking the queue.
 - **Model fallback chain** — a job can list backup models; the render falls back to the next
-  model when the primary fails.
+  model when the primary fails, with a bounded retry window per model.
+- **Stock-only pipeline** — the render skips its own web research when the caller supplies a
+  verified direction, so one job makes the calls it needs and no more.
 
 Publishing is owned by the calling automation, so YouTube support has been removed from the
 engine itself.
