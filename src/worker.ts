@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type Job, Worker } from "bullmq";
+import { type Job, Queue, Worker } from "bullmq";
 import IORedis from "ioredis";
 import { type CallbackEvent, type CallbackPayload, deliverCallback } from "./api/callbacks.js";
 import { createIdempotencyStore } from "./api/idempotency.js";
@@ -16,6 +16,11 @@ import {
 import type { PipelineCallbacks, StageName } from "./pipeline/orchestrator.js";
 import { runPipeline } from "./pipeline/orchestrator.js";
 import { createProviders, createVerificationModel } from "./providers/factory.js";
+import {
+  listActiveJobs,
+  removeFromQueue,
+  selectOrphanedJobs,
+} from "./queue/orphan-recovery.js";
 import { validateManifest } from "./providers/music/bundled.js";
 import { DirectorScore } from "./schema/director-score.js";
 import type {
@@ -28,6 +33,7 @@ import type {
 } from "./schema/providers.js";
 
 const REDIS_URL = process.env["REDIS_URL"] ?? "redis://localhost:6379";
+const QUEUE_NAME = "openreels";
 const JOBS_DIR = process.env["JOBS_DIR"] ?? path.join(process.cwd(), "jobs");
 const MAX_JOBS = process.env["MAX_JOBS"] ? Number(process.env["MAX_JOBS"]) : 0;
 const ALLOW_PRIVATE_CALLBACKS =
@@ -102,8 +108,50 @@ async function deliverJobCallback(
   }
 }
 
+/**
+ * Fail jobs that a server restart orphaned.
+ *
+ * A render can take far longer than the BullMQ lock, so the lock is held for
+ * ten minutes at a time. When the container is replaced mid-render the job
+ * stays in the active set until that lock expires - and with a concurrency
+ * of one it blocks every other job meanwhile. BullMQ would eventually re-run
+ * it, burning the slot for another full pipeline; failing it instead frees
+ * the slot immediately and leaves the caller free to retry.
+ */
+async function recoverOrphanedJobs(): Promise<void> {
+  const queue = new Queue<JobData>(QUEUE_NAME, { connection: redis });
+  try {
+    const candidates = await listActiveJobs(queue, redis);
+    const orphans = selectOrphanedJobs(candidates, (id) => {
+      const meta = readJobMeta(JOBS_DIR, id);
+      return Boolean(meta && ["completed", "failed", "cancelled"].includes(meta.status));
+    });
+
+    for (const orphan of orphans) {
+      console.warn(`[worker] Failing orphaned job ${orphan.id}: ${orphan.reason}`);
+      const meta = readJobMeta(JOBS_DIR, orphan.id);
+      if (meta) {
+        meta.status = "failed";
+        meta.error = orphan.reason;
+        meta.completedAt = new Date().toISOString();
+        for (const stage of Object.keys(meta.stages)) {
+          if (meta.stages[stage]?.status === "running") {
+            meta.stages[stage] = { status: "error", detail: orphan.reason };
+          }
+        }
+        writeMeta(path.join(JOBS_DIR, orphan.id), meta);
+      }
+      await removeFromQueue(queue, redis, orphan.id);
+    }
+  } catch (err) {
+    console.warn("[worker] Orphan recovery failed:", err);
+  } finally {
+    await queue.close().catch(() => undefined);
+  }
+}
+
 const worker = new Worker<JobData>(
-  "openreels",
+  QUEUE_NAME,
   async (job: Job<JobData>) => {
     const {
       topic,
@@ -408,6 +456,12 @@ function pruneOldJobs(jobsDir: string, maxJobs: number) {
 
 worker.on("completed", (job) => {
   console.log(`[worker] Job ${job.id} completed`);
+});
+
+// Free the single worker slot from jobs a restart left behind. Runs once,
+// before the first job is picked up.
+void recoverOrphanedJobs().catch((err) => {
+  console.warn("[worker] Orphan recovery failed:", err);
 });
 
 worker.on("failed", async (job, err) => {
