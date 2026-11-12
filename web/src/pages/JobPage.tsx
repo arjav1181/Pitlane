@@ -6,7 +6,6 @@ import { CostBreakdownCard } from "@/components/pipeline/CostBreakdownCard";
 import { FailedPanel } from "@/components/pipeline/FailedPanel";
 import { StoryboardPanel } from "@/components/pipeline/StoryboardPanel";
 import { STAGE_LABELS, StageCard } from "@/components/StageCard";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   api,
@@ -219,7 +218,7 @@ export function JobPage() {
 
   if (!job) {
     return (
-      <div className="py-6 px-4 sm:px-6 lg:px-10">
+      <div className="px-6 py-8 lg:px-10">
         {/* Header skeleton */}
         <div className="mb-6 flex items-center justify-between">
           <div className="space-y-2">
@@ -292,34 +291,32 @@ export function JobPage() {
     job.stages?.visuals?.status === "done" || job.stages?.visuals?.status === "skipped";
 
   return (
-    <div className="py-6 px-4 sm:px-6 lg:px-10">
+    <div className="px-6 py-8 lg:px-10">
       {/* Header */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg sm:text-xl font-semibold tracking-tight">{job.topic}</h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-3">
+          <h1 className="text-[19px] leading-snug font-medium tracking-tight text-foreground">
+            {job.topic}
+          </h1>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-text-faint">
+            <span>YouTube Shorts</span>
             {job.archetype && (
-              <Badge
-                variant="secondary"
-                className="rounded-md border-0 bg-primary/12 px-2.5 py-1 text-xs font-medium text-primary/80"
-              >
-                {formatArchetypeName(job.archetype)}
-              </Badge>
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{formatArchetypeName(job.archetype)}</span>
+              </>
             )}
             {job.noAiAssets && (
-              <Badge
-                variant="secondary"
-                className="rounded-md border-0 bg-status-success/12 px-2.5 py-1 text-xs font-medium text-status-success"
-              >
-                No AI Assets
-              </Badge>
+              <>
+                <span aria-hidden="true">·</span>
+                <span>Stock only</span>
+              </>
             )}
-            <span className="text-xs text-muted-foreground">YouTube Shorts</span>
             {totalCost != null && (
               <>
-                <span className="text-xs text-text-faint">&middot;</span>
-                <span className="text-xs text-muted-foreground">
-                  ~${totalCost.toFixed(2)} {job.actualCost ? "total" : "estimated"}
+                <span aria-hidden="true">·</span>
+                <span className="tabular">
+                  ${totalCost.toFixed(2)} {job.actualCost ? "spent" : "estimated"}
                 </span>
               </>
             )}
@@ -328,67 +325,56 @@ export function JobPage() {
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {isRunning && (
-            <div className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3.5 py-1.5">
-              <div className="size-2 rounded-full bg-status-info animate-pulse" />
-              <span className="text-xs font-medium text-status-info">Generating...</span>
-            </div>
+            <span className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5">
+              <span className="size-1.5 rounded-full bg-tally" />
+              <span className="text-[13px] text-tally">Rendering</span>
+            </span>
           )}
           {isCompleted && (
-            <div className="flex items-center gap-1.5 rounded-lg bg-status-success/12 px-3.5 py-1.5">
-              <div className="size-2 rounded-full bg-status-success" />
-              <span className="text-xs font-medium text-status-success">Complete</span>
-            </div>
+            <span className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5">
+              <span className="size-1.5 rounded-full bg-status-success" />
+              <span className="text-[13px] text-text-subtle">Complete</span>
+            </span>
           )}
           {isFailed && (
-            <div className="flex items-center gap-1.5 rounded-lg bg-destructive/12 px-3.5 py-1.5">
-              <div className="size-2 rounded-full bg-destructive" />
-              <span className="text-xs font-medium text-destructive">Failed</span>
-            </div>
+            <span className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5">
+              <span className="size-1.5 rounded-full bg-destructive" />
+              <span className="text-[13px] text-text-subtle">Failed</span>
+            </span>
           )}
           {isCancelled && (
-            <div className="flex items-center gap-1.5 rounded-lg bg-status-warning/12 px-3.5 py-1.5">
-              <div className="size-2 rounded-full bg-status-warning" />
-              <span className="text-xs font-medium text-status-warning">Cancelled</span>
-            </div>
+            <span className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5">
+              <span className="size-1.5 rounded-full bg-status-warning" />
+              <span className="text-[13px] text-text-subtle">Cancelled</span>
+            </span>
           )}
 
           {isRunning && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-lg border-border px-3.5 py-1.5 text-xs font-medium text-secondary-foreground"
-              onClick={handleCancel}
-              disabled={cancelling}
-            >
-              {cancelling ? "Cancelling..." : "Cancel"}
+            <Button variant="outline" size="sm" onClick={handleCancel} disabled={cancelling}>
+              {cancelling ? "Cancelling" : "Cancel"}
             </Button>
           )}
           {isCompleted && videoUrl && (
             <a href={videoUrl} download>
-              <Button size="sm" className="gap-2 rounded-lg px-4 py-2">
-                <Download className="size-3.5" />
+              <Button size="sm" className="gap-2">
+                <Download className="size-4" strokeWidth={1.75} />
                 Download
               </Button>
             </a>
           )}
           {!isRunning && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-lg border-border px-4 py-2 text-xs font-medium text-text-subtle"
-              onClick={() => navigate("/")}
-            >
-              <Plus className="size-3.5" />
-              New Short
+            <Button variant="outline" size="sm" onClick={() => navigate("/")}>
+              <Plus className="size-4" strokeWidth={1.75} />
+              New short
             </Button>
           )}
         </div>
       </div>
 
       {/* Two-column layout — stacks on mobile */}
-      <div className="flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-7">
+      <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
         {/* Left: Pipeline Timeline — sticky on desktop */}
-        <ol className="w-full lg:w-[280px] lg:shrink-0 lg:sticky lg:top-6 lg:self-start list-none m-0 p-0">
+        <ol className="m-0 w-full list-none p-0 lg:w-[248px] lg:shrink-0 lg:sticky lg:top-8 lg:self-start">
           {STAGES.map((stage, i) => {
             const stageData = job.stages?.[stage];
             const prevStageName = i > 0 ? STAGES[i - 1] : undefined;
@@ -418,7 +404,7 @@ export function JobPage() {
         </ol>
 
         {/* Right: Progressive Card Feed */}
-        <div className="min-w-0 flex-1 flex flex-col gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
           {/* Completed: video player + stats at top */}
           {isCompleted && (
             <CompletedPanel
@@ -469,10 +455,8 @@ export function JobPage() {
 
           {/* Asset failure warnings */}
           {assetFailures.length > 0 && !isCompleted && (
-            <div className="rounded-[10px] border border-status-warning/20 bg-status-warning/6 p-4">
-              <span className="text-[10px] font-semibold uppercase tracking-[1.5px] text-status-warning">
-                ASSET WARNINGS
-              </span>
+            <div className="rounded-xl border border-status-warning/25 bg-card p-4">
+              <span className="text-[13px] text-status-warning">Asset warnings</span>
               <div className="mt-2 flex flex-col gap-1">
                 {assetFailures.map((f, i) => (
                   <p key={i} className="text-xs text-status-warning/90">
@@ -485,9 +469,9 @@ export function JobPage() {
 
           {/* TTS badge */}
           {job.stages?.tts?.status === "done" && job.stages.tts.detail && !isCompleted && (
-            <div className="rounded-lg border border-border/60 bg-card/60 px-4 py-2.5">
-              <span className="text-[11px] text-text-subtle">
-                Voice synthesis: {job.stages.tts.detail}
+            <div className="rounded-xl border border-border bg-card px-4 py-3">
+              <span className="text-[13px] text-text-subtle">
+                Voice: {job.stages.tts.detail}
               </span>
             </div>
           )}
@@ -495,8 +479,8 @@ export function JobPage() {
           {/* Empty state while waiting */}
           {!researchData && !score && !costEstimate && isRunning && (
             <div className="flex h-64 items-center justify-center">
-              <p className="text-sm text-muted-foreground">
-                Pipeline output will appear here as stages complete...
+              <p className="text-[13px] text-text-faint">
+                Each stage writes here as it finishes
               </p>
             </div>
           )}
@@ -513,23 +497,15 @@ function ResearchCard({ data }: { data: ResearchData }) {
   const facts = expanded ? data.key_facts : data.key_facts.slice(0, 5);
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-sm animate-in fade-in duration-500">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[1.5px] text-muted-foreground">
-            RESEARCH SUMMARY
-          </span>
-          {data.mood && (
-            <span className="rounded-full bg-surface-inset px-2 py-0.5 text-[10px] text-text-subtle">
-              {data.mood}
-            </span>
-          )}
-        </div>
-        <span className="text-xs font-medium text-status-success">
+    <div className="rounded-xl border border-border bg-card p-5 animate-in fade-in duration-500">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <span className="text-[13px] text-text-subtle">Research</span>
+        <span className="text-[11px] text-text-faint tabular">
           {data.key_facts.length} facts
+          {data.mood ? ` · ${data.mood}` : ""}
         </span>
       </div>
-      <p className="mb-3 text-xs leading-relaxed text-secondary-foreground">{data.summary}</p>
+      <p className="mb-4 text-[13px] leading-relaxed text-text-subtle">{data.summary}</p>
       {data.key_facts.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {facts.map((fact, i) => (
@@ -544,7 +520,7 @@ function ResearchCard({ data }: { data: ResearchData }) {
             <button
               type="button"
               onClick={() => setExpanded(!expanded)}
-              className="rounded-md bg-surface-inset px-2 py-1 text-[11px] text-primary hover:text-primary/80"
+              className="rounded-md bg-surface-inset px-2 py-1 text-[11px] text-text-subtle hover:text-foreground"
             >
               {expanded ? "Show less" : `+${data.key_facts.length - 5} more`}
             </button>

@@ -16,7 +16,7 @@ export function CostBreakdownCard({ estimate, actual, variant = "compact" }: Cos
   if (variant === "compact") {
     return (
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-border bg-card px-4 py-3">
-        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[1.5px] text-muted-foreground">
+        <span className="shrink-0 text-[13px] text-text-subtle">
           {actual ? "COST BREAKDOWN" : "COST ESTIMATE"}
         </span>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -26,7 +26,7 @@ export function CostBreakdownCard({ estimate, actual, variant = "compact" }: Cos
           {hasVideo && <CostItem label="Video" value={cost.videoCost} />}
           {hasMusic && <CostItem label="Music" value={cost.musicCost} />}
           <div className="flex items-center gap-1">
-            <span className="text-xs font-bold text-status-info">
+            <span className="text-[13px] font-medium text-foreground tabular">
               ${cost.totalCost.toFixed(2)}
             </span>
             <span className="text-[10px] text-muted-foreground">Total</span>
@@ -38,7 +38,7 @@ export function CostBreakdownCard({ estimate, actual, variant = "compact" }: Cos
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-border bg-card px-4 py-3">
-      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[1.5px] text-muted-foreground">
+      <span className="shrink-0 text-[13px] text-text-subtle">
         COST BREAKDOWN
       </span>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -48,7 +48,7 @@ export function CostBreakdownCard({ estimate, actual, variant = "compact" }: Cos
         {hasVideo && <CostItem label="Video" value={cost.videoCost} />}
         {hasMusic && <CostItem label="Music" value={cost.musicCost} />}
         <div className="flex items-center gap-1">
-          <span className="text-xs font-bold text-status-info">
+          <span className="text-[13px] font-medium text-foreground tabular">
             ${cost.totalCost.toFixed(2)}
           </span>
           <span className="text-[10px] text-muted-foreground">Total</span>

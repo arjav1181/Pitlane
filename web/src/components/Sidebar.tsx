@@ -8,12 +8,11 @@ import {
   PanelLeftClose,
   PanelLeft,
   Film,
-  DollarSign,
 } from "lucide-react";
 import type { StatsResponse } from "@/hooks/useApi";
 
 const NAV_ITEMS = [
-  { path: "/", label: "New Short", icon: PlusCircle },
+  { path: "/", label: "New short", icon: PlusCircle },
   { path: "/gallery", label: "Gallery", icon: LayoutGrid },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
@@ -33,30 +32,32 @@ export function Sidebar({ collapsed, onToggle, stats }: SidebarProps) {
     return location.pathname.startsWith(path);
   };
 
+  const live = (stats?.activeJobs ?? 0) > 0;
+
   return (
     <aside
       className={cn(
-        "fixed inset-y-0 left-0 z-30 flex flex-col bg-sidebar border-r border-border transition-[width] duration-200",
+        "fixed inset-y-0 left-0 z-30 flex flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
         collapsed ? "w-16" : "w-[240px]",
       )}
     >
-      {/* Logo */}
+      {/* Wordmark */}
       <div
         className={cn(
-          "flex items-center gap-2.5 pt-8 pb-0 transition-[padding] duration-200",
+          "flex items-center gap-2.5 pt-6 pb-0 transition-[padding] duration-200",
           collapsed ? "justify-center px-2" : "px-5",
         )}
       >
-        <Clapperboard className="size-6 shrink-0 text-primary" />
+        <Clapperboard className="size-5 shrink-0 text-tally" strokeWidth={1.75} />
         {!collapsed && (
-          <span className="text-lg font-semibold tracking-tight text-foreground">
-            OpenReels
+          <span className="text-[15px] font-medium tracking-tight text-foreground">
+            Pitlane
           </span>
         )}
       </div>
 
       {/* Navigation */}
-      <nav className={cn("mt-8 flex flex-col gap-1", collapsed ? "px-2" : "px-5")}>
+      <nav className={cn("mt-6 flex flex-col gap-1", collapsed ? "px-2" : "px-3")}>
         {NAV_ITEMS.map((item) => {
           const active = isActive(item.path);
           return (
@@ -65,23 +66,21 @@ export function Sidebar({ collapsed, onToggle, stats }: SidebarProps) {
               to={item.path}
               title={collapsed ? item.label : undefined}
               className={cn(
-                "flex items-center rounded-[10px] text-sm font-medium transition-colors relative",
-                collapsed
-                  ? "justify-center px-0 py-2.5"
-                  : "gap-2.5 px-3.5 py-2.5",
+                "relative flex h-9 items-center rounded-lg text-sm transition-colors",
+                collapsed ? "justify-center px-0" : "gap-2.5 px-3",
                 active
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/55 hover:text-sidebar-accent-foreground",
               )}
             >
-              <item.icon className="size-5 shrink-0" />
+              <item.icon className="size-[18px] shrink-0" strokeWidth={1.75} />
               {!collapsed && item.label}
-              {/* Active job pulse on "New Short" */}
-              {item.path === "/" && stats && stats.activeJobs > 0 && (
+              {/* The tally light marks the one thing that is live. */}
+              {item.path === "/" && live && (
                 <span
                   className={cn(
-                    "size-2 rounded-full bg-status-info animate-pulse",
-                    collapsed ? "absolute top-1.5 right-1.5" : "ml-auto",
+                    "size-1.5 rounded-full bg-tally",
+                    collapsed ? "absolute top-2 right-2" : "ml-auto",
                   )}
                 />
               )}
@@ -93,22 +92,13 @@ export function Sidebar({ collapsed, onToggle, stats }: SidebarProps) {
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Stats footer */}
+      {/* Quiet footer count */}
       {!collapsed && stats && stats.totalJobs > 0 && (
-        <div className="mx-5 mb-4 rounded-[10px] border border-border bg-surface-inset px-3.5 py-3">
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <Film className="size-3.5" />
-            <span>
-              {stats.completedJobs} video{stats.completedJobs !== 1 ? "s" : ""}{" "}
-              created
-            </span>
-          </div>
-          {stats.totalCost > 0 && (
-            <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-              <DollarSign className="size-3.5" />
-              <span>${stats.totalCost.toFixed(2)} total spend</span>
-            </div>
-          )}
+        <div className="mx-5 mb-4 flex items-center gap-2 text-[11px] text-text-faint">
+          <Film className="size-3.5" strokeWidth={1.75} />
+          <span className="tabular">
+            {stats.completedJobs} of {stats.totalJobs} rendered
+          </span>
         </div>
       )}
 
@@ -117,15 +107,15 @@ export function Sidebar({ collapsed, onToggle, stats }: SidebarProps) {
         type="button"
         onClick={onToggle}
         className={cn(
-          "flex items-center justify-center border-t border-border py-3 text-muted-foreground hover:text-foreground transition-colors",
+          "flex items-center justify-center border-t border-sidebar-border py-3 text-text-faint transition-colors hover:text-foreground",
           collapsed ? "px-0" : "px-5",
         )}
       >
         {collapsed ? (
-          <PanelLeft className="size-4" />
+          <PanelLeft className="size-4" strokeWidth={1.75} />
         ) : (
           <div className="flex w-full items-center gap-2">
-            <PanelLeftClose className="size-4" />
+            <PanelLeftClose className="size-4" strokeWidth={1.75} />
             <span className="text-xs">Collapse</span>
           </div>
         )}

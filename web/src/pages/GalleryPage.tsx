@@ -16,12 +16,7 @@ import {
   Loader2,
   Trash2,
   X,
-  Clock,
-  DollarSign,
-  Star,
-  Layers,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -189,7 +184,7 @@ export function GalleryPage() {
 
   if (loading) {
     return (
-      <div className="py-8 px-4 sm:px-10">
+      <div className="px-6 py-8 lg:px-10">
         <div className="mb-5 h-8 w-24 animate-pulse rounded-lg bg-card" />
         <div className="mb-5 h-9 w-full animate-pulse rounded-lg bg-card" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -214,25 +209,22 @@ export function GalleryPage() {
 
   if (jobs.length === 0) {
     return (
-      <div className="py-8 px-4 sm:px-10">
-        <h1 className="mb-6 text-2xl font-semibold tracking-tight">Gallery</h1>
+      <div className="px-6 py-8 lg:px-10">
+        <h1 className="mb-6 text-[19px] font-medium tracking-tight">Gallery</h1>
         <div
           className="flex flex-1 flex-col items-center justify-center min-h-[calc(100vh-160px)]"
         >
           <div className="flex flex-col items-center text-center">
-            <div className="mb-5 flex size-20 items-center justify-center rounded-full bg-card">
-              <Film className="size-9 text-border" />
+            <div className="mb-5 flex size-14 items-center justify-center rounded-full bg-card">
+              <Film className="size-6 text-text-faint" strokeWidth={1.75} />
             </div>
-            <h2 className="text-xl font-semibold text-foreground">No videos yet</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Create your first Short and it will appear here.
+            <h2 className="text-[15px] font-medium text-foreground">Nothing rendered yet</h2>
+            <p className="mt-2 text-[13px] text-text-faint">
+              Your first short will appear here once it finishes
             </p>
-            <Button
-              className="mt-5 gap-2 rounded-[10px] px-6 py-2.5"
-              onClick={() => navigate("/")}
-            >
-              <Plus className="size-4" />
-              Create a Short
+            <Button className="mt-5 gap-2" onClick={() => navigate("/")}>
+              <Plus className="size-4" strokeWidth={1.75} />
+              New short
             </Button>
           </div>
         </div>
@@ -243,11 +235,11 @@ export function GalleryPage() {
   const hasMore = jobs.length < total;
 
   return (
-    <div className="py-8 px-4 sm:px-10">
+    <div className="px-6 py-8 lg:px-10">
       {/* Header */}
       <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Gallery</h1>
-        <span className="text-[13px] text-muted-foreground">
+        <h1 className="text-[19px] font-medium tracking-tight">Gallery</h1>
+        <span className="text-[13px] text-text-faint tabular">
           {filteredJobs.length} of {jobs.length} loaded{jobs.length < total ? ` (${total} total)` : ""}
         </span>
       </div>
@@ -271,15 +263,15 @@ export function GalleryPage() {
 
       {/* Delete error banner */}
       {deleteError && (
-        <div className="mb-4 rounded-lg border border-destructive/20 bg-destructive/6 px-4 py-2.5 text-sm text-destructive">
+        <div className="mb-4 rounded-xl border border-destructive/25 bg-card px-4 py-3 text-[13px] text-destructive">
           {deleteError}
         </div>
       )}
 
       {/* Bulk action bar */}
       {bulkMode && (
-        <div className="mb-4 flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
-          <span className="text-sm font-medium text-primary">
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+          <span className="text-[13px] text-text-subtle tabular">
             {selectedIds.size} selected
           </span>
           <Button
@@ -418,9 +410,9 @@ function ListCard({
         }
       }}
       className={cn(
-        "flex items-center gap-4 rounded-lg border bg-card px-4 py-3 transition-all hover:border-primary/30",
-        isFailed ? "border-destructive/20" : "border-border",
-        selected && "ring-2 ring-primary ring-offset-1 ring-offset-background",
+        "flex items-center gap-4 rounded-xl border bg-card px-4 py-3 transition-colors hover:border-text-faint",
+        "border-border",
+        selected && "border-tally/70",
       )}
     >
       {bulkMode && (
@@ -433,50 +425,24 @@ function ListCard({
       )}
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-foreground">{job.topic}</p>
-        <div className="mt-1 flex items-center gap-2">
-          {job.archetype && (
-            <span className="text-[10px] text-muted-foreground">
-              {formatArchetypeName(job.archetype)}
-            </span>
-          )}
-          {isFailed && (
-            <Badge variant="destructive" className="text-[9px] font-normal py-0">
-              Failed
-            </Badge>
-          )}
+        <p className="truncate text-[13px] font-medium text-foreground">{job.topic}</p>
+        <div className="mt-1 flex items-center gap-2 text-[11px] text-text-faint">
+          {job.archetype && <span>{formatArchetypeName(job.archetype)}</span>}
+          {isFailed && <span className="text-destructive">Failed</span>}
           {isRunning && (
-            <span className="flex items-center gap-1 text-[10px] text-status-info">
-              <span className="size-1.5 rounded-full bg-status-info animate-pulse" />
-              Running
+            <span className="flex items-center gap-1.5 text-tally">
+              <span className="size-1.5 rounded-full bg-tally" />
+              Live
             </span>
           )}
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-4 text-[11px] text-muted-foreground">
-        {sceneCount != null && (
-          <span className="flex items-center gap-1">
-            <Layers className="size-3" />
-            {sceneCount}
-          </span>
-        )}
-        {cost != null && (
-          <span className="flex items-center gap-1">
-            <DollarSign className="size-3" />
-            ${cost.toFixed(2)}
-          </span>
-        )}
-        {criticScore != null && (
-          <span className="flex items-center gap-1">
-            <Star className="size-3" />
-            {criticScore}
-          </span>
-        )}
-        <span className="flex items-center gap-1 w-16 justify-end">
-          <Clock className="size-3" />
-          {timeAgoStr}
-        </span>
+      <div className="flex shrink-0 items-center gap-4 text-[11px] text-text-faint tabular">
+        {sceneCount != null && <span>{sceneCount} scenes</span>}
+        {cost != null && <span>${cost.toFixed(2)}</span>}
+        {criticScore != null && <span>{criticScore}/10</span>}
+        <span className="w-16 text-right">{timeAgoStr}</span>
       </div>
     </a>
   );

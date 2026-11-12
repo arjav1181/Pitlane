@@ -15,14 +15,30 @@ interface CompletedPanelProps {
 }
 
 const STAGE_ORDER = ["research", "director", "tts", "visuals", "assembly", "critic"] as const;
-const STAGE_COLORS: Record<string, string> = {
-  research: "#818CF8",
-  director: "#22D3EE",
-  tts: "#A78BFA",
-  visuals: "#34D399",
-  assembly: "#F59E0B",
-  critic: "#FB923C",
+const STAGE_LABELS: Record<string, string> = {
+  research: "Research",
+  director: "Script",
+  tts: "Voice",
+  visuals: "Visuals",
+  assembly: "Render",
+  critic: "Review",
 };
+
+/**
+ * The render is the stage that costs the most time and the one the product
+ * exists to deliver, so it is the only segment that carries the accent.
+ */
+const ACCENT_STAGE = "assembly";
+
+/** Neutral steps of the same ramp, lightest for the shortest stage. */
+const NEUTRAL_STEPS = [
+  "bg-foreground/18",
+  "bg-foreground/24",
+  "bg-foreground/30",
+  "bg-foreground/36",
+  "bg-foreground/42",
+  "bg-foreground/48",
+];
 
 export function CompletedPanel({
   job,
@@ -54,49 +70,47 @@ export function CompletedPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Top row: Video + Stats */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        {/* Video Player */}
-        <div className="shrink-0 flex w-full sm:w-[220px] md:w-[260px] max-w-[260px] mx-auto sm:mx-0 flex-col items-center justify-center aspect-[9/16] rounded-xl overflow-hidden border border-border bg-surface-sunken">
-          {videoUrl ? (
-            <video src={videoUrl} controls playsInline className="h-full w-full object-contain">
-              <track kind="captions" />
-            </video>
-          ) : (
-            <>
-              <Play className="size-10 text-primary" />
-              <span className="mt-2.5 text-xs text-text-subtle">Video not available</span>
-            </>
-          )}
+      {/* Top row: the finished short + what it cost */}
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+        {/* The short itself */}
+        <div className="shrink-0 sm:w-[248px]">
+          <div className="flex aspect-[9/16] w-full items-center justify-center overflow-hidden rounded-xl border border-border bg-black">
+            {videoUrl ? (
+              <video src={videoUrl} controls playsInline className="h-full w-full object-contain">
+                <track kind="captions" />
+              </video>
+            ) : (
+              <div className="flex flex-col items-center gap-2 px-6 text-center">
+                <Play className="size-6 text-text-faint" strokeWidth={1.75} />
+                <span className="text-[13px] text-text-faint">Video unavailable</span>
+              </div>
+            )}
+          </div>
+          <p className="mt-2 px-0.5 text-[11px] leading-snug text-text-faint">
+            {displayScore?.scenes.length ?? sceneCount ?? 0} scenes, vertical 1080x1920
+          </p>
         </div>
 
-        {/* Right column: Stats + Music + Cost */}
-        <div className="min-w-0 flex flex-1 flex-col gap-3">
-          {/* Stats row */}
-          <div className="grid grid-cols-3 gap-2.5">
-            <StatCard label="Total Time" value={`${totalDuration.toFixed(1)}s`} />
-            <StatCard
-              label="Total Cost"
+        {/* Right column */}
+        <div className="flex min-w-0 flex-1 flex-col gap-5">
+          {/* Figures, in one strip rather than three boxes */}
+          <div className="flex divide-x divide-border rounded-xl border border-border bg-card">
+            <Figure label="Render time" value={`${totalDuration.toFixed(1)}s`} />
+            <Figure
+              label="Cost"
               value={totalCost != null ? `$${totalCost.toFixed(2)}` : "—"}
-              highlight
             />
-            <StatCard label="Scenes" value={String(sceneCount ?? "—")} />
+            <Figure label="Scenes" value={sceneCount != null ? String(sceneCount) : "—"} />
           </div>
 
-          {/* Emotional arc + archetype badges */}
+          {/* What the short is about */}
           {displayScore && (
-            <div className="flex flex-wrap gap-1.5">
-              <span className="rounded-[5px] border border-primary/20 bg-primary/8 px-2 py-0.5 text-xs font-medium text-primary/80">
-                {displayScore.emotional_arc}
-              </span>
-              {displayScore.archetype && (
-                <span className="rounded-[5px] border border-status-info/20 bg-status-info/8 px-2 py-0.5 text-xs font-medium text-status-info/80">
-                  {formatArchetypeName(displayScore.archetype)}
-                </span>
-              )}
-              <span className="rounded-[5px] border border-primary/20 bg-primary/8 px-2 py-0.5 text-xs font-medium text-primary/80">
-                {displayScore.music_mood}
-              </span>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-text-subtle">
+              <span>{formatArchetypeName(displayScore.archetype)}</span>
+              <span className="text-text-faint">·</span>
+              <span>{displayScore.emotional_arc}</span>
+              <span className="text-text-faint">·</span>
+              <span>{displayScore.music_mood.replace(/_/g, " ")}</span>
             </div>
           )}
 
@@ -105,11 +119,11 @@ export function CompletedPanel({
 
           {/* Stage duration breakdown */}
           {totalDuration > 0 && (
-            <StageDurationBar stages={job.stages} totalDuration={totalDuration} />
+            <StageDurationRail stages={job.stages} totalDuration={totalDuration} />
           )}
 
           {/* Cost comparison: estimated vs actual */}
-          {costEstimate && job.actualCost && (
+          {costEstimate && job.actualCost && costEstimate.totalCost > 0 && (
             <CostComparisonRow
               estimated={costEstimate.totalCost}
               actual={job.actualCost.totalCost}
@@ -131,6 +145,16 @@ export function CompletedPanel({
   );
 }
 
+/** One figure: a label and a number. Nothing else. */
+function Figure({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-1 flex-col gap-0.5 px-4 py-3">
+      <span className="text-[11px] text-text-faint">{label}</span>
+      <span className="text-[15px] font-medium text-foreground tabular">{value}</span>
+    </div>
+  );
+}
+
 function MusicPreview({ jobId, runDir }: { jobId: string; runDir: string }) {
   const musicUrl = withApiKey(
     `/api/v1/jobs/${jobId}/artifacts/${runDir}/_remotion_public/music.mp3`,
@@ -147,36 +171,19 @@ function MusicPreview({ jobId, runDir }: { jobId: string; runDir: string }) {
 
   return (
     <div>
-      <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[1.5px] text-muted-foreground">
-        Background Music
-      </span>
-      <audio src={musicUrl} controls className="w-full h-8 rounded-lg" preload="metadata">
+      <span className="mb-1.5 block text-[13px] text-text-subtle">Background music</span>
+      <audio src={musicUrl} controls className="h-8 w-full" preload="metadata">
         <track kind="captions" />
       </audio>
     </div>
   );
 }
 
-function StatCard({
-  label,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="flex flex-col items-center rounded-[10px] border border-border bg-card px-3 py-3 sm:px-4 sm:py-3.5 gap-1">
-      <span className={`text-lg font-bold ${highlight ? "text-status-info" : "text-foreground"}`}>
-        {value}
-      </span>
-      <span className="text-[11px] text-text-subtle">{label}</span>
-    </div>
-  );
-}
-
-function StageDurationBar({
+/**
+ * Where the time went. One rail: the render carries the accent, every other
+ * stage sits in a neutral step of the same ramp.
+ */
+function StageDurationRail({
   stages,
   totalDuration,
 }: {
@@ -185,46 +192,41 @@ function StageDurationBar({
 }) {
   if (!stages || totalDuration <= 0) return null;
 
+  const rows = STAGE_ORDER.map((s) => ({ key: s, dur: stages[s]?.durationSec ?? 0 })).filter(
+    (r) => r.dur > 0,
+  );
+  if (!rows.length) return null;
+
+  const longest = rows.reduce((a, b) => (b.dur > a.dur ? b : a));
+
   return (
     <div>
-      <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[1.5px] text-muted-foreground">
-        STAGE TIMING
-      </span>
-      <div className="flex h-3 w-full overflow-hidden rounded-full bg-surface-inset">
-        {STAGE_ORDER.map((s) => {
-          const dur = stages[s]?.durationSec ?? 0;
-          if (dur <= 0) return null;
-          const pct = (dur / totalDuration) * 100;
-          return (
-            <div
-              key={s}
-              className="h-full transition-all duration-500"
-              style={{
-                width: `${pct}%`,
-                backgroundColor: STAGE_COLORS[s] ?? "#64748B",
-                minWidth: pct > 0 ? "2px" : 0,
-              }}
-              title={`${s}: ${dur.toFixed(1)}s`}
-            />
-          );
-        })}
+      <div className="mb-2 flex items-baseline justify-between">
+        <span className="text-[13px] text-text-subtle">Where the time went</span>
+        <span className="text-[11px] text-text-faint tabular">
+          {STAGE_LABELS[longest.key]} {longest.dur.toFixed(1)}s
+        </span>
       </div>
-      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
-        {STAGE_ORDER.map((s) => {
-          const dur = stages[s]?.durationSec ?? 0;
-          if (dur <= 0) return null;
-          return (
-            <div key={s} className="flex items-center gap-1">
-              <span
-                className="inline-block size-2 rounded-full"
-                style={{ backgroundColor: STAGE_COLORS[s] ?? "#64748B" }}
-              />
-              <span className="text-[10px] text-text-subtle">
-                {s} {dur.toFixed(1)}s
-              </span>
-            </div>
-          );
-        })}
+      <div className="flex h-2 w-full gap-0.5 overflow-hidden">
+        {rows.map((r, i) => (
+          <div
+            key={r.key}
+            className={
+              r.key === ACCENT_STAGE
+                ? "h-full bg-tally"
+                : NEUTRAL_STEPS[Math.min(i, NEUTRAL_STEPS.length - 1)]
+            }
+            style={{ width: `${(r.dur / totalDuration) * 100}%` }}
+            title={`${STAGE_LABELS[r.key]}: ${r.dur.toFixed(1)}s`}
+          />
+        ))}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-faint tabular">
+        {rows.map((r) => (
+          <span key={r.key} className={r.key === ACCENT_STAGE ? "text-tally" : undefined}>
+            {STAGE_LABELS[r.key]} {r.dur.toFixed(1)}s
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -235,42 +237,38 @@ function CostComparisonRow({ estimated, actual }: { estimated: number; actual: n
   const savedPct = estimated > 0 ? ((estimated - actual) / estimated) * 100 : 0;
 
   return (
-    <div className="rounded-[10px] border border-border bg-card p-3">
-      <span className="text-[10px] font-semibold uppercase tracking-[1.5px] text-muted-foreground">
-        COST: ESTIMATED vs ACTUAL
-      </span>
-      <div className="mt-2 flex flex-col gap-1.5">
-        <div className="flex items-center gap-2">
-          <span className="w-16 text-[10px] text-muted-foreground">Estimated</span>
-          <div className="flex-1 h-2 rounded-full bg-surface-inset overflow-hidden">
+    <div className="rounded-xl border border-border bg-card p-4">
+      <span className="text-[13px] text-text-subtle">Cost against the estimate</span>
+      <div className="mt-2.5 flex flex-col gap-2">
+        <div className="flex items-center gap-3">
+          <span className="w-16 text-[11px] text-text-faint">Estimated</span>
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-inset">
             <div
-              className="h-full rounded-full bg-muted-foreground"
+              className="h-full rounded-full bg-foreground/25"
               style={{ width: `${(estimated / maxCost) * 100}%` }}
             />
           </div>
-          <span className="w-12 text-right text-[11px] text-text-subtle">
+          <span className="w-14 text-right text-[11px] text-text-subtle tabular">
             ${estimated.toFixed(2)}
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="w-16 text-[10px] text-muted-foreground">Actual</span>
-          <div className="flex-1 h-2 rounded-full bg-surface-inset overflow-hidden">
+        <div className="flex items-center gap-3">
+          <span className="w-16 text-[11px] text-text-faint">Actual</span>
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-inset">
             <div
-              className="h-full rounded-full bg-status-info"
+              className="h-full rounded-full bg-tally"
               style={{ width: `${(actual / maxCost) * 100}%` }}
             />
           </div>
-          <span className="w-12 text-right text-[11px] font-semibold text-status-info">
+          <span className="w-14 text-right text-[11px] text-foreground tabular">
             ${actual.toFixed(2)}
           </span>
         </div>
         {Math.abs(savedPct) >= 1 && (
-          <span
-            className={`text-[10px] text-right ${savedPct > 0 ? "text-status-success" : "text-status-warning"}`}
-          >
+          <span className="text-right text-[11px] text-text-faint tabular">
             {savedPct > 0
-              ? `${savedPct.toFixed(0)}% under estimate`
-              : `${Math.abs(savedPct).toFixed(0)}% over estimate`}
+              ? `${savedPct.toFixed(0)}% under the estimate`
+              : `${Math.abs(savedPct).toFixed(0)}% over the estimate`}
           </span>
         )}
       </div>

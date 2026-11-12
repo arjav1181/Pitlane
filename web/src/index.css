@@ -8,6 +8,7 @@
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -43,68 +44,83 @@
     --color-surface-sunken: var(--surface-sunken);
     --color-text-subtle: var(--text-subtle);
     --color-text-faint: var(--text-faint);
+    --color-tally: var(--tally);
+    --color-tally-foreground: var(--tally-foreground);
     --color-status-info: var(--status-info);
     --color-status-success: var(--status-success);
     --color-status-warning: var(--status-warning);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
-    --shadow-glow-sm: 0 0 12px -3px;
-    --shadow-glow-md: 0 0 20px -4px;
-    --shadow-glow-lg: 0 0 32px -6px;
+    --radius-xl: calc(var(--radius) * 1.3);
+    --radius-2xl: calc(var(--radius) * 1.6);
+    --radius-3xl: calc(var(--radius) * 2);
 }
 
-/* Dark-only theme matching the OpenReels design */
+/*
+ * Pitlane — a night edit bay.
+ *
+ * One neutral ramp, cold-cast graphite, so the footage carries the colour.
+ * The only accent is the tally lamp: a warm amber that means "this is live".
+ * Everything else is a surface step, a hairline, or quiet text.
+ */
 :root {
-    --background: oklch(0.13 0.01 260);
-    --foreground: oklch(0.95 0 0);
-    --card: oklch(0.17 0.012 260);
-    --card-foreground: oklch(0.95 0 0);
-    --popover: oklch(0.17 0.012 260);
-    --popover-foreground: oklch(0.95 0 0);
-    --primary: oklch(0.55 0.2 265);
-    --primary-foreground: oklch(0.98 0 0);
-    --secondary: oklch(0.2 0.012 260);
-    --secondary-foreground: oklch(0.85 0 0);
-    --muted: oklch(0.2 0.012 260);
-    --muted-foreground: oklch(0.55 0 0);
-    --accent: oklch(0.22 0.015 260);
-    --accent-foreground: oklch(0.95 0 0);
-    --destructive: oklch(0.6 0.2 25);
-    --border: oklch(0.25 0.015 260);
-    --input: oklch(0.22 0.015 260);
-    --ring: oklch(0.55 0.2 265);
-    --chart-1: oklch(0.55 0.2 265);
-    --chart-2: oklch(0.65 0.18 150);
-    --chart-3: oklch(0.7 0.15 50);
-    --chart-4: oklch(0.6 0.2 25);
-    --chart-5: oklch(0.65 0.15 300);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.15 0.012 260);
-    --sidebar-foreground: oklch(0.55 0 0);
-    --sidebar-primary: oklch(0.55 0.2 265);
-    --sidebar-primary-foreground: oklch(0.95 0 0);
-    --sidebar-accent: oklch(0.22 0.02 265);
-    --sidebar-accent-foreground: oklch(0.85 0.1 265);
-    --sidebar-border: oklch(0.25 0.015 260);
-    --sidebar-ring: oklch(0.55 0.2 265);
+    /* Neutral ramp */
+    --background: oklch(0.145 0.008 255);
+    --foreground: oklch(0.96 0 0);
+    --card: oklch(0.183 0.009 255);
+    --card-foreground: oklch(0.96 0 0);
+    --popover: oklch(0.183 0.009 255);
+    --popover-foreground: oklch(0.96 0 0);
+    --secondary: oklch(0.213 0.010 255);
+    --secondary-foreground: oklch(0.90 0 0);
+    --muted: oklch(0.213 0.010 255);
+    --muted-foreground: oklch(0.62 0.010 252);
+    --accent: oklch(0.213 0.010 255);
+    --accent-foreground: oklch(0.96 0 0);
+    --destructive: oklch(0.66 0.17 26);
+    --border: oklch(0.255 0.010 255);
+    --input: oklch(0.225 0.010 255);
+    --ring: oklch(0.55 0.13 75);
+
+    /* One accent: the tally lamp */
+    --tally: oklch(0.80 0.145 76);
+    --tally-foreground: oklch(0.20 0.03 76);
+
+    /* Primary is off-white with dark text — the accent stays small */
+    --primary: oklch(0.95 0 0);
+    --primary-foreground: oklch(0.16 0.008 255);
+
+    /* Charts: neutral steps, the accent only on the one thing that leads */
+    --chart-1: oklch(0.80 0.145 76);
+    --chart-2: oklch(0.52 0.012 255);
+    --chart-3: oklch(0.44 0.012 255);
+    --chart-4: oklch(0.36 0.012 255);
+    --chart-5: oklch(0.29 0.010 255);
+
+    --radius: 0.75rem;
+
+    --sidebar: oklch(0.163 0.009 255);
+    --sidebar-foreground: oklch(0.72 0.010 252);
+    --sidebar-primary: oklch(0.95 0 0);
+    --sidebar-primary-foreground: oklch(0.16 0.008 255);
+    --sidebar-accent: oklch(0.225 0.010 255);
+    --sidebar-accent-foreground: oklch(0.96 0 0);
+    --sidebar-border: oklch(0.235 0.010 255);
+    --sidebar-ring: oklch(0.55 0.13 75);
 
     /* Semantic surfaces */
-    --surface-inset: oklch(0.14 0.012 260);
-    --surface-sunken: oklch(0.1 0.012 260);
+    --surface-inset: oklch(0.163 0.009 255);
+    --surface-sunken: oklch(0.115 0.008 255);
 
     /* Semantic text */
-    --text-subtle: oklch(0.68 0.015 255);
-    --text-faint: oklch(0.42 0.015 255);
+    --text-subtle: oklch(0.74 0.010 250);
+    --text-faint: oklch(0.46 0.010 252);
 
-    /* Status colors */
-    --status-info: oklch(0.79 0.14 195);
-    --status-success: oklch(0.72 0.19 155);
-    --status-warning: oklch(0.79 0.16 80);
+    /* Status colours, toned to sit inside the palette */
+    --status-info: oklch(0.74 0.09 225);
+    --status-success: oklch(0.72 0.13 158);
+    --status-warning: oklch(0.78 0.12 82);
 }
 
 @layer base {
@@ -116,5 +132,9 @@
   }
   html {
     @apply font-sans;
+  }
+  /* Figures line up in columns and read as one set of numbers. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 }

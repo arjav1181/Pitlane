@@ -1,4 +1,4 @@
-import { BarChart3, CheckCircle, DollarSign, Film, KeyRound, Trash2, XCircle } from "lucide-react";
+import { KeyRound, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,45 +59,23 @@ export function SettingsPage() {
   const avgCost = stats && stats.completedJobs > 0 ? stats.totalCost / stats.completedJobs : null;
 
   return (
-    <div className="py-8 px-4 sm:px-10">
-      <h1 className="mb-8 text-2xl font-semibold tracking-tight">Settings</h1>
+    <div className="px-6 py-8 lg:px-10">
+      <h1 className="mb-8 text-[19px] font-medium tracking-tight">Settings</h1>
 
-      <div className="max-w-[560px] flex flex-col gap-8">
+      <div className="flex max-w-[720px] flex-col gap-10">
         {/* Usage Statistics */}
         {stats && stats.totalJobs > 0 && (
           <section>
-            <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
-              <BarChart3 className="size-4 text-muted-foreground" />
-              Usage Statistics
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatBox
-                icon={<Film className="size-4" />}
-                label="Total Videos"
-                value={String(stats.totalJobs)}
-              />
-              <StatBox
-                icon={<CheckCircle className="size-4 text-status-success" />}
-                label="Completed"
-                value={String(stats.completedJobs)}
-                color="text-status-success"
-              />
-              <StatBox
-                icon={<XCircle className="size-4 text-destructive" />}
-                label="Failed"
-                value={String(stats.failedJobs)}
-                color="text-destructive"
-              />
-              <StatBox
-                icon={<DollarSign className="size-4 text-status-info" />}
-                label="Total Spend"
-                value={`$${stats.totalCost.toFixed(2)}`}
-                color="text-status-info"
-              />
+            <h2 className="mb-3 text-[15px] font-medium text-foreground">Usage</h2>
+            <div className="flex divide-x divide-border rounded-xl border border-border bg-card">
+              <Figure label="Rendered" value={String(stats.completedJobs)} />
+              <Figure label="Failed" value={String(stats.failedJobs)} />
+              <Figure label="Total" value={String(stats.totalJobs)} />
+              <Figure label="Spend" value={`$${stats.totalCost.toFixed(2)}`} />
             </div>
             {avgCost != null && (
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Average cost per video: ${avgCost.toFixed(2)}
+              <p className="mt-2 text-[11px] text-text-faint tabular">
+                ${avgCost.toFixed(2)} per rendered short
               </p>
             )}
           </section>
@@ -105,8 +83,8 @@ export function SettingsPage() {
 
         {/* System Status */}
         <section>
-          <h2 className="mb-4 text-sm font-semibold text-foreground">System Status</h2>
-          <div className="overflow-hidden rounded-[12px] border border-border bg-card">
+          <h2 className="mb-3 text-[15px] font-medium text-foreground">System</h2>
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="flex items-center justify-between px-5 py-3.5">
               <span className="text-[13px] text-text-subtle">API Server</span>
               <StatusDot
@@ -137,7 +115,7 @@ export function SettingsPage() {
             <div className="border-t border-border" />
             <div className="flex items-center justify-between px-5 py-3.5">
               <span className="text-[13px] text-text-subtle">Version</span>
-              <code className="font-mono text-[12px] text-muted-foreground">
+              <code className="font-mono text-[12px] text-text-subtle">
                 {health?.version ?? "—"}
               </code>
             </div>
@@ -156,17 +134,17 @@ export function SettingsPage() {
         {/* Server access (OPENREELS_API_KEY) */}
         <section>
           <h2 className="mb-1 text-sm font-semibold text-foreground">Server Access</h2>
-          <p className="mb-4 text-[13px] text-muted-foreground">
+          <p className="mb-4 text-[13px] text-text-subtle">
             If the server was started with{" "}
             <code className="font-mono text-[12px]">OPENREELS_API_KEY</code>, enter it here. It is
             stored in this browser&apos;s{" "}
             <code className="font-mono text-[12px]">localStorage</code> and sent with every API
             request.
           </p>
-          <div className="rounded-[12px] border border-border bg-card p-4">
+          <div className="rounded-xl border border-border bg-card p-4">
             <label
               htmlFor="server-api-key"
-              className="mb-1.5 block text-xs font-medium text-muted-foreground"
+              className="mb-1.5 block text-xs font-medium text-text-subtle"
             >
               API key
             </label>
@@ -221,10 +199,10 @@ export function SettingsPage() {
         {/* API Keys */}
         <section>
           <h2 className="mb-1 text-sm font-semibold text-foreground">API Keys</h2>
-          <p className="mb-4 text-[13px] text-muted-foreground">
+          <p className="mb-4 text-[13px] text-text-subtle">
             API keys are configured server-side via environment variables.
           </p>
-          <div className="overflow-hidden rounded-[12px] border border-border bg-card">
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
             {API_KEY_FIELDS.map((field, i) => {
               const isSet = health?.keys?.[field.key] ?? null;
               return (
@@ -239,11 +217,9 @@ export function SettingsPage() {
                       <StatusDot
                         ok={isSet}
                         label={isSet ? "Set" : "Not set"}
-                        colorOk="text-emerald-400"
-                        colorBad="text-amber-400"
                       />
                     ) : (
-                      <span className="text-xs text-muted-foreground">--</span>
+                      <span className="text-xs text-text-subtle">--</span>
                     )}
                   </div>
                 </div>
@@ -279,22 +255,22 @@ function SavedCredentialsSection({
   return (
     <section>
       <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
-        <KeyRound className="size-4 text-muted-foreground" />
+        <KeyRound className="size-4 text-text-faint" strokeWidth={1.75} />
         Saved Credentials
       </h2>
-      <p className="mb-4 text-[13px] text-muted-foreground">
+      <p className="mb-4 text-[13px] text-text-subtle">
         Credentials remembered by this browser. They are stored in{" "}
         <code className="font-mono text-[12px]">localStorage</code> and are only sent to the API
         when you start a job.
       </p>
       {saved ? (
-        <div className="overflow-hidden rounded-[12px] border border-border bg-card">
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
           {rows.map((row, i) => (
             <div key={row.label}>
               {i > 0 && <div className="border-t border-border" />}
               <div className="flex items-center justify-between gap-4 px-5 py-3.5">
                 <span className="text-[13px] text-text-subtle">{row.label}</span>
-                <code className="truncate font-mono text-[12px] text-muted-foreground">
+                <code className="truncate font-mono text-[12px] text-text-subtle">
                   {row.value}
                 </code>
               </div>
@@ -303,16 +279,16 @@ function SavedCredentialsSection({
           <div className="border-t border-border">
             <div className="flex items-center justify-between gap-4 px-5 py-3.5">
               <span className="text-[13px] text-text-subtle">API key</span>
-              <code className="truncate font-mono text-[12px] text-muted-foreground">
+              <code className="truncate font-mono text-[12px] text-text-subtle">
                 {saved.llmApiKey ? maskSecret(saved.llmApiKey) : "Not saved"}
               </code>
             </div>
           </div>
         </div>
       ) : (
-        <div className="rounded-[12px] border border-border bg-card px-5 py-4 text-[13px] text-muted-foreground">
-          No credentials saved. Turn on &quot;Remember credentials&quot; in the Advanced panel of
-          the home page to save them.
+        <div className="rounded-xl border border-border bg-card px-5 py-4 text-[13px] text-text-subtle">
+          Nothing saved yet. Turn on Remember credentials in the advanced panel of the new short
+          page to keep your keys in this browser.
         </div>
       )}
       {saved && (
@@ -325,43 +301,23 @@ function SavedCredentialsSection({
   );
 }
 
-function StatusDot({
-  ok,
-  label,
-  colorOk = "text-emerald-400",
-  colorBad = "text-destructive",
-}: {
-  ok: boolean;
-  label: string;
-  colorOk?: string;
-  colorBad?: string;
-}) {
+function StatusDot({ ok, label }: { ok: boolean; label: string }) {
   return (
-    <span className={cn("flex items-center gap-2 text-sm font-medium", ok ? colorOk : colorBad)}>
+    <span className="flex items-center gap-2 text-[13px] text-text-subtle">
       <span
-        className={cn("inline-block size-2 rounded-full", ok ? "bg-emerald-400" : "bg-current")}
+        className={cn("inline-block size-1.5 rounded-full", ok ? "bg-status-success" : "bg-destructive")}
       />
       {label}
     </span>
   );
 }
 
-function StatBox({
-  icon,
-  label,
-  value,
-  color,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  color?: string;
-}) {
+/** A label and a number. Nothing else. */
+function Figure({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col items-center gap-1 rounded-[10px] border border-border bg-card py-3 px-2">
-      <div className="text-muted-foreground">{icon}</div>
-      <span className={cn("text-lg font-bold", color ?? "text-foreground")}>{value}</span>
-      <span className="text-[10px] text-muted-foreground">{label}</span>
+    <div className="flex flex-1 flex-col gap-0.5 px-4 py-3">
+      <span className="text-[11px] text-text-faint">{label}</span>
+      <span className="text-[15px] font-medium text-foreground tabular">{value}</span>
     </div>
   );
 }

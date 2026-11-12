@@ -1,3 +1,4 @@
+import { Check, LoaderCircle, Minus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
@@ -20,110 +21,42 @@ export interface StageCardProps {
 
 export const STAGE_LABELS: Record<string, string> = {
   research: "Research",
-  director: "Creative Director",
-  tts: "Voice Synthesis",
-  visuals: "Visual Assets",
-  assembly: "Assembly & Render",
-  critic: "Quality Review",
+  director: "Script",
+  tts: "Voice",
+  visuals: "Visuals",
+  assembly: "Render",
+  critic: "Review",
 };
 
 const STAGE_RUNNING_TEXT: Record<string, string> = {
-  research: "Researching topic...",
-  director: "Writing script...",
-  tts: "Synthesizing voiceover...",
-  visuals: "Generating visuals...",
-  assembly: "Rendering video...",
-  critic: "Reviewing quality...",
+  research: "Researching the topic",
+  director: "Writing the script",
+  tts: "Synthesizing the voiceover",
+  visuals: "Gathering footage",
+  assembly: "Rendering the short",
+  critic: "Reviewing the cut",
 };
 
 /* ------------------------------------------------------------------ */
 /*  Indicator                                                          */
 /* ------------------------------------------------------------------ */
 
-const statusIndicatorClasses: Record<TimelineStatus, string> = {
-  done: "border-emerald-500 bg-emerald-500/10 text-emerald-400",
-  running: "border-primary bg-primary/10 text-primary",
-  error: "border-destructive bg-destructive/10 text-destructive",
-  skipped: "border-muted-foreground/30 bg-muted text-muted-foreground/50",
-  pending: "border-muted-foreground/20 bg-muted text-muted-foreground/30",
-};
-
+/** One icon set, one size. Only the live stage carries the accent. */
 function IndicatorIcon({ status }: { status: TimelineStatus }) {
+  const cls = "size-3.5";
   switch (status) {
     case "done":
-      return (
-        <svg
-          className="size-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-      );
+      return <Check className={cls} strokeWidth={2.25} />;
     case "running":
-      return (
-        <svg
-          className="size-4 animate-spin will-change-transform"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-        </svg>
-      );
+      return <LoaderCircle className={cn(cls, "animate-spin")} strokeWidth={2} />;
     case "error":
-      return (
-        <svg
-          className="size-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
-      );
+      return <X className={cls} strokeWidth={2.25} />;
     case "skipped":
-      return (
-        <svg
-          className="size-3.5"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polygon points="5 4 15 12 5 20 5 4" />
-          <line x1="19" y1="5" x2="19" y2="19" />
-        </svg>
-      );
+      return <Minus className={cls} strokeWidth={2.25} />;
     default:
-      return <div className="size-2 rounded-full bg-current" />;
+      return null;
   }
 }
-
-/* ------------------------------------------------------------------ */
-/*  Connector line colors                                              */
-/* ------------------------------------------------------------------ */
-
-const statusLineClasses: Record<TimelineStatus, string> = {
-  done: "bg-emerald-500/30",
-  running: "bg-primary/20",
-  error: "bg-destructive/30",
-  skipped: "bg-muted-foreground/10",
-  pending: "bg-muted-foreground/10",
-};
 
 /* ------------------------------------------------------------------ */
 /*  StageCard                                                          */
@@ -152,46 +85,55 @@ export function StageCard({
 
   const statusText =
     status === "done" && durationSec != null
-      ? `Completed · ${durationSec.toFixed(1)}s`
+      ? `${durationSec.toFixed(1)}s`
       : status === "done"
-        ? "Completed"
+        ? "Done"
         : status === "running"
-          ? subStatus || detail || STAGE_RUNNING_TEXT[name] || "Processing..."
+          ? subStatus || detail || STAGE_RUNNING_TEXT[name] || "Working"
           : status === "error"
             ? "Failed"
             : status === "skipped"
               ? "Skipped"
-              : "Pending";
+              : "Waiting";
 
-  const isActive = status === "running" || status === "done" || status === "error";
+  const isLive = status === "running";
 
   return (
-    <li
-      className={cn(
-        "relative grid grid-cols-[32px_1fr] gap-x-3",
-        !isLast && "pb-6",
-      )}
-    >
+    <li className={cn("relative grid grid-cols-[28px_1fr] gap-x-3", !isLast && "pb-6")}>
       {/* Col 1: Indicator and Timeline lines */}
       <div className="relative flex flex-col items-center justify-center">
         {/* Top line: from top of the grid cell down to the circle */}
         {!isFirst && prevStatus && (
           <div
-            className={cn("absolute top-0 bottom-[calc(50%+16px)] w-0.5 transition-colors will-change-[background-color]", statusLineClasses[prevStatus])}
+            className={cn(
+              "absolute top-0 bottom-[calc(50%+14px)] w-px transition-colors will-change-[background-color]",
+              prevStatus === "done" ? "bg-border" : "bg-border/50",
+            )}
           />
         )}
 
         {/* Bottom line: from the bottom of the circle, through the padding gap, to the top of the next grid cell */}
         {!isLast && (
           <div
-            className={cn("absolute top-[calc(50%+16px)] -bottom-6 z-[1] w-0.5 transition-colors will-change-[background-color]", statusLineClasses[status])}
+            className={cn(
+              "absolute top-[calc(50%+14px)] -bottom-6 z-[1] w-px transition-colors will-change-[background-color]",
+              status === "done" ? "bg-border" : "bg-border/50",
+            )}
           />
         )}
 
         <div
           className={cn(
-            "relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-            statusIndicatorClasses[status],
+            "relative z-10 flex size-7 shrink-0 items-center justify-center rounded-full border transition-colors",
+            isLive
+              ? "border-tally/60 bg-tally/10 text-tally"
+              : status === "error"
+                ? "border-destructive/40 bg-destructive/10 text-destructive"
+                : status === "done"
+                  ? "border-border bg-card text-text-subtle"
+                  : status === "skipped"
+                    ? "border-border/60 bg-transparent text-text-faint"
+                    : "border-border/60 bg-transparent text-text-faint",
           )}
         >
           <IndicatorIcon status={status} />
@@ -199,19 +141,13 @@ export function StageCard({
       </div>
 
       {/* Col 2: Card content */}
-      <div
-        className={cn(
-          "rounded-lg px-3.5 py-2.5 transition-all min-w-0",
-          status === "running" && "bg-card ring-1 ring-primary/25",
-          status === "error" && "bg-card ring-1 ring-destructive/25",
-          status === "done" && "bg-card/70",
-          (status === "pending" || status === "skipped") && "opacity-50",
-        )}
-      >
+      <div className={cn("min-w-0 rounded-lg px-3 py-2", isLive && "bg-card")}>
         <span
           className={cn(
-            "block text-[13px] font-medium leading-tight",
-            !isActive && "text-muted-foreground",
+            "block text-[13px] leading-tight",
+            status === "done" || status === "running" || status === "error"
+              ? "font-medium text-foreground"
+              : "text-text-faint",
           )}
         >
           {label}
@@ -219,10 +155,7 @@ export function StageCard({
         <span
           className={cn(
             "mt-0.5 block text-xs leading-tight",
-            status === "done" && "text-emerald-400/80",
-            status === "running" && "text-primary/80",
-            status === "error" && "text-destructive/80",
-            (status === "pending" || status === "skipped") && "text-muted-foreground/70",
+            isLive ? "text-tally" : status === "error" ? "text-destructive" : "text-text-faint",
           )}
         >
           {statusText}

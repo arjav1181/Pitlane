@@ -45,11 +45,11 @@ export function GalleryToolbar({
     <div className="flex flex-wrap items-center gap-2.5">
       {/* Search */}
       <div className="relative flex-1 min-w-[180px]">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-faint" strokeWidth={1.75} />
         <Input
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search topics..."
+          placeholder="Search"
           className="h-9 rounded-lg border-border bg-surface-inset pl-9 text-sm text-foreground placeholder:text-text-faint"
         />
       </div>
@@ -57,10 +57,10 @@ export function GalleryToolbar({
       {/* Archetype filter */}
       <Select value={archetypeFilter} onValueChange={(v) => v && onArchetypeChange(v)}>
         <SelectTrigger className="h-9 w-auto min-w-[120px] rounded-lg border-border bg-surface-inset text-xs">
-          <SelectValue placeholder="All Styles" />
+          <SelectValue placeholder="All styles" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Styles</SelectItem>
+          <SelectItem value="all">All styles</SelectItem>
           {archetypes.map((a) => (
             <SelectItem key={a.name} value={a.name}>
               {formatArchetypeName(a.name)}
@@ -78,10 +78,10 @@ export function GalleryToolbar({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Status</SelectItem>
+          <SelectItem value="all">All statuses</SelectItem>
           <SelectItem value="completed">Completed</SelectItem>
           <SelectItem value="failed">Failed</SelectItem>
-          <SelectItem value="running">Running</SelectItem>
+          <SelectItem value="running">Live</SelectItem>
         </SelectContent>
       </Select>
 
@@ -91,10 +91,10 @@ export function GalleryToolbar({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="newest">Newest</SelectItem>
-          <SelectItem value="oldest">Oldest</SelectItem>
-          <SelectItem value="cost">Highest Cost</SelectItem>
-          <SelectItem value="score">Highest Score</SelectItem>
+          <SelectItem value="newest">Newest first</SelectItem>
+          <SelectItem value="oldest">Oldest first</SelectItem>
+          <SelectItem value="cost">Highest cost</SelectItem>
+          <SelectItem value="score">Highest score</SelectItem>
         </SelectContent>
       </Select>
 
@@ -105,20 +105,20 @@ export function GalleryToolbar({
           onClick={() => onViewModeChange("grid")}
           className={cn(
             "flex items-center justify-center size-9 transition-colors",
-            viewMode === "grid" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
+            viewMode === "grid" ? "bg-surface-inset text-foreground" : "text-text-faint hover:text-foreground",
           )}
         >
-          <LayoutGrid className="size-3.5" />
+          <LayoutGrid className="size-4" strokeWidth={1.75} />
         </button>
         <button
           type="button"
           onClick={() => onViewModeChange("list")}
           className={cn(
             "flex items-center justify-center size-9 border-l border-border transition-colors",
-            viewMode === "list" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
+            viewMode === "list" ? "bg-surface-inset text-foreground" : "text-text-faint hover:text-foreground",
           )}
         >
-          <List className="size-3.5" />
+          <List className="size-4" strokeWidth={1.75} />
         </button>
       </div>
     </div>

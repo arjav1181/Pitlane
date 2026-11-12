@@ -1,13 +1,20 @@
 import { cn, formatArchetypeName } from "@/lib/utils";
-import { Check, Sparkles } from "lucide-react";
+import { Check } from "lucide-react";
 import type { Archetype } from "@/hooks/useApi";
 
 interface ArchetypeCardProps {
-  archetype: Archetype | null; // null = "Auto Style"
+  archetype: Archetype | null; // null = "Auto"
   selected: boolean;
   onClick: () => void;
 }
 
+const SWATCH_WIDTHS = ["flex-[3]", "flex-[2]", "flex-[1]"] as const;
+
+/**
+ * One visual style. The palette strip is the style's own colours — the colour
+ * the video will actually be rendered in — so it belongs here, once, instead
+ * of a gradient panel behind the label and loose dots on top of it.
+ */
 export function ArchetypeCard({ archetype, selected, onClick }: ArchetypeCardProps) {
   const isAuto = archetype === null;
   const palette = archetype?.colorPalette;
@@ -19,80 +26,45 @@ export function ArchetypeCard({ archetype, selected, onClick }: ArchetypeCardPro
       type="button"
       onClick={onClick}
       className={cn(
-        "relative flex shrink-0 flex-col items-center justify-center rounded-xl border-2 px-3 py-4 transition-all snap-start",
-        "w-[140px] h-[160px]",
+        "group relative flex w-[168px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border text-left transition-colors",
         selected
-          ? "border-primary shadow-[0_0_16px_-2px] shadow-primary/30"
-          : "border-border hover:border-muted-foreground/50",
+          ? "border-tally/70 bg-surface-inset"
+          : "border-border bg-card hover:border-text-faint",
       )}
-      style={
-        isAuto
-          ? undefined
-          : palette
-            ? {
-                background: `linear-gradient(135deg, ${palette.background} 0%, ${palette.accent}30 100%)`,
-              }
-            : undefined
-      }
     >
-      {/* Selection check */}
       {selected && (
-        <div className="absolute top-2 right-2 flex size-5 items-center justify-center rounded-full bg-primary">
-          <Check className="size-3 text-primary-foreground" />
-        </div>
+        <span className="absolute top-2 right-2 flex size-4 items-center justify-center rounded-full bg-tally">
+          <Check className="size-2.5 text-tally-foreground" strokeWidth={3} />
+        </span>
       )}
 
-      {/* Auto style shimmer */}
-      {isAuto ? (
-        <>
-          <div className="mb-3 flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary via-status-info to-primary/70">
-            <Sparkles className="size-5 text-white" />
-          </div>
-          <span className="text-sm font-semibold text-foreground">Auto Style</span>
-          <span className="mt-1 text-[10px] text-text-subtle">AI picks the best</span>
-        </>
+      {palette ? (
+        <span className="flex h-1.5 w-full shrink-0" aria-hidden="true">
+          {[palette.background, palette.accent, palette.text].map((colour, i) => (
+            <span
+              key={i}
+              className={cn("h-full", SWATCH_WIDTHS[i])}
+              style={{ backgroundColor: colour }}
+            />
+          ))}
+        </span>
       ) : (
-        <>
-          {/* Color swatches */}
-          <div className="mb-3 flex gap-1.5">
-            {palette && (
-              <>
-                <span
-                  className="size-4 rounded-full border border-white/10"
-                  style={{ backgroundColor: palette.background }}
-                />
-                <span
-                  className="size-4 rounded-full border border-white/10"
-                  style={{ backgroundColor: palette.accent }}
-                />
-                <span
-                  className="size-4 rounded-full border border-white/10"
-                  style={{ backgroundColor: palette.text }}
-                />
-              </>
-            )}
-          </div>
-
-          {/* Name */}
-          <span className="text-center text-xs font-semibold text-foreground leading-tight">
-            {formatArchetypeName(archetype.name)}
-          </span>
-
-          {/* Mood */}
-          {mood && (
-            <span className="mt-1 text-center text-[10px] text-text-subtle leading-tight line-clamp-1">
-              {mood}
-            </span>
-          )}
-
-          {/* Pacing badge */}
-          {pacing && (
-            <span className="mt-2 rounded-full bg-surface-inset px-2 py-0.5 text-[9px] font-medium text-muted-foreground">
-              {pacing}
-            </span>
-          )}
-        </>
+        <span className="h-1.5 w-full shrink-0 bg-surface-sunken" aria-hidden="true" />
       )}
+
+      <span className="flex flex-col gap-0.5 px-3 py-2.5">
+        <span
+          className={cn(
+            "truncate text-[13px] font-medium leading-tight",
+            selected ? "text-foreground" : "text-text-subtle group-hover:text-foreground",
+          )}
+        >
+          {isAuto ? "Auto" : formatArchetypeName(archetype!.name)}
+        </span>
+        <span className="truncate text-[11px] leading-tight text-text-faint">
+          {isAuto ? "Director chooses" : [mood, pacing].filter(Boolean).join(" · ")}
+        </span>
+      </span>
     </button>
   );
 }

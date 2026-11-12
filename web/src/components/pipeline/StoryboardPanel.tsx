@@ -4,12 +4,13 @@ import { getSceneAssetUrl, type SceneFallbacks } from "@/lib/scene-assets";
 import { cn } from "@/lib/utils";
 import { ImageOff, Pause, Play, Move, ArrowRight, Type } from "lucide-react";
 
+/** One quiet label per visual type. The frame itself shows the type. */
 const VISUAL_TYPE_BADGE: Record<string, { label: string; color: string }> = {
-  ai_image: { label: "AI", color: "bg-indigo-500/20 text-indigo-400" },
-  ai_video: { label: "AV", color: "bg-purple-500/20 text-purple-400" },
-  stock_image: { label: "ST", color: "bg-cyan-500/20 text-cyan-400" },
-  stock_video: { label: "SV", color: "bg-emerald-500/20 text-emerald-400" },
-  text_card: { label: "TX", color: "bg-amber-500/20 text-amber-400" },
+  ai_image: { label: "AI image", color: "text-text-faint" },
+  ai_video: { label: "AI video", color: "text-text-faint" },
+  stock_image: { label: "Stock photo", color: "text-text-faint" },
+  stock_video: { label: "Stock footage", color: "text-text-faint" },
+  text_card: { label: "Text card", color: "text-text-faint" },
 };
 
 const MOTION_ICON: Record<string, string> = {
@@ -40,24 +41,21 @@ export function StoryboardPanel({
   const failedScenes = new Set(assetFailures.map((f) => f.scene));
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+    <div className="rounded-xl border border-border bg-card p-5">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-[1.5px] text-muted-foreground">
-          DIRECTOR'S SCORE
-        </span>
-        <span className="text-xs font-medium text-status-success">
-          {score.scenes.length} scenes planned
+        <span className="text-[13px] text-text-subtle">The script</span>
+        <span className="text-[13px] text-text-faint tabular">
+          {score.scenes.length} scenes
         </span>
       </div>
 
-      {/* Emotional arc + music mood badges */}
-      <div className="mb-4 flex flex-wrap gap-1.5">
-        <span className="rounded-[5px] border border-primary/20 bg-primary/8 px-2 py-0.5 text-xs font-medium text-primary/80">
-          {score.emotional_arc}
+      {/* Emotional arc + music mood */}
+      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-text-subtle">
+        <span>{score.emotional_arc}</span>
+        <span aria-hidden="true" className="text-text-faint">
+          ·
         </span>
-        <span className="rounded-[5px] border border-primary/20 bg-primary/8 px-2 py-0.5 text-xs font-medium text-primary/80">
-          {score.music_mood}
-        </span>
+        <span>{score.music_mood.replace(/_/g, " ")}</span>
       </div>
 
       {/* Scene grid */}
@@ -67,8 +65,8 @@ export function StoryboardPanel({
           const badge = fallback
             ? VISUAL_TYPE_BADGE["ai_image"]!
             : VISUAL_TYPE_BADGE[scene.visual_type] ?? {
-                label: "??",
-                color: "bg-gray-500/20 text-gray-400",
+                label: "Frame",
+                color: "text-text-faint",
               };
           const isTextCard = scene.visual_type === "text_card";
           const thumbnailUrl =
@@ -249,15 +247,9 @@ function StoryboardScene({
         </div>
 
         {/* Type badge overlay */}
-        <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5">
-          {fallback && (
-            <span className="rounded bg-amber-500/20 px-1 py-0.5 text-[8px] font-bold text-amber-400">
-              FB
-            </span>
-          )}
-          <span className={cn("rounded px-1 py-0.5 text-[9px] font-bold", badge.color)}>
-            {badge.label}
-          </span>
+        <div className="absolute right-2 bottom-2 flex items-center gap-1.5 rounded-md bg-background/75 px-1.5 py-0.5">
+          {fallback && <span className="text-[10px] text-status-warning">AI fallback</span>}
+          <span className={cn("text-[10px]", badge.color)}>{badge.label}</span>
         </div>
 
         {/* Warning overlay for failed assets */}
