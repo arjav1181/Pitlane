@@ -43,8 +43,14 @@ describe("music manifest integrity", () => {
 
   it("all mood values in manifest are valid MusicMood enum values", () => {
     const validMoods = [
-      "epic_cinematic", "tense_electronic", "chill_lofi", "uplifting_pop",
-      "mysterious_ambient", "warm_acoustic", "dark_cinematic", "dreamy_ethereal",
+      "epic_cinematic",
+      "tense_electronic",
+      "chill_lofi",
+      "uplifting_pop",
+      "mysterious_ambient",
+      "warm_acoustic",
+      "dark_cinematic",
+      "dreamy_ethereal",
     ];
     const raw = fs.readFileSync(MANIFEST_PATH, "utf-8");
     const manifest = JSON.parse(raw);

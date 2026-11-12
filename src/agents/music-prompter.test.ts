@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { generateMusicPrompt, type MusicPromptInput } from "./music-prompter.js";
 import type { LLMProvider, LLMResult } from "../schema/providers.js";
+import { generateMusicPrompt, type MusicPromptInput } from "./music-prompter.js";
 
 function createMockLLM(response: { music_prompt: string }): LLMProvider {
   return {

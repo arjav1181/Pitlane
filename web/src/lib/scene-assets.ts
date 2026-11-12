@@ -1,4 +1,5 @@
 import type { DirectorScoreScene } from "@/hooks/useApi";
+import { withApiKey } from "@/lib/apiKey";
 
 /** Tracks scenes where stock/video assets fell back to AI generation. */
 export type SceneFallbacks = Record<number, "ai_image" | "ai_video_to_image">;
@@ -22,23 +23,19 @@ export function getSceneAssetUrl(
   const fb = fallbacks?.[index];
 
   // Stock scenes that fell back to AI image
-  if (fb === "ai_image") {
-    return `${base}/scene-${index}-ai.png`;
-  }
-  // AI video scenes that fell back to the Phase 1 image
-  if (fb === "ai_video_to_image") {
-    return `${base}/scene-${index}-ai.png`;
+  if (fb === "ai_image" || fb === "ai_video_to_image") {
+    return withApiKey(`${base}/scene-${index}-ai.png`);
   }
 
   switch (scene.visual_type) {
     case "ai_image":
-      return `${base}/scene-${index}-ai.png`;
+      return withApiKey(`${base}/scene-${index}-ai.png`);
     case "ai_video":
-      return `${base}/scene-${index}-ai-video.mp4`;
+      return withApiKey(`${base}/scene-${index}-ai-video.mp4`);
     case "stock_image":
-      return `${base}/scene-${index}-stock.jpg`;
+      return withApiKey(`${base}/scene-${index}-stock.jpg`);
     case "stock_video":
-      return `${base}/scene-${index}-stock.mp4`;
+      return withApiKey(`${base}/scene-${index}-stock.mp4`);
     case "text_card":
       return null;
   }

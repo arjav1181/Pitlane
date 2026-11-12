@@ -2,8 +2,8 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { generateText, Output } from "ai";
 import type { LanguageModel } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 import type { LLMUsage } from "../../schema/providers.js";
 
@@ -30,6 +30,13 @@ Be strict:
 
 Judge the SEMANTIC match between what was requested and what the image actually shows. Ignore aesthetic quality.
 
+Also reject images that are technically on-topic but unusable as a video frame:
+- Mostly empty sky, haze or blown-out white (the subject is barely visible)
+- Heavily blurred, low-contrast or underexposed - no readable subject
+- A frame that is almost entirely one flat colour
+
+If the subject occupies only a small sliver of the frame or cannot be made out at all, answer relevant: false.
+
 Output your confidence as a number between 0 and 1:
 - 0.0-0.3: Clearly wrong (different subject entirely)
 - 0.3-0.6: Loosely related but not what was requested
@@ -45,19 +52,25 @@ function extractVideoFrame(videoPath: string): Buffer {
   try {
     // Try 1-second mark first, fall back to 0s for very short clips
     try {
-      execFileSync("ffmpeg", [
-        "-i", videoPath, "-ss", "1", "-frames:v", "1",
-        "-update", "1", "-y", tmpFile,
-      ], { stdio: "pipe", timeout: 15_000 });
+      execFileSync(
+        "ffmpeg",
+        ["-i", videoPath, "-ss", "1", "-frames:v", "1", "-update", "1", "-y", tmpFile],
+        { stdio: "pipe", timeout: 15_000 },
+      );
     } catch {
-      execFileSync("ffmpeg", [
-        "-i", videoPath, "-ss", "0", "-frames:v", "1",
-        "-update", "1", "-y", tmpFile,
-      ], { stdio: "pipe", timeout: 15_000 });
+      execFileSync(
+        "ffmpeg",
+        ["-i", videoPath, "-ss", "0", "-frames:v", "1", "-update", "1", "-y", tmpFile],
+        { stdio: "pipe", timeout: 15_000 },
+      );
     }
     return fs.readFileSync(tmpFile);
   } finally {
-    try { fs.unlinkSync(tmpFile); } catch { /* ignore cleanup error */ }
+    try {
+      fs.unlinkSync(tmpFile);
+    } catch {
+      /* ignore cleanup error */
+    }
   }
 }
 

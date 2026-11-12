@@ -8,9 +8,27 @@ const baseScore: DirectorScore = {
   archetype: "infographic",
   music_mood: "epic_cinematic",
   scenes: [
-    { visual_type: "text_card", visual_prompt: "Title", motion: "static", script_line: "Hook.", transition: null },
-    { visual_type: "ai_image", visual_prompt: "Img", motion: "zoom_in", script_line: "Body.", transition: null },
-    { visual_type: "stock_video", visual_prompt: "Vid", motion: "static", script_line: "End.", transition: null },
+    {
+      visual_type: "text_card",
+      visual_prompt: "Title",
+      motion: "static",
+      script_line: "Hook.",
+      transition: null,
+    },
+    {
+      visual_type: "ai_image",
+      visual_prompt: "Img",
+      motion: "zoom_in",
+      script_line: "Body.",
+      transition: null,
+    },
+    {
+      visual_type: "stock_video",
+      visual_prompt: "Vid",
+      motion: "static",
+      script_line: "End.",
+      transition: null,
+    },
   ],
 };
 

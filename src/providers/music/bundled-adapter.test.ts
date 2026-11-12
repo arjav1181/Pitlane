@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { BundledMusic } from "./bundled-adapter.js";
-import * as bundled from "./bundled.js";
 import type { MusicMood } from "../../schema/director-score.js";
+import * as bundled from "./bundled.js";
+import { BundledMusic } from "./bundled-adapter.js";
 
 vi.mock("./bundled.js", () => ({
   selectTrack: vi.fn(),

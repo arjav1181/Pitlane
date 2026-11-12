@@ -94,6 +94,8 @@ Mix and match providers or go all-in on one ecosystem:
 
 **Zero-cost voiceover:** `--provider local` uses Kokoro for free local TTS. No API key needed.
 
+**No AI assets:** add `--no-ai-assets` to skip AI image and video generation entirely. Scenes use vision-verified stock media and procedural text cards, so no image or video API key is required.
+
 ## Quickstart
 
 ### Web UI (recommended)
@@ -107,6 +109,36 @@ docker compose up      # starts Redis + API + Worker
 ```
 
 Type a topic, pick your providers, and watch the pipeline run. Research, script, voiceover, visuals, music, and assembly stages stream live to the browser. Download the final video when it's done.
+
+The web UI can also take an API key for a custom OpenAI-compatible endpoint (choose the auth mode: Bearer, custom header, or none) and remember your credentials in the browser so you only enter them once. See the [Web UI guide](https://openreels.tsensei.dev/docs/getting-started/web-ui) for details.
+
+### Automation API
+
+The server exposes a REST API designed for automation:
+
+- **OpenAPI 3.1** — machine-readable schema at `/api/v1/openapi.json`, interactive docs at `/api/v1/docs`
+- **Optional server auth** — set `OPENREELS_API_KEY` and send `Authorization: Bearer`, `X-API-Key`, or `?api_key=` (for EventSource and media URLs)
+- **Idempotency** — `Idempotency-Key` header returns the original job on replay
+- **Batch creation** — up to 25 jobs per request with per-item errors
+- **Signed webhooks** — HMAC-SHA256 callbacks for `job.completed`, `job.failed`, and `job.cancelled`
+- **Full lifecycle** — filter/list, inspect, retry, cancel, delete, list artifacts, download video/score/log, and stream SSE progress
+- **Stock-only mode** — `"noAiAssets": true` disables AI image/video generation and uses stock media plus procedural text cards
+- **YouTube integration** — read channel analytics with a Data API key and publish finished videos from the server
+
+A ready-made n8n workflow that runs the whole loop on a schedule (research topics → render → publish)
+lives in [`n8n/`](./n8n).
+
+
+The server exposes a REST API designed for automation:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/jobs \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: coffee-001" \
+  -d '{"topic":"The history of coffee","noAiAssets":true}'
+```
+
+See the [REST API reference](https://openreels.tsensei.dev/docs/api/rest) for the complete surface.
 
 ### Docker CLI (single run)
 
@@ -162,6 +194,8 @@ pnpm start "your topic" --score output/2026-04-10-111939-.../score.json
 
 **Optional:** `PEXELS_API_KEY` ([Pexels](https://www.pexels.com/api/)), `PIXABAY_API_KEY` ([Pixabay](https://pixabay.com/api/docs/)) for stock footage, `FAL_API_KEY` ([fal.ai](https://fal.ai/)) for Kling video generation
 
+**Server and automation:** `OPENREELS_API_KEY` (require auth), `OPENREELS_CORS_ORIGIN` (browser origins), `OPENREELS_ALLOW_PRIVATE_CALLBACKS` (internal webhook targets), `OPENREELS_NO_AI_ASSETS` (default to stock + procedural visuals), `OPENREELS_LLM_AUTH` / `OPENREELS_LLM_AUTH_HEADER` (OpenAI-compatible auth defaults). See the [REST API reference](https://openreels.tsensei.dev/docs/api/rest).
+
 ### CLI flags
 
 | Flag | Description | Default |
@@ -169,6 +203,8 @@ pnpm start "your topic" --score output/2026-04-10-111939-.../score.json
 | `--provider <name>` | LLM provider (`anthropic`, `openai`, `gemini`, `openrouter`, `openai-compatible`, `google`, `local`) | `anthropic` |
 | `--llm-model <model>` | Model ID override (e.g. `anthropic/claude-sonnet-4` for OpenRouter) | provider default |
 | `--llm-base-url <url>` | Base URL for `openai-compatible` (e.g. `http://localhost:11434/v1`) | — |
+| `--llm-auth <mode>` | Auth mode for `openai-compatible` (`auto`, `bearer`, `custom-header`, `none`) | `auto` |
+| `--llm-auth-header <name>` | Header name for `--llm-auth custom-header` (e.g. `x-api-key`) | — |
 | `--search-provider <name>` | Search provider (`native`, `tavily`, `none`) | auto-detect |
 | `--image-provider <name>` | Image provider (`gemini`, `openai`) | `gemini` |
 | `--tts-provider <name>` | TTS provider (`elevenlabs`, `inworld`, `kokoro`, `gemini-tts`, `openai-tts`) | `elevenlabs` |
@@ -181,6 +217,7 @@ pnpm start "your topic" --score output/2026-04-10-111939-.../score.json
 | `-o, --output <dir>` | Output directory | `./output` |
 | `--no-music` | Disable background music | music on |
 | `--no-video` | Disable AI video generation | video on |
+| `--no-ai-assets` | Disable AI image and video generation; use stock media and procedural text cards only | AI assets on |
 | `--no-stock-verify` | Disable VLM stock footage verification | verify on |
 | `--stock-confidence <n>` | Min confidence for stock verification (0-1) | `0.6` |
 | `--stock-max-attempts <n>` | Max stock API calls per scene | `4` |

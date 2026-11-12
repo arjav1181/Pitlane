@@ -1,12 +1,12 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { z } from "zod";
-import { PACING_CONFIG } from "./creative-director.js";
 import { getArchetype } from "../config/archetype-registry.js";
 import { loadPlaybookSections } from "../config/playbook.js";
-import type { DirectorScore } from "../schema/director-score.js";
 import type { ScenePacing } from "../schema/archetype.js";
+import type { DirectorScore } from "../schema/director-score.js";
 import type { LLMProvider, LLMUsage } from "../schema/providers.js";
+import { PACING_CONFIG } from "./creative-director.js";
 
 const SYSTEM_PROMPT_PATH = path.join(process.cwd(), "prompts", "critic.md");
 

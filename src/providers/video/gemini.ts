@@ -15,7 +15,8 @@ export class GeminiVideo implements VideoProvider {
 
   constructor(model: string = "veo-3.1-lite-generate-preview", apiKey?: string) {
     const key = apiKey ?? process.env["GOOGLE_API_KEY"];
-    if (!key) throw new Error("GOOGLE_API_KEY environment variable is required for video generation");
+    if (!key)
+      throw new Error("GOOGLE_API_KEY environment variable is required for video generation");
     this.client = new GoogleGenAI({ apiKey: key });
     this.model = model;
   }

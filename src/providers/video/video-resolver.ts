@@ -1,15 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import pLimit from "p-limit";
+import { optimizeImagePrompt } from "../../agents/image-prompter.js";
+import type { PipelineCallbacks } from "../../pipeline/utils.js";
 import type { ArchetypeConfig } from "../../schema/archetype.js";
 import type { DirectorScore } from "../../schema/director-score.js";
-import type {
-  LLMProvider,
-  LLMUsage,
-  VideoProvider,
-} from "../../schema/providers.js";
-import type { PipelineCallbacks } from "../../pipeline/utils.js";
-import { optimizeImagePrompt } from "../../agents/image-prompter.js";
+import type { LLMProvider, LLMUsage, VideoProvider } from "../../schema/providers.js";
 
 export interface VideoResolution {
   method: "image_to_video" | "image_fallback";
@@ -78,7 +74,9 @@ export async function resolveAIVideo(
     motionPrompt = optimized.prompt;
     prompterUsage = optimized.usage;
   } catch (err) {
-    console.warn(`[video] Scene ${sceneIndex} motion prompt gen failed, using visual_prompt: ${err}`);
+    console.warn(
+      `[video] Scene ${sceneIndex} motion prompt gen failed, using visual_prompt: ${err}`,
+    );
   }
 
   opts.callbacks.onProgress?.("visuals", { type: "video_image_ready", scene: sceneIndex });

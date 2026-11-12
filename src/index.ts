@@ -30,7 +30,9 @@ async function main(): Promise<void> {
       const content = fs.readFileSync(opts.direction, "utf-8");
       // Check for binary content (null bytes)
       if (content.includes("\0")) {
-        console.error(`Direction file appears to be binary, expected a text file: ${opts.direction}`);
+        console.error(
+          `Direction file appears to be binary, expected a text file: ${opts.direction}`,
+        );
         process.exit(1);
       }
       if (content.trim()) {
@@ -69,7 +71,9 @@ async function main(): Promise<void> {
 
     // Direction is ignored during replay (score already incorporates creative intent)
     if (direction) {
-      console.warn("[warning] --direction is ignored when replaying from --score (score already incorporates creative intent)");
+      console.warn(
+        "[warning] --direction is ignored when replaying from --score (score already incorporates creative intent)",
+      );
       direction = undefined;
     }
   }
@@ -82,6 +86,8 @@ async function main(): Promise<void> {
     videoProvider: opts.videoProvider,
     musicProvider: opts.musicProvider,
     searchProvider: opts.searchProvider,
+    llmAuthType: opts.llmAuthType,
+    noAiAssets: opts.noAiAssets,
   });
 
   // Initialize providers via factory
@@ -95,7 +101,10 @@ async function main(): Promise<void> {
     kokoroVoice: opts.kokoroVoice,
     llmModel: opts.llmModel,
     llmBaseUrl: opts.llmBaseUrl,
+    llmAuthType: opts.llmAuthType,
+    llmAuthHeader: opts.llmAuthHeader,
     searchProvider: opts.searchProvider,
+    noAiAssets: opts.noAiAssets,
   });
 
   // Create CLI callbacks for terminal progress display
@@ -103,7 +112,11 @@ async function main(): Promise<void> {
 
   // Create verification model for stock footage VLM check
   const verifyModel = opts.stockVerify
-    ? createVerificationModel(opts.provider, opts.verificationModel)
+    ? createVerificationModel(opts.provider, opts.verificationModel, undefined, {
+        baseUrl: opts.llmBaseUrl,
+        authType: opts.llmAuthType,
+        authHeader: opts.llmAuthHeader,
+      })
     : undefined;
 
   // Run pipeline with CLI callbacks
@@ -126,9 +139,10 @@ async function main(): Promise<void> {
       noMusic: opts.noMusic,
       musicProvider: music,
       musicProviderKey: opts.musicProvider,
-      videoProviders: opts.noVideo ? [] : videoProviders,
+      videoProviders: opts.noAiAssets || opts.noVideo ? [] : videoProviders,
       videoProvider: opts.videoProvider,
       noVideo: opts.noVideo,
+      noAiAssets: opts.noAiAssets,
       stockVerify: opts.stockVerify,
       stockConfidence: opts.stockConfidence,
       stockMaxAttempts: opts.stockMaxAttempts,

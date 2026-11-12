@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createProviders } from "./factory.js";
-import { FalVideo } from "./video/fal.js";
-import { GeminiVideo } from "./video/gemini.js";
+import { DisabledImageProvider } from "./image/disabled.js";
 import { GeminiImage } from "./image/gemini.js";
 import { OpenAIImage } from "./image/openai.js";
 import { AnthropicLLM } from "./llm/anthropic.js";
@@ -19,6 +18,8 @@ import { GeminiTTS } from "./tts/gemini.js";
 import { InworldTTS } from "./tts/inworld.js";
 import { KokoroTTS } from "./tts/kokoro.js";
 import { OpenAITTS } from "./tts/openai.js";
+import { FalVideo } from "./video/fal.js";
+import { GeminiVideo } from "./video/gemini.js";
 
 vi.mock("./llm/anthropic.js", () => ({
   AnthropicLLM: vi.fn().mockImplementation(() => ({ id: "anthropic", generate: vi.fn() })),
@@ -84,7 +85,9 @@ vi.mock("./search/tavily.js", () => ({
   createTavilySearchTools: vi.fn((apiKey?: string) => ({ tavily_search: { apiKey } })),
 }));
 vi.mock("./video/gemini.js", () => ({
-  GeminiVideo: vi.fn().mockImplementation(() => ({ supportedDurations: [4, 6, 8], generate: vi.fn() })),
+  GeminiVideo: vi
+    .fn()
+    .mockImplementation(() => ({ supportedDurations: [4, 6, 8], generate: vi.fn() })),
 }));
 vi.mock("./video/fal.js", () => ({
   FalVideo: vi.fn().mockImplementation(() => ({ supportedDurations: [5, 10], generate: vi.fn() })),
@@ -93,6 +96,9 @@ vi.mock("./video/fal.js", () => ({
 describe("createProviders", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env["OPENREELS_LLM_AUTH"];
+    delete process.env["OPENREELS_LLM_AUTH_HEADER"];
+    delete process.env["OPENREELS_LLM_API_KEY"];
   });
 
   it("creates default providers with BYOK keys (pexels primary)", () => {
@@ -112,6 +118,24 @@ describe("createProviders", () => {
     expect(ElevenLabsTTS).toHaveBeenCalled();
     expect(GeminiImage).toHaveBeenCalled();
     expect(PexelsStock).toHaveBeenCalledWith("test-pex");
+  });
+
+  it("uses disabled image and no video providers in noAiAssets mode", () => {
+    const providers = createProviders({
+      llm: "anthropic",
+      tts: "elevenlabs",
+      image: "gemini",
+      video: "gemini",
+      noAiAssets: true,
+      keys: {},
+    });
+
+    expect(providers.imageGen).toBeInstanceOf(DisabledImageProvider);
+    expect(providers.videoProviders).toEqual([]);
+    expect(GeminiImage).not.toHaveBeenCalled();
+    expect(OpenAIImage).not.toHaveBeenCalled();
+    expect(GeminiVideo).not.toHaveBeenCalled();
+    expect(FalVideo).not.toHaveBeenCalled();
   });
 
   it("creates both stock providers when both keys available", () => {
@@ -333,6 +357,36 @@ describe("createProviders", () => {
     expect(args[0]).toBe("http://localhost:11434/v1");
     expect(args[1]).toBe("llama3:8b");
     expect(args[2]).toBe("test-compat-key");
+  });
+
+  it("passes auth settings to OpenAICompatibleLLM", () => {
+    createProviders({
+      llm: "openai-compatible",
+      tts: "elevenlabs",
+      image: "gemini",
+      llmBaseUrl: "http://localhost:11434/v1",
+      llmModel: "llama3:8b",
+      llmAuthType: "custom-header",
+      llmAuthHeader: "x-api-key",
+      keys: { OPENREELS_LLM_API_KEY: "test-compat-key" },
+    });
+
+    const args = vi.mocked(OpenAICompatibleLLM).mock.calls[0]!;
+    expect(args[4]).toEqual({ type: "custom-header", headerName: "x-api-key" });
+  });
+
+  it("defaults OpenAI-compatible auth to auto when not configured", () => {
+    createProviders({
+      llm: "openai-compatible",
+      tts: "elevenlabs",
+      image: "gemini",
+      llmBaseUrl: "http://localhost:11434/v1",
+      llmModel: "llama3:8b",
+      keys: { OPENREELS_LLM_API_KEY: "test-compat-key" },
+    });
+
+    const args = vi.mocked(OpenAICompatibleLLM).mock.calls[0]!;
+    expect(args[4]).toEqual({ type: "auto", headerName: undefined });
   });
 
   it("throws when openai-compatible is missing baseUrl", () => {

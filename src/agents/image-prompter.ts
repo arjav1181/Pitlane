@@ -39,7 +39,10 @@ export async function optimizeImagePrompt(
       : "You are a visual prompt engineer for AI image generation. Transform scene descriptions into detailed, image-generator-friendly prompts. Return the optimized prompt in the optimized_prompt field.";
 
   try {
-    systemPrompt = fs.readFileSync(mode === "video" ? VIDEO_PROMPT_PATH : IMAGE_PROMPT_PATH, "utf-8");
+    systemPrompt = fs.readFileSync(
+      mode === "video" ? VIDEO_PROMPT_PATH : IMAGE_PROMPT_PATH,
+      "utf-8",
+    );
   } catch {
     // Use default inline prompt above
   }

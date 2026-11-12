@@ -30,10 +30,7 @@ export class WhisperAligner {
     this.loadingPromise = (async () => {
       try {
         const { pipeline } = await import("@huggingface/transformers");
-        const transcriber = await pipeline(
-          "automatic-speech-recognition",
-          WhisperAligner.MODEL_ID,
-        );
+        const transcriber = await pipeline("automatic-speech-recognition", WhisperAligner.MODEL_ID);
         this.transcriber = transcriber as unknown as TranscriberPipeline;
         return this.transcriber;
       } catch (err) {

@@ -1,14 +1,10 @@
-import { useEffect, useState } from "react";
 import { Play } from "lucide-react";
-import type {
-  CostBreakdown,
-  CriticReview,
-  DirectorScore,
-  JobSummary,
-} from "@/hooks/useApi";
+import { useEffect, useState } from "react";
+import type { CostBreakdown, CriticReview, DirectorScore, JobSummary } from "@/hooks/useApi";
+import { withApiKey } from "@/lib/apiKey";
+import { formatArchetypeName } from "@/lib/utils";
 import { CostBreakdownCard } from "./CostBreakdownCard";
 import { CriticScoreCard } from "./CriticScoreCard";
-import { formatArchetypeName } from "@/lib/utils";
 
 interface CompletedPanelProps {
   job: JobSummary;
@@ -36,7 +32,7 @@ export function CompletedPanel({
   totalDuration,
 }: CompletedPanelProps) {
   const videoUrl = job.videoPath
-    ? `/api/v1/jobs/${job.id}/artifacts/${job.videoPath}`
+    ? withApiKey(`/api/v1/jobs/${job.id}/artifacts/${job.videoPath}`)
     : null;
   const totalCost = job.actualCost?.totalCost ?? job.costEstimate?.totalCost;
 
@@ -44,7 +40,7 @@ export function CompletedPanel({
   const [fetchedScore, setFetchedScore] = useState<DirectorScore | null>(null);
   useEffect(() => {
     if (score || !job.runDir) return;
-    fetch(`/api/v1/jobs/${job.id}/artifacts/${job.runDir}/score.json`)
+    fetch(withApiKey(`/api/v1/jobs/${job.id}/artifacts/${job.runDir}/score.json`))
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data) setFetchedScore(data as DirectorScore);
@@ -63,20 +59,13 @@ export function CompletedPanel({
         {/* Video Player */}
         <div className="shrink-0 flex w-full sm:w-[220px] md:w-[260px] max-w-[260px] mx-auto sm:mx-0 flex-col items-center justify-center aspect-[9/16] rounded-xl overflow-hidden border border-border bg-surface-sunken">
           {videoUrl ? (
-            <video
-              src={videoUrl}
-              controls
-              playsInline
-              className="h-full w-full object-contain"
-            >
+            <video src={videoUrl} controls playsInline className="h-full w-full object-contain">
               <track kind="captions" />
             </video>
           ) : (
             <>
               <Play className="size-10 text-primary" />
-              <span className="mt-2.5 text-xs text-text-subtle">
-                Video not available
-              </span>
+              <span className="mt-2.5 text-xs text-text-subtle">Video not available</span>
             </>
           )}
         </div>
@@ -112,9 +101,7 @@ export function CompletedPanel({
           )}
 
           {/* Music Preview */}
-          {job.runDir && (
-            <MusicPreview jobId={job.id} runDir={job.runDir} />
-          )}
+          {job.runDir && <MusicPreview jobId={job.id} runDir={job.runDir} />}
 
           {/* Stage duration breakdown */}
           {totalDuration > 0 && (
@@ -123,15 +110,16 @@ export function CompletedPanel({
 
           {/* Cost comparison: estimated vs actual */}
           {costEstimate && job.actualCost && (
-            <CostComparisonRow estimated={costEstimate.totalCost} actual={job.actualCost.totalCost} />
+            <CostComparisonRow
+              estimated={costEstimate.totalCost}
+              actual={job.actualCost.totalCost}
+            />
           )}
         </div>
       </div>
 
       {/* Quality Review */}
-      {displayCritic && (
-        <CriticScoreCard review={displayCritic} />
-      )}
+      {displayCritic && <CriticScoreCard review={displayCritic} />}
 
       {/* Cost Breakdown */}
       <CostBreakdownCard
@@ -144,7 +132,9 @@ export function CompletedPanel({
 }
 
 function MusicPreview({ jobId, runDir }: { jobId: string; runDir: string }) {
-  const musicUrl = `/api/v1/jobs/${jobId}/artifacts/${runDir}/_remotion_public/music.mp3`;
+  const musicUrl = withApiKey(
+    `/api/v1/jobs/${jobId}/artifacts/${runDir}/_remotion_public/music.mp3`,
+  );
   const [hasMusic, setHasMusic] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -160,12 +150,7 @@ function MusicPreview({ jobId, runDir }: { jobId: string; runDir: string }) {
       <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[1.5px] text-muted-foreground">
         Background Music
       </span>
-      <audio
-        src={musicUrl}
-        controls
-        className="w-full h-8 rounded-lg"
-        preload="metadata"
-      >
+      <audio src={musicUrl} controls className="w-full h-8 rounded-lg" preload="metadata">
         <track kind="captions" />
       </audio>
     </div>
@@ -183,9 +168,7 @@ function StatCard({
 }) {
   return (
     <div className="flex flex-col items-center rounded-[10px] border border-border bg-card px-3 py-3 sm:px-4 sm:py-3.5 gap-1">
-      <span
-        className={`text-lg font-bold ${highlight ? "text-status-info" : "text-foreground"}`}
-      >
+      <span className={`text-lg font-bold ${highlight ? "text-status-info" : "text-foreground"}`}>
         {value}
       </span>
       <span className="text-[11px] text-text-subtle">{label}</span>
@@ -247,13 +230,7 @@ function StageDurationBar({
   );
 }
 
-function CostComparisonRow({
-  estimated,
-  actual,
-}: {
-  estimated: number;
-  actual: number;
-}) {
+function CostComparisonRow({ estimated, actual }: { estimated: number; actual: number }) {
   const maxCost = Math.max(estimated, actual, 0.01);
   const savedPct = estimated > 0 ? ((estimated - actual) / estimated) * 100 : 0;
 
@@ -288,8 +265,12 @@ function CostComparisonRow({
           </span>
         </div>
         {Math.abs(savedPct) >= 1 && (
-          <span className={`text-[10px] text-right ${savedPct > 0 ? "text-status-success" : "text-status-warning"}`}>
-            {savedPct > 0 ? `${savedPct.toFixed(0)}% under estimate` : `${Math.abs(savedPct).toFixed(0)}% over estimate`}
+          <span
+            className={`text-[10px] text-right ${savedPct > 0 ? "text-status-success" : "text-status-warning"}`}
+          >
+            {savedPct > 0
+              ? `${savedPct.toFixed(0)}% under estimate`
+              : `${Math.abs(savedPct).toFixed(0)}% over estimate`}
           </span>
         )}
       </div>

@@ -396,4 +396,66 @@ describe("BaseLLM", () => {
       ).rejects.toThrow("network timeout");
     });
   });
+
+  describe("structured output fallback", () => {
+    it("falls back to plain JSON text when structured output fails", async () => {
+      mockGenerateText.mockRejectedValueOnce(
+        new Error("No object generated: response did not match schema."),
+      );
+      mockGenerateText.mockResolvedValueOnce({
+        text: '```json\n{"result":"fallback"}\n```',
+        usage: { inputTokens: 40, outputTokens: 20 },
+      } as any);
+
+      const result = await llm.generate({
+        systemPrompt: "sys",
+        userMessage: "msg",
+        schema: testSchema,
+      });
+
+      expect(result.data).toEqual({ result: "fallback" });
+      expect(result.usage).toEqual({ inputTokens: 40, outputTokens: 20 });
+    });
+
+    it("retries the fallback once when the JSON does not match the schema", async () => {
+      mockGenerateText.mockRejectedValueOnce(new Error("no structured output"));
+      mockGenerateText.mockResolvedValueOnce({
+        text: '{"wrong":true}',
+        usage: { inputTokens: 10, outputTokens: 5 },
+      } as any);
+      mockGenerateText.mockResolvedValueOnce({
+        text: '{"result":"fixed"}',
+        usage: { inputTokens: 10, outputTokens: 5 },
+      } as any);
+
+      const result = await llm.generate({
+        systemPrompt: "sys",
+        userMessage: "msg",
+        schema: testSchema,
+      });
+
+      expect(result.data).toEqual({ result: "fixed" });
+      expect(mockGenerateText).toHaveBeenCalledTimes(3);
+    });
+
+    it("throws when the fallback never produces valid JSON", async () => {
+      mockGenerateText.mockRejectedValueOnce(new Error("no structured output"));
+      mockGenerateText.mockResolvedValueOnce({
+        text: "not json at all",
+        usage: { inputTokens: 10, outputTokens: 5 },
+      } as any);
+      mockGenerateText.mockResolvedValueOnce({
+        text: "still not json",
+        usage: { inputTokens: 10, outputTokens: 5 },
+      } as any);
+
+      await expect(
+        llm.generate({
+          systemPrompt: "sys",
+          userMessage: "msg",
+          schema: testSchema,
+        }),
+      ).rejects.toThrow(/JSON/i);
+    });
+  });
 });

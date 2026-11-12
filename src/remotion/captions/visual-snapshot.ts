@@ -12,8 +12,8 @@
  */
 import { bundle } from "@remotion/bundler";
 import { renderStill } from "@remotion/renderer";
-import path from "path";
 import fs from "fs";
+import path from "path";
 
 const STYLES = [
   "clean",

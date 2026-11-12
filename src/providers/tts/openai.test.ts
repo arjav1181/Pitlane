@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenAITTS } from "./openai.js";
 
 // Mock openai SDK
@@ -10,9 +10,9 @@ vi.mock("openai", () => ({
 }));
 
 const VALID_RESPONSE = {
-  arrayBuffer: vi.fn().mockResolvedValue(
-    new Uint8Array([0x49, 0x44, 0x33, 0x04, 0x00, 0x00, 0x00, 0x00]).buffer,
-  ),
+  arrayBuffer: vi
+    .fn()
+    .mockResolvedValue(new Uint8Array([0x49, 0x44, 0x33, 0x04, 0x00, 0x00, 0x00, 0x00]).buffer),
 };
 
 describe("OpenAITTS", () => {
@@ -102,9 +102,7 @@ describe("OpenAITTS", () => {
       const tts = new OpenAITTS("tts-1-hd");
       await tts.generate("Hello");
 
-      expect(mockSpeechCreate).toHaveBeenCalledWith(
-        expect.objectContaining({ model: "tts-1-hd" }),
-      );
+      expect(mockSpeechCreate).toHaveBeenCalledWith(expect.objectContaining({ model: "tts-1-hd" }));
     });
   });
 });

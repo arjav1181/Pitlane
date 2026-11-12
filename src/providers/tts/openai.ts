@@ -17,10 +17,7 @@ export class OpenAITTS implements TTSProvider {
 
   constructor(model: string = "gpt-4o-mini-tts", apiKey?: string) {
     const key = apiKey ?? process.env["OPENAI_API_KEY"];
-    if (!key)
-      throw new Error(
-        "OPENAI_API_KEY environment variable is required for OpenAI TTS",
-      );
+    if (!key) throw new Error("OPENAI_API_KEY environment variable is required for OpenAI TTS");
     this.client = new OpenAI({ apiKey: key });
     this.model = model;
     this.voice = "alloy";
@@ -40,14 +37,8 @@ export class OpenAITTS implements TTSProvider {
       if (msg.includes("429") || msg.includes("rate_limit")) {
         throw new Error(`OpenAI TTS rate limited: ${msg}`);
       }
-      if (
-        msg.includes("401") ||
-        msg.includes("403") ||
-        msg.includes("invalid_api_key")
-      ) {
-        throw new Error(
-          `OpenAI TTS authentication failed: ${msg}. Check your OPENAI_API_KEY.`,
-        );
+      if (msg.includes("401") || msg.includes("403") || msg.includes("invalid_api_key")) {
+        throw new Error(`OpenAI TTS authentication failed: ${msg}. Check your OPENAI_API_KEY.`);
       }
       throw new Error(`OpenAI TTS API error: ${msg}`);
     }

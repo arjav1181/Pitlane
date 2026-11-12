@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DirectorScore } from "../schema/director-score.js";
 import { estimateCost } from "../cli/cost-estimator.js";
+import { DirectorScore } from "../schema/director-score.js";
 
 const VALID_SCORE = {
   emotional_arc: "curiosity-to-understanding",
@@ -74,9 +74,27 @@ describe("score replay validation", () => {
         archetype: "cinematic_documentary",
         music_mood: "epic_cinematic",
         scenes: [
-          { visual_type: "ai_image", visual_prompt: "a", motion: "static", script_line: "a", transition: null },
-          { visual_type: "ai_image", visual_prompt: "b", motion: "static", script_line: "b", transition: null },
-          { visual_type: "ai_image", visual_prompt: "c", motion: "static", script_line: "c", transition: null },
+          {
+            visual_type: "ai_image",
+            visual_prompt: "a",
+            motion: "static",
+            script_line: "a",
+            transition: null,
+          },
+          {
+            visual_type: "ai_image",
+            visual_prompt: "b",
+            motion: "static",
+            script_line: "b",
+            transition: null,
+          },
+          {
+            visual_type: "ai_image",
+            visual_prompt: "c",
+            motion: "static",
+            script_line: "c",
+            transition: null,
+          },
         ],
       }),
     ).toThrow();
@@ -96,7 +114,15 @@ describe("score replay cost estimation", () => {
     const score = DirectorScore.parse(VALID_SCORE);
     const fullCost = estimateCost(score);
     const replayCost = estimateCost(
-      score, "gemini", "elevenlabs", undefined, "anthropic", "bundled", 0, 0, { replay: true },
+      score,
+      "gemini",
+      "elevenlabs",
+      undefined,
+      "anthropic",
+      "bundled",
+      0,
+      0,
+      { replay: true },
     );
 
     // Replay cost should be lower (no research+CD+critic LLM calls)
@@ -112,7 +138,15 @@ describe("score replay cost estimation", () => {
   it("replay mode still includes image prompter LLM costs", () => {
     const score = DirectorScore.parse(VALID_SCORE);
     const replayCost = estimateCost(
-      score, "gemini", "elevenlabs", undefined, "anthropic", "bundled", 0, 0, { replay: true },
+      score,
+      "gemini",
+      "elevenlabs",
+      undefined,
+      "anthropic",
+      "bundled",
+      0,
+      0,
+      { replay: true },
     );
     // 1 ai_image scene = 1 image prompter call, so llmCost > 0
     expect(replayCost.llmCost).toBeGreaterThan(0);
@@ -122,13 +156,39 @@ describe("score replay cost estimation", () => {
     const noAiScore = DirectorScore.parse({
       ...VALID_SCORE,
       scenes: [
-        { visual_type: "stock_video", visual_prompt: "a", motion: "static", script_line: "line 1", transition: null },
-        { visual_type: "text_card", visual_prompt: "b", motion: "static", script_line: "line 2", transition: null },
-        { visual_type: "stock_image", visual_prompt: "c", motion: "static", script_line: "line 3", transition: null },
+        {
+          visual_type: "stock_video",
+          visual_prompt: "a",
+          motion: "static",
+          script_line: "line 1",
+          transition: null,
+        },
+        {
+          visual_type: "text_card",
+          visual_prompt: "b",
+          motion: "static",
+          script_line: "line 2",
+          transition: null,
+        },
+        {
+          visual_type: "stock_image",
+          visual_prompt: "c",
+          motion: "static",
+          script_line: "line 3",
+          transition: null,
+        },
       ],
     });
     const replayCost = estimateCost(
-      noAiScore, "gemini", "elevenlabs", undefined, "anthropic", "bundled", 0, 0, { replay: true },
+      noAiScore,
+      "gemini",
+      "elevenlabs",
+      undefined,
+      "anthropic",
+      "bundled",
+      0,
+      0,
+      { replay: true },
     );
     expect(replayCost.llmCost).toBe(0);
   });

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import type { CLIOptions } from "./args.js";
+import { afterEach, describe, expect, it } from "vitest";
+import { type CLIOptions, parseArgs } from "./args.js";
 
 describe("CLIOptions type", () => {
   it("includes yes field for non-interactive mode", () => {
@@ -21,6 +21,7 @@ describe("CLIOptions type", () => {
       stockConfidence: 0.6,
       stockMaxAttempts: 4,
       noVideo: false,
+      noAiAssets: false,
       usage: false,
     };
     expect(opts.yes).toBe(true);
@@ -43,6 +44,7 @@ describe("CLIOptions type", () => {
       stockConfidence: 0.6,
       stockMaxAttempts: 4,
       noVideo: false,
+      noAiAssets: false,
       usage: false,
     };
     expect(opts.yes).toBe(false);
@@ -65,6 +67,7 @@ describe("CLIOptions type", () => {
       stockConfidence: 0.6,
       stockMaxAttempts: 4,
       noVideo: false,
+      noAiAssets: false,
       usage: false,
     };
     expect(opts.provider).toBe("gemini");
@@ -88,6 +91,7 @@ describe("CLIOptions type", () => {
       stockConfidence: 0.6,
       stockMaxAttempts: 4,
       noVideo: false,
+      noAiAssets: false,
       usage: false,
     };
     expect(opts.pacing).toBe("fast");
@@ -110,8 +114,43 @@ describe("CLIOptions type", () => {
       stockConfidence: 0.6,
       stockMaxAttempts: 4,
       noVideo: false,
+      noAiAssets: false,
       usage: false,
     };
     expect(opts.pacing).toBeUndefined();
+  });
+});
+
+describe("parseArgs no-ai-assets", () => {
+  const originalArgv = process.argv;
+  const originalEnv = process.env["OPENREELS_NO_AI_ASSETS"];
+
+  afterEach(() => {
+    process.argv = originalArgv;
+    if (originalEnv === undefined) {
+      delete process.env["OPENREELS_NO_AI_ASSETS"];
+    } else {
+      process.env["OPENREELS_NO_AI_ASSETS"] = originalEnv;
+    }
+  });
+
+  it("sets noAiAssets from --no-ai-assets", () => {
+    process.argv = ["node", "openreels", "test topic", "--no-ai-assets"];
+    const opts = parseArgs();
+    expect(opts.noAiAssets).toBe(true);
+  });
+
+  it("sets noAiAssets from OPENREELS_NO_AI_ASSETS=true", () => {
+    process.argv = ["node", "openreels", "test topic"];
+    process.env["OPENREELS_NO_AI_ASSETS"] = "true";
+    const opts = parseArgs();
+    expect(opts.noAiAssets).toBe(true);
+  });
+
+  it("defaults noAiAssets to false", () => {
+    process.argv = ["node", "openreels", "test topic"];
+    delete process.env["OPENREELS_NO_AI_ASSETS"];
+    const opts = parseArgs();
+    expect(opts.noAiAssets).toBe(false);
   });
 });

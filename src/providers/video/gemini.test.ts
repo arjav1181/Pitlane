@@ -20,7 +20,7 @@ import * as fs from "node:fs";
 import { GeminiVideo } from "./gemini.js";
 
 // Access mocks
-const { __mocks } = await import("@google/genai") as any;
+const { __mocks } = (await import("@google/genai")) as any;
 const { generateVideos, download } = __mocks;
 
 describe("GeminiVideo", () => {

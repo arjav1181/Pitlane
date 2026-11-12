@@ -204,7 +204,15 @@ describe("estimateCost", () => {
     ]);
     const full = estimateCost(score);
     const replay = estimateCost(
-      score, "gemini", "elevenlabs", undefined, "anthropic", "bundled", 0, 0, { replay: true },
+      score,
+      "gemini",
+      "elevenlabs",
+      undefined,
+      "anthropic",
+      "bundled",
+      0,
+      0,
+      { replay: true },
     );
     // Replay LLM cost should only include image prompter (1 ai_image = 1 call)
     expect(replay.llmCost).toBeLessThan(full.llmCost);

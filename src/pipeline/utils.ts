@@ -1,8 +1,8 @@
 import { execFileSync } from "node:child_process";
 import * as readline from "node:readline";
+import type { LanguageModel } from "ai";
 import type { ActualCostBreakdown, CostBreakdown } from "../cli/cost-estimator.js";
 import type { DirectorScore } from "../schema/director-score.js";
-import type { LanguageModel } from "ai";
 import type {
   ImageProvider,
   ImageProviderKey,
@@ -34,7 +34,11 @@ export interface PipelineCallbacks {
   onStageSkip?(stage: StageName, reason: string): void;
   onStageError?(stage: StageName, error: string): void;
   onProgress?(stage: StageName, data: Record<string, unknown>): void;
-  onCostEstimate?(estimate: CostBreakdown, imageProvider: ImageProviderKey, stockSceneCount?: number): Promise<boolean>;
+  onCostEstimate?(
+    estimate: CostBreakdown,
+    imageProvider: ImageProviderKey,
+    stockSceneCount?: number,
+  ): Promise<boolean>;
   onActualCost?(cost: ActualCostBreakdown): void;
   onLog?(message: string): void;
   /** Called once the run directory is created, before any stage runs. */
@@ -68,6 +72,11 @@ export interface PipelineOptions {
   videoProviders?: VideoProvider[];
   videoProvider?: VideoProviderKey;
   noVideo?: boolean;
+  /**
+   * Disable AI image and AI video generation for this run. Scenes use stock
+   * media when available and procedural text cards otherwise.
+   */
+  noAiAssets?: boolean;
   direction?: string;
   replayScore?: DirectorScore;
 }
@@ -88,7 +97,10 @@ export function shouldSkipPreview(): boolean {
   return !process.stdin.isTTY;
 }
 
-export function splitWordsIntoScenes(score: DirectorScore, allWords: WordTimestamp[]): WordTimestamp[][] {
+export function splitWordsIntoScenes(
+  score: DirectorScore,
+  allWords: WordTimestamp[],
+): WordTimestamp[][] {
   // Split word timestamps into per-scene groups for duration calculation.
   // Uses ReelMistri's proportional scaling approach to handle ElevenLabs
   // text normalization (numbers/abbreviations expand into different word counts).

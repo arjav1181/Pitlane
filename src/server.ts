@@ -2,14 +2,47 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
-import { Queue, QueueEvents } from "bullmq";
+import { type Job, Queue, QueueEvents } from "bullmq";
 import Fastify from "fastify";
 import IORedis from "ioredis";
-import { PACING_CONFIG } from "./agents/creative-director.js";
+import { apiKeysMatch, extractApiKey, requiresApiAuth } from "./api/auth.js";
+import {
+  CALLBACK_EVENTS,
+  type CallbackEvent,
+  type CallbackPayload,
+  deliverCallback,
+} from "./api/callbacks.js";
+import {
+  createJobFromBody,
+  MAX_BATCH_JOBS,
+  MAX_DIRECTION_BYTES,
+  MAX_IDEMPOTENCY_KEY_LENGTH,
+  MAX_METADATA_BYTES,
+  MAX_TOPIC_LENGTH,
+  retryJob,
+} from "./api/create-job.js";
+import { createIdempotencyStore } from "./api/idempotency.js";
+import type { JobData } from "./api/job-data.js";
+import type { JobMeta } from "./api/job-meta.js";
+import {
+  buildJobLinks,
+  contentTypeFor,
+  findRunDir,
+  findVideoPath,
+  isValidJobId,
+  jobDirFor,
+  listArtifacts,
+  listJobMetas,
+  readJobMeta,
+  resolveArtifact,
+  STAGE_NAMES,
+  toPublicJob,
+  writeJobMeta,
+} from "./api/jobs.js";
+import { buildOpenApiDocument, renderDocsHtml } from "./api/openapi.js";
+import { VERSION } from "./api/version.js";
 import { getArchetype, listArchetypes } from "./config/archetype-registry.js";
 import { PLATFORMS } from "./config/platforms.js";
-import { DirectorScore } from "./schema/director-score.js";
-import type { SearchProviderKey } from "./schema/providers.js";
 
 const REDIS_URL = process.env["REDIS_URL"] ?? "redis://localhost:6379";
 const PORT = Number(process.env["PORT"] ?? 3000);
@@ -17,29 +50,100 @@ const HOST = process.env["HOST"] ?? "0.0.0.0";
 const JOBS_DIR = process.env["JOBS_DIR"] ?? path.join(process.cwd(), "jobs");
 const MAX_JOBS = process.env["MAX_JOBS"] ? Number(process.env["MAX_JOBS"]) : 0;
 const WEB_DIST = path.join(process.cwd(), "web", "dist");
+const API_KEY = process.env["OPENREELS_API_KEY"]?.trim() || null;
+const ALLOW_PRIVATE_CALLBACKS =
+  (process.env["OPENREELS_ALLOW_PRIVATE_CALLBACKS"] ?? "").toLowerCase() === "true";
+const CORS_ORIGIN = process.env["OPENREELS_CORS_ORIGIN"];
 
-// Ensure jobs directory exists
 fs.mkdirSync(JOBS_DIR, { recursive: true });
-
-/** Validate job ID to prevent path traversal — must be alphanumeric/hyphen/underscore only */
-function isValidJobId(id: string): boolean {
-  return /^[\w-]+$/.test(id);
-}
 
 const redis = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
 const queue = new Queue("openreels", { connection: redis });
+// Each open SSE stream attaches a "removed" listener to the local queue.
+queue.setMaxListeners(0);
 const queueEvents = new QueueEvents("openreels", { connection: redis.duplicate() });
+const idempotency = createIdempotencyStore(JOBS_DIR);
 
 const app = Fastify({ logger: true });
 
-await app.register(cors, { origin: true });
+const corsOptions =
+  CORS_ORIGIN === "false"
+    ? { origin: false }
+    : CORS_ORIGIN && CORS_ORIGIN !== "*"
+      ? {
+          origin: CORS_ORIGIN.split(",")
+            .map((origin) => origin.trim())
+            .filter(Boolean),
+        }
+      : { origin: true };
 
-// Serve job artifacts from the jobs directory
+await app.register(cors, {
+  ...corsOptions,
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-API-Key",
+    "Idempotency-Key",
+    "Last-Event-ID",
+  ],
+  exposedHeaders: ["Idempotency-Replayed", "Location"],
+});
+
+// Serve job artifacts from the jobs directory.
+// The plugin is registered for its reply.sendFile helper only; wildcard is off
+// so it does not shadow the /api/v1/jobs/:id/artifacts/* route below.
 await app.register(fastifyStatic, {
   root: JOBS_DIR,
   prefix: "/api/v1/jobs/",
-  serve: false, // we handle serving manually for path traversal protection
+  serve: false, // served manually for path traversal protection
+  wildcard: false,
 });
+
+// --- API key authentication ---
+app.addHook("onRequest", async (request, reply) => {
+  if (!API_KEY) return;
+  const pathname = (request.raw.url ?? request.url).split("?")[0] ?? request.url;
+  if (!requiresApiAuth(pathname)) return;
+
+  const provided = extractApiKey(
+    request.headers as { authorization?: string; "x-api-key"?: string },
+    request.query as Record<string, unknown>,
+  );
+  if (!apiKeysMatch(provided, API_KEY)) {
+    reply.header("WWW-Authenticate", 'Bearer realm="openreels"');
+    return reply.status(401).send({ error: "Unauthorized" });
+  }
+});
+
+const PROVIDERS = {
+  llm: [
+    { key: "anthropic", label: "Anthropic (Claude)" },
+    { key: "openai", label: "OpenAI (GPT)" },
+    { key: "gemini", label: "Google Gemini" },
+    { key: "openrouter", label: "OpenRouter" },
+    { key: "openai-compatible", label: "Custom (OpenAI-compatible)" },
+  ],
+  search: [
+    { key: "native", label: "Native (provider built-in)" },
+    { key: "tavily", label: "Tavily" },
+    { key: "none", label: "None (parametric knowledge)" },
+  ],
+  tts: [
+    { key: "elevenlabs", label: "ElevenLabs" },
+    { key: "inworld", label: "Inworld" },
+    { key: "kokoro", label: "Kokoro (Local)" },
+    { key: "gemini-tts", label: "Gemini TTS" },
+    { key: "openai-tts", label: "OpenAI TTS" },
+  ],
+  image: [
+    { key: "gemini", label: "Google Gemini" },
+    { key: "openai", label: "OpenAI (GPT Image)" },
+  ],
+  video: [
+    { key: "gemini", label: "Google Veo" },
+    { key: "fal", label: "fal.ai (Kling, Wan, etc.)" },
+  ],
+};
 
 // --- Health check ---
 app.get("/api/v1/health", async () => {
@@ -53,8 +157,12 @@ app.get("/api/v1/health", async () => {
 
   return {
     status: redisOk ? "healthy" : "degraded",
+    version: VERSION,
     redis: redisOk ? "connected" : "disconnected",
     jobsDir: jobsDirStats ? "exists" : "missing",
+    apiKeyRequired: API_KEY !== null,
+    callbacks: true,
+    noAiAssets: true,
     keys: {
       ANTHROPIC_API_KEY: !!process.env["ANTHROPIC_API_KEY"],
       OPENAI_API_KEY: !!process.env["OPENAI_API_KEY"],
@@ -63,9 +171,60 @@ app.get("/api/v1/health", async () => {
       INWORLD_TTS_API_KEY: !!process.env["INWORLD_TTS_API_KEY"],
       PEXELS_API_KEY: !!process.env["PEXELS_API_KEY"],
       PIXABAY_API_KEY: !!process.env["PIXABAY_API_KEY"],
+      OPENROUTER_API_KEY: !!process.env["OPENROUTER_API_KEY"],
+      OPENREELS_LLM_API_KEY: !!process.env["OPENREELS_LLM_API_KEY"],
     },
   };
 });
+
+app.get("/api/v1/openapi.json", async (_request, reply) => {
+  return reply
+    .type("application/json")
+    .send(buildOpenApiDocument({ apiKeyRequired: API_KEY !== null }));
+});
+
+app.get("/api/v1/docs", async (_request, reply) => {
+  return reply.type("text/html; charset=utf-8").send(renderDocsHtml());
+});
+
+app.get("/api/v1/capabilities", async () => ({
+  version: VERSION,
+  apiKeyRequired: API_KEY !== null,
+  features: {
+    noAiAssets: true,
+    callbacks: true,
+    idempotency: true,
+    batchJobs: true,
+    jobRetry: true,
+    sse: true,
+    artifactListing: true,
+  },
+  providers: PROVIDERS,
+  platforms: Object.entries(PLATFORMS).map(([name, config]) => ({
+    name,
+    width: config.width,
+    height: config.height,
+    fps: config.fps,
+    maxDurationSeconds: config.maxDurationSeconds,
+  })),
+  limits: {
+    maxTopicLength: MAX_TOPIC_LENGTH,
+    maxDirectionBytes: MAX_DIRECTION_BYTES,
+    maxMetadataBytes: MAX_METADATA_BYTES,
+    maxBatchJobs: MAX_BATCH_JOBS,
+    maxJobsPerPage: 100,
+    maxIdempotencyKeyLength: MAX_IDEMPOTENCY_KEY_LENGTH,
+  },
+  callbacks: {
+    events: CALLBACK_EVENTS,
+    signature: "HMAC-SHA256",
+    signatureHeader: "X-OpenReels-Signature",
+    signatureFormat: "sha256=<hex digest of `${timestamp}.${rawBody}`>",
+    allowPrivateCallbacks: ALLOW_PRIVATE_CALLBACKS,
+  },
+  idempotency: { header: "Idempotency-Key" },
+  stages: STAGE_NAMES,
+}));
 
 // --- Aggregate stats ---
 app.get("/api/v1/stats", async () => {
@@ -139,205 +298,132 @@ app.get("/api/v1/platforms", async () => {
 });
 
 // --- Providers list ---
-app.get("/api/v1/providers", async () => ({
-  llm: [
-    { key: "anthropic", label: "Anthropic (Claude)" },
-    { key: "openai", label: "OpenAI (GPT)" },
-    { key: "gemini", label: "Google Gemini" },
-    { key: "openrouter", label: "OpenRouter" },
-    { key: "openai-compatible", label: "Custom (OpenAI-compatible)" },
-  ],
-  search: [
-    { key: "native", label: "Native (provider built-in)" },
-    { key: "tavily", label: "Tavily" },
-    { key: "none", label: "None (parametric knowledge)" },
-  ],
-  tts: [
-    { key: "elevenlabs", label: "ElevenLabs" },
-    { key: "inworld", label: "Inworld" },
-    { key: "kokoro", label: "Kokoro (Local)" },
-    { key: "gemini-tts", label: "Gemini TTS" },
-    { key: "openai-tts", label: "OpenAI TTS" },
-  ],
-  image: [
-    { key: "gemini", label: "Google Gemini" },
-    { key: "openai", label: "OpenAI (GPT Image)" },
-  ],
-  video: [
-    { key: "gemini", label: "Google Veo" },
-    { key: "fal", label: "fal.ai (Kling, Wan, etc.)" },
-  ],
-}));
+app.get("/api/v1/providers", async () => PROVIDERS);
 
 // --- Job creation ---
-interface CreateJobBody {
-  topic: string;
-  archetype?: string;
-  pacing?: string;
-  platform?: string;
-  dryRun?: boolean;
-  noMusic?: boolean;
-  noVideo?: boolean;
-  direction?: string;
-  score?: Record<string, unknown>;
-  providers?: {
-    llm?: string;
-    tts?: string;
-    image?: string;
-    stock?: string;
-    video?: string;
-    videoModel?: string;
-    music?: string;
-    llmModel?: string;
-    llmBaseUrl?: string;
-    searchProvider?: SearchProviderKey;
-  };
-  keys?: Record<string, string>;
-}
+const createJobContext = {
+  queue,
+  jobsDir: JOBS_DIR,
+  idempotency,
+  allowPrivateCallbacks: ALLOW_PRIVATE_CALLBACKS,
+};
 
-app.post<{ Body: CreateJobBody }>("/api/v1/jobs", async (request, reply) => {
-  const { topic, archetype, pacing, platform, dryRun, noMusic, noVideo, direction, score, providers, keys } =
-    request.body ?? {};
-
-  if (!topic || typeof topic !== "string" || topic.trim().length === 0) {
-    return reply.status(400).send({ error: "topic is required" });
+app.post("/api/v1/jobs", async (request, reply) => {
+  const headerKey = request.headers["idempotency-key"];
+  const result = await createJobFromBody(
+    request.body,
+    Array.isArray(headerKey) ? headerKey[0] : headerKey,
+    createJobContext,
+  );
+  if (result.headers) {
+    for (const [name, value] of Object.entries(result.headers)) reply.header(name, value);
   }
-  if (topic.trim().length > 500) {
-    return reply.status(400).send({ error: "topic must be 500 characters or fewer" });
-  }
+  return reply.status(result.status).send(result.body);
+});
 
-  // Validate archetype if provided
-  if (archetype) {
-    try {
-      getArchetype(archetype);
-    } catch {
-      return reply.status(400).send({ error: `Unknown archetype: ${archetype}` });
-    }
+app.post("/api/v1/jobs/batch", async (request, reply) => {
+  const body = request.body;
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return reply.status(400).send({ error: "Request body must be a JSON object" });
+  }
+  const jobs = (body as Record<string, unknown>)["jobs"];
+  if (!Array.isArray(jobs)) {
+    return reply.status(400).send({ error: "jobs must be an array" });
+  }
+  if (jobs.length === 0) {
+    return reply.status(400).send({ error: "jobs must contain at least one job" });
+  }
+  if (jobs.length > MAX_BATCH_JOBS) {
+    return reply.status(400).send({ error: `jobs must contain at most ${MAX_BATCH_JOBS} jobs` });
   }
 
-  // Validate pacing tier if provided
-  const validPacingTiers = Object.keys(PACING_CONFIG);
-  if (pacing && !validPacingTiers.includes(pacing)) {
-    return reply
-      .status(400)
-      .send({ error: `Unknown pacing tier: ${pacing}. Available: ${validPacingTiers.join(", ")}` });
-  }
-
-  // Validate platform if provided
-  const validPlatforms = Object.keys(PLATFORMS);
-  if (platform && !validPlatforms.includes(platform)) {
-    return reply
-      .status(400)
-      .send({ error: `Unknown platform: ${platform}. Available: ${validPlatforms.join(", ")}` });
-  }
-
-  // Validate direction text size if provided
-  if (direction != null) {
-    if (typeof direction !== "string") {
-      return reply.status(400).send({ error: "direction must be a string" });
-    }
-    if (Buffer.byteLength(direction, "utf-8") > 10240) {
-      return reply.status(400).send({ error: "direction exceeds 10KB limit" });
-    }
-  }
-
-  // Validate score (DirectorScore) if provided for replay
-  let validatedScore: unknown | undefined;
-  if (score != null) {
-    const result = DirectorScore.safeParse(score);
-    if (!result.success) {
-      return reply.status(400).send({ error: `Invalid DirectorScore: ${result.error.message}` });
-    }
-    // Validate archetype exists in the registry (Zod accepts any string, but getArchetype throws for unknown names)
-    try {
-      getArchetype((result.data as { archetype: string }).archetype);
-    } catch {
-      return reply.status(400).send({
-        error: `Score references unknown archetype: ${(result.data as { archetype: string }).archetype}`,
-      });
-    }
-    validatedScore = result.data;
-  }
-
-  const job = await queue.add("render", {
-    topic: topic.trim(),
-    archetype,
-    pacing,
-    platform: platform ?? "youtube",
-    dryRun: dryRun ?? false,
-    noMusic: noMusic === true,
-    noVideo: noVideo === true,
-    ...(direction?.trim() ? { direction: direction.trim() } : {}),
-    ...(validatedScore ? { score: validatedScore } : {}),
-    providers: {
-      llm: providers?.llm ?? "anthropic",
-      tts: providers?.tts ?? "elevenlabs",
-      image: providers?.image ?? "gemini",
-      stock: providers?.stock ?? "pexels",
-      video: providers?.video,
-      videoModel: providers?.videoModel,
-      music: providers?.music ?? "bundled",
-      llmModel: providers?.llmModel,
-      llmBaseUrl: providers?.llmBaseUrl,
-      searchProvider: providers?.searchProvider,
-    },
-    keys: keys ?? {},
-    jobsDir: JOBS_DIR,
-  });
-
-  // Create placeholder meta.json so GET /jobs/:id never 404s for a queued job
-  const jobDir = path.join(JOBS_DIR, job.id!);
-  fs.mkdirSync(jobDir, { recursive: true });
-  const placeholderMeta = {
-    id: job.id,
-    topic: topic.trim(),
-    archetype,
-    pacing,
-    status: "queued",
-    createdAt: new Date().toISOString(),
-    stages: Object.fromEntries(
-      ["research", "director", "tts", "visuals", "assembly", "critic"].map((s) => [
-        s,
-        { status: "pending" },
-      ]),
+  const results = await Promise.all(
+    jobs.map((item, index) =>
+      createJobFromBody(item, undefined, createJobContext).then((result) => ({ index, result })),
     ),
-  };
-  fs.writeFileSync(path.join(jobDir, "meta.json"), JSON.stringify(placeholderMeta, null, 2));
+  );
 
-  return reply.status(201).send({
-    id: job.id,
-    topic: topic.trim(),
-    archetype,
-    status: "queued",
-  });
+  const created = results
+    .filter(({ result }) => result.status === 201 || result.status === 200)
+    .map(({ result }) => result.body);
+  const errors = results
+    .filter(({ result }) => result.status !== 201 && result.status !== 200)
+    .map(({ index, result }) => ({
+      index,
+      error: (result.body as { error?: string })?.error ?? `HTTP ${result.status}`,
+    }));
+
+  if (created.length === 0) {
+    return reply.status(400).send({ error: "No jobs created", errors });
+  }
+
+  return reply.status(errors.length > 0 ? 207 : 201).send({ jobs: created, errors });
 });
 
 // --- Job listing ---
-app.get("/api/v1/jobs", async (request) => {
-  const { limit = "20", offset = "0" } = request.query as Record<string, string>;
-  const limitNum = Math.min(Number(limit) || 20, 100);
-  const offsetNum = Number(offset) || 0;
+function queryString(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.find((item): item is string => typeof item === "string");
+  return undefined;
+}
 
-  if (!fs.existsSync(JOBS_DIR)) return { jobs: [], total: 0 };
+function parseDate(value: string | undefined, name: string): number | null {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) throw new Error(`${name} must be an ISO-8601 timestamp`);
+  return parsed;
+}
 
-  const dirents = fs.readdirSync(JOBS_DIR, { withFileTypes: true }).filter((d) => d.isDirectory());
-  const entries = await Promise.all(
-    dirents.map(async (d) => {
-      const metaPath = path.join(JOBS_DIR, d.name, "meta.json");
-      try {
-        const raw = await fs.promises.readFile(metaPath, "utf-8");
-        const meta = JSON.parse(raw);
-        return { id: d.name, ...meta };
-      } catch {
-        return { id: d.name, status: "unknown" };
-      }
-    }),
+app.get("/api/v1/jobs", async (request, reply) => {
+  const query = request.query as Record<string, unknown>;
+  const limitNum = Math.min(Math.max(Number(queryString(query["limit"])) || 20, 1), 100);
+  const offsetNum = Math.max(Number(queryString(query["offset"])) || 0, 0);
+  const statusFilter = new Set(
+    (queryString(query["status"]) ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
   );
-  entries.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+  const archetypeFilter = queryString(query["archetype"]);
+  const platformFilter = queryString(query["platform"]);
+  const textFilter = queryString(query["q"])?.toLowerCase();
+  const sort = queryString(query["sort"]) === "oldest" ? "oldest" : "newest";
 
+  let since: number | null;
+  let until: number | null;
+  try {
+    since = parseDate(queryString(query["since"]), "since");
+    until = parseDate(queryString(query["until"]), "until");
+  } catch (err) {
+    return reply.status(400).send({ error: (err as Error).message });
+  }
+
+  let jobs = listJobMetas(JOBS_DIR).filter(({ meta }) => {
+    if (statusFilter.size > 0 && !statusFilter.has(meta.status)) return false;
+    if (archetypeFilter && meta.archetype !== archetypeFilter) return false;
+    if (platformFilter && (meta.platform ?? "youtube") !== platformFilter) return false;
+    if (textFilter && !meta.topic.toLowerCase().includes(textFilter)) return false;
+    if (since !== null || until !== null) {
+      const createdAt = Date.parse(meta.createdAt);
+      if (Number.isNaN(createdAt)) return false;
+      if (since !== null && createdAt < since) return false;
+      if (until !== null && createdAt > until) return false;
+    }
+    return true;
+  });
+
+  jobs = jobs.sort((a, b) => {
+    const comparison = (a.meta.createdAt ?? "").localeCompare(b.meta.createdAt ?? "");
+    return sort === "oldest" ? comparison : -comparison;
+  });
+
+  const total = jobs.length;
   return {
-    jobs: entries.slice(offsetNum, offsetNum + limitNum),
-    total: entries.length,
+    jobs: jobs.slice(offsetNum, offsetNum + limitNum).map(({ meta }) => toPublicJob(meta)),
+    total,
+    limit: limitNum,
+    offset: offsetNum,
+    hasMore: offsetNum + limitNum < total,
   };
 });
 
@@ -346,15 +432,11 @@ app.get<{ Params: { id: string } }>("/api/v1/jobs/:id", async (request, reply) =
   if (!isValidJobId(request.params.id)) {
     return reply.status(400).send({ error: "Invalid job ID" });
   }
-  const jobDir = path.join(JOBS_DIR, request.params.id);
-  const metaPath = path.join(jobDir, "meta.json");
-
-  if (!fs.existsSync(metaPath)) {
+  const meta = readJobMeta(JOBS_DIR, request.params.id);
+  if (!meta) {
     return reply.status(404).send({ error: "Job not found" });
   }
-
-  const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-  return meta;
+  return toPublicJob(meta);
 });
 
 // --- Job SSE events ---
@@ -364,36 +446,32 @@ app.get<{ Params: { id: string } }>("/api/v1/jobs/:id/events", async (request, r
   }
   const jobId = request.params.id;
 
-  // Check if job exists in BullMQ
-  const jobDir = path.join(JOBS_DIR, jobId);
-  const metaPath = path.join(jobDir, "meta.json");
   const job = await queue.getJob(jobId);
-  if (!job) {
-    // Job may have been cleaned from BullMQ (Redis restart, etc.) — fallback to meta.json
-    if (fs.existsSync(metaPath)) {
-      try {
-        const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-        if (
-          meta.status === "completed" ||
-          meta.status === "failed" ||
-          meta.status === "cancelled"
-        ) {
-          reply.raw.writeHead(200, {
-            "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
-            Connection: "keep-alive",
-          });
-          reply.raw.write(`event: job:snapshot\ndata: ${JSON.stringify(meta)}\n\n`);
-          const terminalEvent = meta.status === "completed" ? "job:completed" : "job:failed";
-          reply.raw.write(
-            `event: ${terminalEvent}\ndata: ${JSON.stringify({ state: meta.status })}\n\n`,
-          );
-          reply.raw.end();
-          return;
-        }
-      } catch {}
-    }
+  const meta = readJobMeta(JOBS_DIR, jobId);
+  if (!job && !meta) {
     return reply.status(404).send({ error: "Job not found" });
+  }
+
+  // Finished jobs that were cleaned from Redis still replay their final state.
+  if (!job && meta) {
+    if (!["completed", "failed", "cancelled"].includes(meta.status)) {
+      return reply.status(404).send({ error: "Job not found" });
+    }
+    reply.raw.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+    reply.raw.write(`event: job:snapshot\ndata: ${JSON.stringify(meta)}\n\n`);
+    const terminalEvent =
+      meta.status === "completed"
+        ? "job:completed"
+        : meta.status === "cancelled"
+          ? "job:cancelled"
+          : "job:failed";
+    reply.raw.write(`event: ${terminalEvent}\ndata: ${JSON.stringify({ state: meta.status })}\n\n`);
+    reply.raw.end();
+    return;
   }
 
   reply.raw.writeHead(200, {
@@ -402,42 +480,46 @@ app.get<{ Params: { id: string } }>("/api/v1/jobs/:id/events", async (request, r
     Connection: "keep-alive",
   });
 
-  // Send current state as snapshot
-  if (fs.existsSync(metaPath)) {
-    try {
-      const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-      reply.raw.write(`event: job:snapshot\ndata: ${JSON.stringify(meta)}\n\n`);
-    } catch {}
+  if (meta) {
+    reply.raw.write(`event: job:snapshot\ndata: ${JSON.stringify(meta)}\n\n`);
   }
 
-  // If job is already finished, send completion and close
-  const state = await job.getState();
+  const state = await job?.getState();
   if (state === "completed" || state === "failed") {
-    reply.raw.write(`event: job:${state}\ndata: ${JSON.stringify({ state })}\n\n`);
+    const event = meta?.status === "cancelled" ? "job:cancelled" : `job:${state}`;
+    reply.raw.write(`event: ${event}\ndata: ${JSON.stringify({ state })}\n\n`);
     reply.raw.end();
     return;
   }
 
-  // Guard against double-cleanup (client disconnect + job complete can race)
   let cleaned = false;
+  const heartbeat = setInterval(() => {
+    if (cleaned) return;
+    try {
+      reply.raw.write(": keep-alive\n\n");
+    } catch {}
+  }, 15_000);
+  heartbeat.unref();
 
-  // Listen for progress updates
   const onProgress = ({ jobId: progressJobId, data }: { jobId: string; data: unknown }) => {
     if (cleaned || progressJobId !== jobId) return;
     try {
       const eventData = data as Record<string, unknown>;
-      const stage = eventData.stage as string;
+      const stage = eventData["stage"] as string;
       reply.raw.write(`event: stage:${stage}\ndata: ${JSON.stringify(eventData)}\n\n`);
     } catch {}
   };
 
   const onCompleted = ({ jobId: completedJobId }: { jobId: string }) => {
-    if (completedJobId === jobId) {
-      try {
-        reply.raw.write(`event: job:completed\ndata: {}\n\n`);
-      } catch {}
-      cleanup();
-    }
+    if (completedJobId !== jobId) return;
+    try {
+      const current = readJobMeta(JOBS_DIR, jobId);
+      const event = current?.status === "cancelled" ? "job:cancelled" : "job:completed";
+      reply.raw.write(
+        `event: ${event}\ndata: ${JSON.stringify({ state: current?.status ?? "completed" })}\n\n`,
+      );
+    } catch {}
+    cleanup();
   };
 
   const onFailed = ({
@@ -447,20 +529,45 @@ app.get<{ Params: { id: string } }>("/api/v1/jobs/:id/events", async (request, r
     jobId: string;
     failedReason: string;
   }) => {
-    if (failedJobId === jobId) {
-      try {
-        reply.raw.write(`event: job:failed\ndata: ${JSON.stringify({ error: failedReason })}\n\n`);
-      } catch {}
-      cleanup();
-    }
+    if (failedJobId !== jobId) return;
+    try {
+      const current = readJobMeta(JOBS_DIR, jobId);
+      if (current?.status === "cancelled") {
+        reply.raw.write(
+          `event: job:cancelled\ndata: ${JSON.stringify({ state: "cancelled" })}\n\n`,
+        );
+      } else {
+        reply.raw.write(
+          `event: job:failed\ndata: ${JSON.stringify({ error: failedReason, state: "failed" })}\n\n`,
+        );
+      }
+    } catch {}
+    cleanup();
+  };
+
+  // Queued jobs are finalized by the server with `job.remove()`, which emits a
+  // local Queue event rather than a QueueEvents stream message.
+  const onRemoved = (removedJobId: string) => {
+    if (removedJobId !== jobId) return;
+    try {
+      const current = readJobMeta(JOBS_DIR, jobId);
+      if (current?.status === "cancelled") {
+        reply.raw.write(
+          `event: job:cancelled\ndata: ${JSON.stringify({ state: "cancelled" })}\n\n`,
+        );
+        cleanup();
+      }
+    } catch {}
   };
 
   const cleanup = () => {
     if (cleaned) return;
     cleaned = true;
+    clearInterval(heartbeat);
     queueEvents.off("progress", onProgress);
     queueEvents.off("completed", onCompleted);
     queueEvents.off("failed", onFailed);
+    queue.off("removed", onRemoved);
     try {
       reply.raw.end();
     } catch {}
@@ -469,73 +576,196 @@ app.get<{ Params: { id: string } }>("/api/v1/jobs/:id/events", async (request, r
   queueEvents.on("progress", onProgress);
   queueEvents.on("completed", onCompleted);
   queueEvents.on("failed", onFailed);
-
-  // Cleanup on client disconnect
+  queue.on("removed", onRemoved);
   request.raw.on("close", cleanup);
+});
+
+// --- Artifact listing ---
+app.get<{ Params: { id: string } }>("/api/v1/jobs/:id/artifacts", async (request, reply) => {
+  if (!isValidJobId(request.params.id)) {
+    return reply.status(400).send({ error: "Invalid job ID" });
+  }
+  if (!readJobMeta(JOBS_DIR, request.params.id)) {
+    return reply.status(404).send({ error: "Job not found" });
+  }
+  return { jobId: request.params.id, artifacts: listArtifacts(JOBS_DIR, request.params.id) };
 });
 
 // --- Artifact serving (with path traversal protection) ---
 app.get<{ Params: { id: string; "*": string } }>(
   "/api/v1/jobs/:id/artifacts/*",
   async (request, reply) => {
-    const jobId = request.params.id;
-    if (!isValidJobId(jobId)) {
-      return reply.status(400).send({ error: "Invalid job ID" });
+    const resolution = resolveArtifact(JOBS_DIR, request.params.id, request.params["*"] ?? "");
+    if (!resolution.ok) {
+      return reply.status(resolution.status).send({ error: resolution.error });
     }
-    const artifactPath = request.params["*"];
-
-    const jobDir = path.join(JOBS_DIR, jobId);
-    const fullPath = path.resolve(jobDir, artifactPath);
-
-    // Path traversal protection: ensure resolved path is within the job directory
-    if (
-      !fullPath.startsWith(path.resolve(jobDir) + path.sep) &&
-      fullPath !== path.resolve(jobDir)
-    ) {
-      return reply.status(403).send({ error: "Access denied" });
-    }
-
-    if (!fs.existsSync(fullPath)) {
-      return reply.status(404).send({ error: "Artifact not found" });
-    }
-
-    return reply.sendFile(path.relative(JOBS_DIR, fullPath), JOBS_DIR);
+    // resolution.relativePath is relative to the job directory; sendFile
+    // resolves against JOBS_DIR, so the job id has to be part of the path.
+    return reply.sendFile(resolution.relativeToJobsDir, JOBS_DIR);
   },
 );
+
+// --- Video alias ---
+app.get<{ Params: { id: string } }>("/api/v1/jobs/:id/video", async (request, reply) => {
+  const meta = readJobMeta(JOBS_DIR, request.params.id);
+  if (!meta) return reply.status(404).send({ error: "Job not found" });
+  const videoPath = findVideoPath(JOBS_DIR, meta);
+  if (!videoPath) return reply.status(404).send({ error: "Video not available" });
+  // findVideoPath returns a path relative to the job directory; sendFile
+  // resolves against JOBS_DIR, so the job id has to be part of the path.
+  const relativeToJobs = path.join(meta.id, videoPath);
+  return reply.type(contentTypeFor(videoPath)).sendFile(relativeToJobs, JOBS_DIR);
+});
+
+// --- Score alias ---
+app.get<{ Params: { id: string } }>("/api/v1/jobs/:id/score", async (request, reply) => {
+  const meta = readJobMeta(JOBS_DIR, request.params.id);
+  if (!meta) return reply.status(404).send({ error: "Job not found" });
+  if (meta.score) return reply.type("application/json").send(meta.score);
+
+  const runDir = findRunDir(JOBS_DIR, meta);
+  if (runDir) {
+    const resolution = resolveArtifact(JOBS_DIR, meta.id, path.join(runDir, "score.json"));
+    if (resolution.ok) {
+      try {
+        const score = JSON.parse(fs.readFileSync(resolution.fullPath, "utf-8"));
+        return reply.type("application/json").send(score);
+      } catch {}
+    }
+  }
+  return reply.status(404).send({ error: "Score not available" });
+});
+
+// --- Log alias ---
+app.get<{ Params: { id: string } }>("/api/v1/jobs/:id/log", async (request, reply) => {
+  const meta = readJobMeta(JOBS_DIR, request.params.id);
+  if (!meta) return reply.status(404).send({ error: "Job not found" });
+
+  const runDir = findRunDir(JOBS_DIR, meta);
+  if (runDir) {
+    const resolution = resolveArtifact(JOBS_DIR, meta.id, path.join(runDir, "log.json"));
+    if (resolution.ok) {
+      try {
+        const log = JSON.parse(fs.readFileSync(resolution.fullPath, "utf-8"));
+        return reply.type("application/json").send(log);
+      } catch {}
+    }
+  }
+  return reply.status(404).send({ error: "Log not available" });
+});
+
+// --- Job retry ---
+app.post<{ Params: { id: string } }>("/api/v1/jobs/:id/retry", async (request, reply) => {
+  if (!isValidJobId(request.params.id)) {
+    return reply.status(400).send({ error: "Invalid job ID" });
+  }
+  const result = await retryJob(request.params.id, {
+    ...createJobContext,
+    getJobData: async (id) => {
+      const job = await queue.getJob(id);
+      return job ? (job.data as JobData) : null;
+    },
+  });
+  if (result.headers) {
+    for (const [name, value] of Object.entries(result.headers)) reply.header(name, value);
+  }
+  return reply.status(result.status).send(result.body);
+});
+
+/** Deliver a terminal webhook from the server for jobs that never reach a worker. */
+async function deliverServerCallback(
+  job: Job<JobData>,
+  meta: JobMeta,
+  event: CallbackEvent,
+  error?: string,
+): Promise<void> {
+  const callbacks = job.data.callbacks;
+  if (!callbacks) return;
+  if (meta.callbackEventsSent?.includes(event)) return;
+
+  const payload: CallbackPayload = {
+    event,
+    jobId: meta.id,
+    status: meta.status,
+    topic: meta.topic,
+    ...(meta.createdAt ? { createdAt: meta.createdAt } : {}),
+    ...(meta.completedAt ? { completedAt: meta.completedAt } : {}),
+    ...(meta.videoPath ? { videoPath: meta.videoPath } : {}),
+    ...(meta.runDir ? { runDir: meta.runDir } : {}),
+    ...(error ? { error } : {}),
+    ...(meta.metadata ? { metadata: meta.metadata } : {}),
+    links: buildJobLinks(meta),
+    timestamp: new Date().toISOString(),
+  };
+
+  const result = await deliverCallback(callbacks, payload, {
+    allowPrivate: ALLOW_PRIVATE_CALLBACKS,
+  });
+  if (result.delivered) {
+    meta.callbackEventsSent = [...(meta.callbackEventsSent ?? []), event];
+    writeJobMeta(JOBS_DIR, meta.id, meta);
+  } else {
+    app.log.warn(
+      { jobId: meta.id, event, error: result.error, attempts: result.attempts },
+      "callback delivery failed",
+    );
+  }
+}
 
 // --- Job cancellation ---
 app.post<{ Params: { id: string } }>("/api/v1/jobs/:id/cancel", async (request, reply) => {
   if (!isValidJobId(request.params.id)) {
     return reply.status(400).send({ error: "Invalid job ID" });
   }
-  const job = await queue.getJob(request.params.id);
-  if (!job) {
+  const jobId = request.params.id;
+  const job = await queue.getJob(jobId);
+  const meta = readJobMeta(JOBS_DIR, jobId);
+  if (!job && !meta) {
     return reply.status(404).send({ error: "Job not found" });
   }
 
-  const state = await job.getState();
+  if (meta && ["completed", "failed", "cancelled"].includes(meta.status)) {
+    return reply.status(409).send({ error: `Job already ${meta.status}` });
+  }
+
+  const state = job ? await job.getState() : null;
   if (state === "completed" || state === "failed") {
     return reply.status(409).send({ error: `Job already ${state}` });
   }
 
-  // Update meta to mark as cancelling (atomic write: tmp + rename)
-  const jobDir = path.join(JOBS_DIR, request.params.id);
-  const metaPath = path.join(jobDir, "meta.json");
-  if (fs.existsSync(metaPath)) {
-    try {
-      const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-      meta.cancelRequested = true;
-      const tmpPath = path.join(jobDir, ".meta.tmp");
-      fs.writeFileSync(tmpPath, JSON.stringify(meta, null, 2));
-      fs.renameSync(tmpPath, metaPath);
-    } catch {}
+  if (meta) {
+    meta.cancelRequested = true;
+    writeJobMeta(JOBS_DIR, jobId, meta);
   }
 
-  // moveToFailed handles queued jobs; for active jobs the token won't match
-  // the worker's lock, so we catch and rely on cancelRequested flag instead
-  try {
-    await job.moveToFailed(new Error("Cancelled by user"), "0", true);
-  } catch {}
+  if (state === "active") {
+    // The worker observes cancelRequested and finalizes the job itself.
+    return { status: "cancelled", requested: true };
+  }
+
+  // Queued/waiting/delayed jobs never reach the worker, so finalize them here.
+  // The metadata is written *before* the job leaves the queue so that SSE
+  // clients and the queue's own events never observe a stale status.
+  if (meta) {
+    meta.status = "cancelled";
+    meta.error = "Cancelled by user";
+    meta.completedAt = new Date().toISOString();
+    writeJobMeta(JOBS_DIR, jobId, meta);
+  }
+
+  if (job) {
+    try {
+      await job.remove();
+    } catch {
+      // The job may already be locked by a worker; the cancel flag still applies.
+    }
+    if (meta) {
+      void deliverServerCallback(job, { ...meta }, "job.cancelled", "Cancelled by user").catch(
+        () => {},
+      );
+    }
+  }
+
   return { status: "cancelled" };
 });
 
@@ -545,7 +775,7 @@ app.delete<{ Params: { id: string } }>("/api/v1/jobs/:id", async (request, reply
   if (!isValidJobId(jobId)) {
     return reply.status(400).send({ error: "Invalid job ID" });
   }
-  const jobDir = path.join(JOBS_DIR, jobId);
+  const jobDir = jobDirFor(JOBS_DIR, jobId);
 
   if (!fs.existsSync(jobDir)) {
     return reply.status(404).send({ error: "Job not found" });
@@ -562,6 +792,7 @@ app.delete<{ Params: { id: string } }>("/api/v1/jobs/:id", async (request, reply
   }
 
   fs.rmSync(jobDir, { recursive: true, force: true });
+  idempotency.removeJob(jobId);
   return { status: "deleted" };
 });
 
@@ -594,11 +825,11 @@ async function pruneOldJobs() {
     const oldest = dirs.shift();
     if (oldest) {
       fs.rmSync(path.join(JOBS_DIR, oldest.id), { recursive: true, force: true });
+      idempotency.removeJob(oldest.id);
     }
   }
 }
 
-// Export for worker to call after job completion
 export { JOBS_DIR, MAX_JOBS, pruneOldJobs };
 
 // --- Serve frontend SPA ---
@@ -609,6 +840,10 @@ if (fs.existsSync(WEB_DIST)) {
     decorateReply: false,
     wildcard: false,
   });
+
+  if (process.env["OPENREELS_PRINT_ROUTES"] === "true") {
+    app.printRoutes({ commonPrefix: false });
+  }
 
   // SPA fallback: serve index.html for all non-API routes
   app.setNotFoundHandler((request, reply) => {
@@ -627,3 +862,26 @@ try {
   app.log.error(err);
   process.exit(1);
 }
+
+// --- Graceful shutdown ---
+let shuttingDown = false;
+async function shutdown(signal: string): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  app.log.info({ signal }, "shutting down");
+  const forceExit = setTimeout(() => process.exit(1), 10_000);
+  forceExit.unref();
+  try {
+    await app.close();
+    await queueEvents.close();
+    await queue.close();
+    await redis.quit();
+  } catch (err) {
+    app.log.error(err);
+  }
+  clearTimeout(forceExit);
+  process.exit(0);
+}
+
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));

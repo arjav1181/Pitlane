@@ -239,6 +239,85 @@ describe("validateEnv", () => {
     delete process.env["GOOGLE_API_KEY"];
   });
 
+  it("requires OPENREELS_LLM_API_KEY when openai-compatible auth is bearer", () => {
+    delete process.env["OPENREELS_LLM_API_KEY"];
+    process.env["ELEVENLABS_API_KEY"] = "test";
+    process.env["GOOGLE_API_KEY"] = "test";
+
+    validateEnv({
+      provider: "openai-compatible",
+      ttsProvider: "elevenlabs",
+      imageProvider: "gemini",
+      llmAuthType: "bearer",
+    });
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    const output = errorSpy.mock.calls.flat().join("");
+    expect(output).toContain("OPENREELS_LLM_API_KEY");
+
+    delete process.env["ELEVENLABS_API_KEY"];
+    delete process.env["GOOGLE_API_KEY"];
+  });
+
+  it("requires OPENREELS_LLM_API_KEY when openai-compatible auth is custom-header", () => {
+    delete process.env["OPENREELS_LLM_API_KEY"];
+    process.env["ELEVENLABS_API_KEY"] = "test";
+    process.env["GOOGLE_API_KEY"] = "test";
+
+    validateEnv({
+      provider: "openai-compatible",
+      ttsProvider: "elevenlabs",
+      imageProvider: "gemini",
+      llmAuthType: "custom-header",
+    });
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    const output = errorSpy.mock.calls.flat().join("");
+    expect(output).toContain("OPENREELS_LLM_API_KEY");
+
+    delete process.env["ELEVENLABS_API_KEY"];
+    delete process.env["GOOGLE_API_KEY"];
+  });
+
+  it("does not require OPENREELS_LLM_API_KEY when openai-compatible auth is none", () => {
+    delete process.env["OPENREELS_LLM_API_KEY"];
+    process.env["ELEVENLABS_API_KEY"] = "test";
+    process.env["GOOGLE_API_KEY"] = "test";
+
+    validateEnv({
+      provider: "openai-compatible",
+      ttsProvider: "elevenlabs",
+      imageProvider: "gemini",
+      llmAuthType: "none",
+    });
+
+    expect(exitSpy).not.toHaveBeenCalled();
+
+    delete process.env["ELEVENLABS_API_KEY"];
+    delete process.env["GOOGLE_API_KEY"];
+  });
+
+  it("requires OPENREELS_LLM_API_KEY when OPENREELS_LLM_AUTH is bearer", () => {
+    delete process.env["OPENREELS_LLM_API_KEY"];
+    process.env["OPENREELS_LLM_AUTH"] = "bearer";
+    process.env["ELEVENLABS_API_KEY"] = "test";
+    process.env["GOOGLE_API_KEY"] = "test";
+
+    validateEnv({
+      provider: "openai-compatible",
+      ttsProvider: "elevenlabs",
+      imageProvider: "gemini",
+    });
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    const output = errorSpy.mock.calls.flat().join("");
+    expect(output).toContain("OPENREELS_LLM_API_KEY");
+
+    delete process.env["OPENREELS_LLM_AUTH"];
+    delete process.env["ELEVENLABS_API_KEY"];
+    delete process.env["GOOGLE_API_KEY"];
+  });
+
   it("requires TAVILY_API_KEY when --search-provider tavily is explicit", () => {
     process.env["ANTHROPIC_API_KEY"] = "test";
     process.env["ELEVENLABS_API_KEY"] = "test";

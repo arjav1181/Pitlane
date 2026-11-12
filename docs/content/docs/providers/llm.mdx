@@ -45,6 +45,38 @@ pnpm start "the apollo 13 disaster" --provider openai-compatible \
   --search-provider none
 ```
 
+#### Authentication
+
+OpenAI-compatible endpoints differ in how they authenticate. Pick the mode that matches your endpoint:
+
+| Mode | Flag | What it sends | Use it for |
+|------|------|---------------|-----------|
+| Auto | *(default)* | `Authorization: Bearer <key>` when a key is set, nothing otherwise | Most endpoints |
+| Bearer | `--llm-auth bearer` | `Authorization: Bearer <key>` (fails fast when no key is set) | OpenAI, OpenRouter, Groq, Together, LiteLLM |
+| Custom header | `--llm-auth custom-header --llm-auth-header x-api-key` | The key in the header you name | Proxies that expect `x-api-key`, `api-key`, etc. |
+| No auth | `--llm-auth none` | Nothing | Local Ollama, LM Studio, vLLM without `--api-key` |
+
+The key itself comes from `OPENREELS_LLM_API_KEY` (or the `OPENREELS_LLM_API_KEY` key submitted with a job via the API/web UI):
+
+```bash
+# Local server, no credentials
+pnpm start "topic" --provider openai-compatible \
+  --llm-base-url http://localhost:11434/v1 \
+  --llm-model llama3:8b \
+  --llm-auth none
+
+# Hosted endpoint with a key
+export OPENREELS_LLM_API_KEY=sk-...
+pnpm start "topic" --provider openai-compatible \
+  --llm-base-url https://api.example.com/v1 \
+  --llm-model my-model \
+  --llm-auth bearer
+```
+
+Env equivalents: `OPENREELS_LLM_AUTH` (`auto`, `none`, `bearer`, `custom-header`) and `OPENREELS_LLM_AUTH_HEADER`.
+
+In the web UI, the same options live in the **Advanced** panel: an **Auth** dropdown, an **API Key** field, and an **Auth Header** field for custom-header mode.
+
 ### Model override
 
 Override the default model for any provider with `--llm-model`:
@@ -136,4 +168,4 @@ Stock footage verification uses a separate VLM (Vision Language Model) call. By 
 - **OpenAI** — `gpt-4o`
 - **Gemini** — `gemini-2.5-flash`
 - **OpenRouter** — `anthropic/claude-sonnet-4` (or your `--llm-model`)
-- **OpenAI-compatible** — falls back to Anthropic if no `OPENREELS_LLM_BASE_URL` is set
+- **OpenAI-compatible** — your configured endpoint (falls back to Anthropic when no base URL is configured)

@@ -2,6 +2,17 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { type Job, Worker } from "bullmq";
 import IORedis from "ioredis";
+import { type CallbackEvent, type CallbackPayload, deliverCallback } from "./api/callbacks.js";
+import { createIdempotencyStore } from "./api/idempotency.js";
+import type { JobData } from "./api/job-data.js";
+import type { JobMeta } from "./api/job-meta.js";
+import {
+  buildJobLinks,
+  buildPlaceholderMeta,
+  readJobMeta,
+  STAGE_NAMES,
+  writeJobMeta,
+} from "./api/jobs.js";
 import type { PipelineCallbacks, StageName } from "./pipeline/orchestrator.js";
 import { runPipeline } from "./pipeline/orchestrator.js";
 import { createProviders, createVerificationModel } from "./providers/factory.js";
@@ -11,7 +22,6 @@ import type {
   ImageProviderKey,
   LLMProviderKey,
   MusicProviderKey,
-  SearchProviderKey,
   StockProviderKey,
   TTSProviderKey,
   VideoProviderKey,
@@ -20,10 +30,13 @@ import type {
 const REDIS_URL = process.env["REDIS_URL"] ?? "redis://localhost:6379";
 const JOBS_DIR = process.env["JOBS_DIR"] ?? path.join(process.cwd(), "jobs");
 const MAX_JOBS = process.env["MAX_JOBS"] ? Number(process.env["MAX_JOBS"]) : 0;
+const ALLOW_PRIVATE_CALLBACKS =
+  (process.env["OPENREELS_ALLOW_PRIVATE_CALLBACKS"] ?? "").toLowerCase() === "true";
 
 fs.mkdirSync(JOBS_DIR, { recursive: true });
 
 const redis = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
+const idempotency = createIdempotencyStore(JOBS_DIR);
 
 // Validate music manifest at startup — warn but don't crash
 try {
@@ -37,90 +50,110 @@ try {
   // Music manifest not available — music selection will gracefully degrade
 }
 
-interface JobData {
-  topic: string;
-  archetype?: string;
-  pacing?: string;
-  platform: string;
-  dryRun: boolean;
-  noMusic?: boolean;
-  noVideo?: boolean;
-  direction?: string;
-  score?: Record<string, unknown>;
-  providers: {
-    llm: string;
-    tts: string;
-    image: string;
-    stock: string;
-    video?: string;
-    videoModel?: string;
-    music?: string;
-    llmModel?: string;
-    llmBaseUrl?: string;
-    searchProvider?: SearchProviderKey;
-  };
-  keys: Record<string, string>;
-  jobsDir: string;
-}
-
-interface JobMeta {
-  id: string;
-  topic: string;
-  archetype?: string;
-  status: string;
-  createdAt: string;
-  completedAt?: string;
-  cancelRequested?: boolean;
-  stages: Record<string, { status: string; detail?: string; durationSec?: number }>;
-  costEstimate?: unknown;
-  actualCost?: unknown;
-  videoPath?: string;
-  runDir?: string;
-  researchData?: { summary: string; key_facts: string[]; mood: string };
-  score?: unknown; // DirectorScore
-  criticReview?: { score: number; strengths: string[]; weaknesses: string[] };
-  musicTrack?: { trackId: string; mood: string; requestedMood: string; fallback: boolean };
-  musicGeneration?: {
-    provider: string;
-    prompt?: string;
-    metadata?: Record<string, unknown>;
-    fallback: boolean;
-  };
-  revisionHistory?: { round: number; score: number }[];
-  error?: string;
-}
-
 function writeMeta(jobDir: string, meta: JobMeta) {
-  const tmpPath = jobDir + "/.meta.tmp";
-  fs.writeFileSync(tmpPath, JSON.stringify(meta, null, 2));
-  fs.renameSync(tmpPath, path.join(jobDir, "meta.json"));
+  writeJobMeta(JOBS_DIR, path.basename(jobDir), meta);
+}
+
+function callbackPayload(meta: JobMeta, event: CallbackEvent): CallbackPayload {
+  return {
+    event,
+    jobId: meta.id,
+    status: meta.status,
+    topic: meta.topic,
+    ...(meta.createdAt ? { createdAt: meta.createdAt } : {}),
+    ...(meta.completedAt ? { completedAt: meta.completedAt } : {}),
+    ...(meta.videoPath ? { videoPath: meta.videoPath } : {}),
+    ...(meta.runDir ? { runDir: meta.runDir } : {}),
+    ...(meta.error ? { error: meta.error } : {}),
+    ...(meta.metadata ? { metadata: meta.metadata } : {}),
+    ...(meta.actualCost ? { actualCost: meta.actualCost } : {}),
+    ...(meta.costEstimate ? { costEstimate: meta.costEstimate } : {}),
+    retryOf: meta.retryOf ?? null,
+    links: buildJobLinks(meta),
+    timestamp: new Date().toISOString(),
+  };
+}
+
+/**
+ * Deliver a signed terminal webhook. Never throws: a callback failure must not
+ * turn a successful render into a failed job.
+ */
+async function deliverJobCallback(
+  job: Job<JobData>,
+  meta: JobMeta,
+  event: CallbackEvent,
+): Promise<void> {
+  const callbacks = job.data.callbacks;
+  if (!callbacks) return;
+  if (meta.callbackEventsSent?.includes(event)) return;
+
+  const result = await deliverCallback(callbacks, callbackPayload(meta, event), {
+    allowPrivate: ALLOW_PRIVATE_CALLBACKS,
+  });
+
+  if (result.delivered) {
+    meta.callbackEventsSent = [...(meta.callbackEventsSent ?? []), event];
+    writeMeta(path.join(JOBS_DIR, meta.id), meta);
+    console.log(`[job:${meta.id}] delivered ${event} callback`);
+  } else {
+    console.warn(
+      `[job:${meta.id}] ${event} callback failed after ${result.attempts} attempt(s): ${result.error}`,
+    );
+  }
 }
 
 const worker = new Worker<JobData>(
   "openreels",
   async (job: Job<JobData>) => {
-    const { topic, archetype, pacing, platform, dryRun, noMusic, noVideo, direction, score, providers, keys } =
-      job.data;
+    const {
+      topic,
+      archetype,
+      pacing,
+      platform,
+      dryRun,
+      noMusic,
+      noVideo,
+      noAiAssets: noAiAssetsRequested,
+      direction,
+      score,
+      metadata,
+      providers,
+      keys,
+    } = job.data;
+    const noAiAssets =
+      noAiAssetsRequested === true ||
+      (process.env["OPENREELS_NO_AI_ASSETS"] ?? "").toLowerCase() === "true";
     const jobDir = path.join(JOBS_DIR, job.id!);
     fs.mkdirSync(jobDir, { recursive: true });
 
-    // Initialize meta
+    // Preserve the placeholder meta.json written by the API server: createdAt,
+    // caller metadata, provider snapshot, retry lineage, and any early state.
+    const existingMeta = readJobMeta(JOBS_DIR, job.id!);
     const meta: JobMeta = {
+      ...(existingMeta ?? {}),
       id: job.id!,
       topic,
-      archetype,
       status: "running",
-      createdAt: new Date().toISOString(),
-      stages: {},
+      createdAt: existingMeta?.createdAt ?? new Date().toISOString(),
+      stages: existingMeta?.stages ?? {},
     };
+    if (archetype) meta.archetype = archetype;
+    if (pacing) meta.pacing = pacing;
+    if (platform) meta.platform = platform;
+    if (noMusic) meta.noMusic = true;
+    if (noVideo) meta.noVideo = true;
+    if (noAiAssets) meta.noAiAssets = true;
+    if (metadata) meta.metadata = metadata;
 
     // Initialize all stages as pending
-    for (const name of ["research", "director", "tts", "visuals", "assembly", "critic"]) {
-      meta.stages[name] = { status: "pending" };
+    for (const name of STAGE_NAMES) {
+      if (!meta.stages[name]) meta.stages[name] = { status: "pending" };
     }
     writeMeta(jobDir, meta);
 
-    // Create providers with per-job keys
+    // Create providers with per-job keys. In no-AI mode the image provider is a
+    // disabled stub and no video providers are constructed, so no AI asset key
+    // is required and accidental calls fail loudly.
     const providerInstances = createProviders({
       llm: providers.llm as LLMProviderKey,
       tts: providers.tts as TTSProviderKey,
@@ -132,7 +165,10 @@ const worker = new Worker<JobData>(
       keys,
       llmModel: providers.llmModel,
       llmBaseUrl: providers.llmBaseUrl,
+      llmAuthType: providers.llmAuthType,
+      llmAuthHeader: providers.llmAuthHeader,
       searchProvider: providers.searchProvider,
+      noAiAssets: noAiAssets === true,
     });
 
     // Build callbacks that emit BullMQ progress events and update meta.json
@@ -259,6 +295,11 @@ const worker = new Worker<JobData>(
       providers.llm as LLMProviderKey,
       providers.llmModel,
       llmKey,
+      {
+        baseUrl: providers.llmBaseUrl,
+        authType: providers.llmAuthType,
+        authHeader: providers.llmAuthHeader,
+      },
     );
 
     // Parse replay score if provided
@@ -277,9 +318,10 @@ const worker = new Worker<JobData>(
         imageGen: providerInstances.imageGen,
         imageProvider: providers.image as ImageProviderKey,
         stock: providerInstances.stock,
-        videoProviders: noVideo ? [] : providerInstances.videoProviders,
+        videoProviders: noAiAssets || noVideo ? [] : providerInstances.videoProviders,
         videoProvider: providers.video as VideoProviderKey | undefined,
         noVideo: noVideo === true,
+        noAiAssets: noAiAssets === true,
         archetype,
         pacing,
         platform,
@@ -306,6 +348,16 @@ const worker = new Worker<JobData>(
       meta.runDir = path.relative(jobDir, result.outputDir);
     }
     writeMeta(jobDir, meta);
+
+    try {
+      await deliverJobCallback(
+        job,
+        meta,
+        meta.status === "cancelled" ? "job.cancelled" : "job.completed",
+      );
+    } catch (err) {
+      console.warn(`[job:${meta.id}] callback delivery error:`, err);
+    }
 
     // Auto-prune old jobs if MAX_JOBS is set
     if (MAX_JOBS > 0) {
@@ -347,6 +399,7 @@ function pruneOldJobs(jobsDir: string, maxJobs: number) {
     const oldest = dirs.shift();
     if (oldest) {
       fs.rmSync(path.join(jobsDir, oldest.id), { recursive: true, force: true });
+      idempotency.removeJob(oldest.id);
       console.log(`[pruner] Removed old job: ${oldest.id}`);
     }
   }
@@ -356,27 +409,36 @@ worker.on("completed", (job) => {
   console.log(`[worker] Job ${job.id} completed`);
 });
 
-worker.on("failed", (job, err) => {
+worker.on("failed", async (job, err) => {
   console.error(`[worker] Job ${job?.id} failed:`, err.message);
 
-  // Update meta to reflect failure (atomic write to prevent corruption)
-  if (job?.id) {
-    const jobDir = path.join(JOBS_DIR, job.id);
-    try {
-      const meta = JSON.parse(fs.readFileSync(path.join(jobDir, "meta.json"), "utf-8"));
-      meta.status = meta.cancelRequested ? "cancelled" : "failed";
-      meta.error = err.message;
-      meta.completedAt = new Date().toISOString();
-      // Mark whatever stage was "running" as "error" so the UI can identify it
-      if (meta.stages) {
-        for (const stage of Object.keys(meta.stages)) {
-          if (meta.stages[stage].status === "running") {
-            meta.stages[stage] = { status: "error", detail: err.message };
-          }
-        }
+  if (!job?.id) return;
+  const jobDir = path.join(JOBS_DIR, job.id);
+  let meta: JobMeta;
+  try {
+    meta = readJobMeta(JOBS_DIR, job.id) ?? buildPlaceholderMeta(job.id, job.data);
+    meta.status = meta.cancelRequested ? "cancelled" : "failed";
+    meta.error = err.message;
+    meta.completedAt = new Date().toISOString();
+    // Mark whatever stage was "running" as "error" so the UI can identify it
+    for (const stage of Object.keys(meta.stages)) {
+      if (meta.stages[stage]?.status === "running") {
+        meta.stages[stage] = { status: "error", detail: err.message };
       }
-      writeMeta(jobDir, meta);
-    } catch {}
+    }
+    writeMeta(jobDir, meta);
+  } catch {
+    return;
+  }
+
+  try {
+    await deliverJobCallback(
+      job,
+      meta,
+      meta.status === "cancelled" ? "job.cancelled" : "job.failed",
+    );
+  } catch (callbackErr) {
+    console.warn(`[job:${job.id}] callback delivery error:`, callbackErr);
   }
 });
 

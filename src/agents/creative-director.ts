@@ -2,12 +2,18 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { z } from "zod";
 import { getArchetype, listArchetypes } from "../config/archetype-registry.js";
-import type { ScenePacing } from "../schema/archetype.js";
 import { loadPlaybook } from "../config/playbook.js";
-import { DirectorScore, Motion, MusicMood, TransitionType, VisualType } from "../schema/director-score.js";
+import type { ScenePacing } from "../schema/archetype.js";
+import {
+  DirectorScore,
+  Motion,
+  MusicMood,
+  TransitionType,
+  VisualType,
+} from "../schema/director-score.js";
 import type { LLMProvider, LLMUsage } from "../schema/providers.js";
-import type { ResearchResult } from "./research.js";
 import type { CritiqueResult } from "./critic.js";
+import type { ResearchResult } from "./research.js";
 
 const SYSTEM_PROMPT_PATH = path.join(process.cwd(), "prompts", "creative-director.md");
 
@@ -60,7 +66,13 @@ export async function generateDirectorScore(
   llm: LLMProvider,
   topic: string,
   researchContext: ResearchResult,
-  options?: { archetype?: string; pacing?: string; videoEnabled?: boolean; direction?: string },
+  options?: {
+    archetype?: string;
+    pacing?: string;
+    videoEnabled?: boolean;
+    noAiAssets?: boolean;
+    direction?: string;
+  },
 ): Promise<DirectorScoreOutput> {
   const systemPrompt = loadDirectorSystemPrompt();
 
@@ -69,13 +81,10 @@ export async function generateDirectorScore(
     ? `Use the "${options.archetype}" archetype.`
     : `Choose from: ${archetypes.join(", ")}`;
 
-  const videoEnabled = options?.videoEnabled ?? false;
-  const visualTypes = videoEnabled
-    ? "all 5 visual types (ai_image, ai_video, stock_image, stock_video, text_card)"
-    : "all 4 visual types (ai_image, stock_image, stock_video, text_card)";
-  const videoGuidance = videoEnabled
-    ? "\nai_video: Use for 1-3 scenes where MOTION is the story (explosions, flowing water, launches, transformations). ai_video costs ~$0.30/scene vs ~$0.04 for ai_image. Use selectively. Set motion to 'static' for ai_video scenes (the video model handles motion)."
-    : "";
+  const visualInstruction = buildVisualTypeInstruction(
+    options?.videoEnabled ?? false,
+    options?.noAiAssets ?? false,
+  );
 
   // Resolve pacing tier: explicit --pacing override > archetype default > lookup table
   const pacingInstruction = buildPacingInstruction(options?.archetype, options?.pacing);
@@ -97,7 +106,7 @@ Mood: ${researchContext.mood}
 ${archetypeInstruction}
 
 ${pacingInstruction}
-Use ${visualTypes}.${videoGuidance}
+${visualInstruction}
 ${directionSection}CRITICAL RULE: Never use the same visual_type more than 2 times in a row. With more scenes, plan your visual_type sequence BEFORE writing scenes to ensure variety.
 Every scene MUST have a script_line (the voiceover text).
 The first scene should be a strong hook.
@@ -133,6 +142,22 @@ If over budget, cut a scene rather than cramming.`;
   throw new Error(`Creative Director failed after ${maxRetries} attempts: ${lastError?.message}`);
 }
 
+/** Visual-type rules injected into the director prompt. */
+function buildVisualTypeInstruction(videoEnabled: boolean, noAiAssets: boolean): string {
+  if (noAiAssets) {
+    return `Use only stock_image, stock_video, and text_card. AI image and AI video generation are DISABLED for this run — do NOT use ai_image or ai_video.
+Prefer stock_image or stock_video for concrete subjects, and text_card for abstract, data-heavy, or title moments.`;
+  }
+
+  const visualTypes = videoEnabled
+    ? "all 5 visual types (ai_image, ai_video, stock_image, stock_video, text_card)"
+    : "all 4 visual types (ai_image, stock_image, stock_video, text_card)";
+  const videoGuidance = videoEnabled
+    ? "\nai_video: Use for 1-3 scenes where MOTION is the story (explosions, flowing water, launches, transformations). ai_video costs ~$0.30/scene vs ~$0.04 for ai_image. Use selectively. Set motion to 'static' for ai_video scenes (the video model handles motion)."
+    : "";
+  return `Use ${visualTypes}.${videoGuidance}`;
+}
+
 function buildDefaultPrompt(): string {
   return `You are a Creative Director for short-form video content. Your job is to create a detailed per-scene production plan (DirectorScore) that will drive the entire video creation pipeline.
 
@@ -151,7 +176,10 @@ Keep total script under 140 words — verbose scripts create rushed, unwatchable
 
 // --- Pacing tier configuration ---
 
-const PACING_CONFIG: Record<ScenePacing, { min: number; max: number; wordsPerScene: string; totalWords: string }> = {
+const PACING_CONFIG: Record<
+  ScenePacing,
+  { min: number; max: number; wordsPerScene: string; totalWords: string }
+> = {
   fast: { min: 8, max: 12, wordsPerScene: "8-12", totalWords: "90-120" },
   moderate: { min: 7, max: 10, wordsPerScene: "10-16", totalWords: "100-140" },
   cinematic: { min: 5, max: 8, wordsPerScene: "15-22", totalWords: "90-130" },
@@ -167,7 +195,9 @@ export function buildPacingInstruction(archetype?: string, pacingOverride?: stri
   if (pacingOverride && pacingOverride in PACING_CONFIG) {
     const tier = pacingOverride as ScenePacing;
     const cfg = PACING_CONFIG[tier];
-    console.log(`[creative-director] Using ${tier} pacing (${cfg.min}-${cfg.max} scenes) — explicit override`);
+    console.log(
+      `[creative-director] Using ${tier} pacing (${cfg.min}-${cfg.max} scenes) — explicit override`,
+    );
     return `Use ${tier} pacing. Create a DirectorScore with ${cfg.min}-${cfg.max} scenes.
 Per-scene word budget: ${cfg.wordsPerScene} words. Total word budget: ${cfg.totalWords} words.`;
   }
@@ -178,7 +208,9 @@ Per-scene word budget: ${cfg.wordsPerScene} words. Total word budget: ${cfg.tota
       const config = getArchetype(archetype);
       const tier = config.scenePacing;
       const cfg = PACING_CONFIG[tier];
-      console.log(`[creative-director] Using ${tier} pacing (${cfg.min}-${cfg.max} scenes) for archetype ${archetype}`);
+      console.log(
+        `[creative-director] Using ${tier} pacing (${cfg.min}-${cfg.max} scenes) for archetype ${archetype}`,
+      );
       return `This archetype uses ${tier} pacing. Create a DirectorScore with ${cfg.min}-${cfg.max} scenes.
 Per-scene word budget: ${cfg.wordsPerScene} words. Total word budget: ${cfg.totalWords} words.`;
     } catch {
@@ -201,20 +233,26 @@ export async function reviseDirectorScore(
   researchContext: ResearchResult,
   originalScore: DirectorScore,
   critique: CritiqueResult,
-  options?: { archetype?: string; pacing?: string; videoEnabled?: boolean; direction?: string },
+  options?: {
+    archetype?: string;
+    pacing?: string;
+    videoEnabled?: boolean;
+    noAiAssets?: boolean;
+    direction?: string;
+  },
 ): Promise<DirectorScoreOutput> {
   const systemPrompt = loadDirectorSystemPrompt();
 
   // Build revision instructions from critique, guarding nullable revision_instructions
-  const revisionGuidance = critique.revision_instructions
-    ?? `Address these weaknesses: ${critique.weaknesses.join("; ")}`;
+  const revisionGuidance =
+    critique.revision_instructions ?? `Address these weaknesses: ${critique.weaknesses.join("; ")}`;
 
   const pacingInstruction = buildPacingInstruction(options?.archetype, options?.pacing);
 
-  const videoEnabled = options?.videoEnabled ?? false;
-  const visualTypes = videoEnabled
-    ? "all 5 visual types (ai_image, ai_video, stock_image, stock_video, text_card)"
-    : "all 4 visual types (ai_image, stock_image, stock_video, text_card)";
+  const visualInstruction = buildVisualTypeInstruction(
+    options?.videoEnabled ?? false,
+    options?.noAiAssets ?? false,
+  );
 
   const directionSection = options?.direction?.trim()
     ? `\n## Creative Direction (from the producer)\n\n${options.direction}\n\nHonor these creative constraints while exercising your judgment on anything not specified.\n`
@@ -231,7 +269,7 @@ ${researchContext.key_facts.map((f) => `- ${f}`).join("\n")}
 Mood: ${researchContext.mood}
 
 ${pacingInstruction}
-Use ${visualTypes}.
+${visualInstruction}
 ${directionSection}
 ## Current Plan (score: ${critique.score}/10)
 
@@ -248,7 +286,7 @@ ${critique.weakest_scene_index != null ? `Weakest scene: Scene ${critique.weakes
 ${revisionGuidance}
 
 Revise the DirectorScore to address the weaknesses while preserving the strengths.
-Keep the same archetype. Maintain the GOLDEN RULE: never use the same visual_type more than 2 times in a row.`;
+Keep the same archetype. Maintain the GOLDEN RULE: never use the same visual_type more than 2 times in a row.${options?.noAiAssets ? "\nAI image and AI video generation are disabled: use only stock_image, stock_video, and text_card." : ""}`;
 
   const maxRetries = 2;
   let lastError: Error | null = null;
@@ -279,7 +317,9 @@ Keep the same archetype. Maintain the GOLDEN RULE: never use the same visual_typ
       return { data: validated, usage: totalUsage };
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      console.warn(`[creative-director] Revision attempt ${attempt + 1} failed: ${lastError.message}`);
+      console.warn(
+        `[creative-director] Revision attempt ${attempt + 1} failed: ${lastError.message}`,
+      );
     }
   }
 

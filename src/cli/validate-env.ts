@@ -1,5 +1,6 @@
 import type {
   ImageProviderKey,
+  LLMAuthType,
   LLMProviderKey,
   MusicProviderKey,
   SearchProviderKey,
@@ -21,7 +22,16 @@ export function validateEnv(opts: {
   videoProvider?: VideoProviderKey;
   musicProvider?: MusicProviderKey;
   searchProvider?: SearchProviderKey;
+  llmAuthType?: LLMAuthType;
+  noAiAssets?: boolean;
 }): void {
+  // The effective auth mode comes from the flag or the env var.
+  const llmAuthType =
+    opts.llmAuthType ??
+    (["none", "bearer", "custom-header"].includes(process.env["OPENREELS_LLM_AUTH"] ?? "")
+      ? (process.env["OPENREELS_LLM_AUTH"] as LLMAuthType)
+      : "auto");
+
   const requirements: EnvRequirement[] = [
     {
       key: "ANTHROPIC_API_KEY",
@@ -35,7 +45,7 @@ export function validateEnv(opts: {
       signupUrl: "https://platform.openai.com/api-keys",
       required:
         opts.provider === "openai" ||
-        opts.imageProvider === "openai" ||
+        (opts.imageProvider === "openai" && !opts.noAiAssets) ||
         opts.ttsProvider === "openai-tts",
     },
     {
@@ -44,8 +54,8 @@ export function validateEnv(opts: {
       signupUrl: "https://aistudio.google.com/apikey",
       required:
         opts.provider === "gemini" ||
-        opts.imageProvider === "gemini" ||
-        opts.videoProvider === "gemini" ||
+        (opts.imageProvider === "gemini" && !opts.noAiAssets) ||
+        (opts.videoProvider === "gemini" && !opts.noAiAssets) ||
         opts.ttsProvider === "gemini-tts" ||
         opts.musicProvider === "lyria",
     },
@@ -73,6 +83,14 @@ export function validateEnv(opts: {
       signupUrl: "https://tavily.com/",
       required: opts.searchProvider === "tavily",
     },
+    {
+      key: "OPENREELS_LLM_API_KEY",
+      provider: "OpenAI-compatible endpoint (auth)",
+      signupUrl: "your endpoint's dashboard",
+      required:
+        opts.provider === "openai-compatible" &&
+        (llmAuthType === "bearer" || llmAuthType === "custom-header"),
+    },
   ];
 
   const missing = requirements.filter((r) => r.required && !process.env[r.key]);
@@ -83,7 +101,9 @@ export function validateEnv(opts: {
   if (!hasStockKey) {
     console.warn(
       "\nWarning: No stock media API key found (PEXELS_API_KEY or PIXABAY_API_KEY).\n" +
-        "Scenes using stock_image or stock_video will render as blank frames.\n" +
+        (opts.noAiAssets
+          ? "Stock scenes will render as procedural text cards.\n"
+          : "Scenes using stock_image or stock_video will render as blank frames.\n") +
         "Get a free key: https://www.pexels.com/api/ or https://pixabay.com/api/docs/\n",
     );
   }

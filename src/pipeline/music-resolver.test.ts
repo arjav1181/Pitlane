@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { resolveMusic } from "./music-resolver.js";
 import type { DirectorScore } from "../schema/director-score.js";
 import type { LLMProvider, MusicProvider, MusicResult } from "../schema/providers.js";
+import { resolveMusic } from "./music-resolver.js";
 import type { PipelineCallbacks } from "./utils.js";
 
 // Mock the music prompter agent
@@ -22,19 +22,42 @@ const mockScore: DirectorScore = {
   archetype: "cinematic-documentary",
   music_mood: "epic_cinematic",
   scenes: [
-    { visual_type: "ai_image", visual_prompt: "test", motion: "zoom_in", script_line: "test line", transition: null },
-    { visual_type: "stock_video", visual_prompt: "test", motion: "static", script_line: "test line 2", transition: null },
-    { visual_type: "text_card", visual_prompt: "test", motion: "static", script_line: "test line 3", transition: null },
+    {
+      visual_type: "ai_image",
+      visual_prompt: "test",
+      motion: "zoom_in",
+      script_line: "test line",
+      transition: null,
+    },
+    {
+      visual_type: "stock_video",
+      visual_prompt: "test",
+      motion: "static",
+      script_line: "test line 2",
+      transition: null,
+    },
+    {
+      visual_type: "text_card",
+      visual_prompt: "test",
+      motion: "static",
+      script_line: "test line 3",
+      transition: null,
+    },
   ],
 };
 
 const sceneDurations = [4.5, 6.2, 5.1];
 
-function createMockMusicProvider(result: MusicResult | null = null, shouldFail = false): MusicProvider {
+function createMockMusicProvider(
+  result: MusicResult | null = null,
+  shouldFail = false,
+): MusicProvider {
   return {
     generate: shouldFail
       ? vi.fn().mockRejectedValue(new Error("Lyria API error"))
-      : vi.fn().mockResolvedValue(result ?? { filePath: "/tmp/lyria-music.mp3", metadata: { bpm: 70 } }),
+      : vi
+          .fn()
+          .mockResolvedValue(result ?? { filePath: "/tmp/lyria-music.mp3", metadata: { bpm: 70 } }),
   };
 }
 
@@ -117,8 +140,14 @@ describe("resolveMusic", () => {
       callbacks,
     });
 
-    expect(onProgress).toHaveBeenCalledWith("visuals", expect.objectContaining({ type: "music_generating" }));
-    expect(onProgress).toHaveBeenCalledWith("visuals", expect.objectContaining({ type: "music_generated" }));
+    expect(onProgress).toHaveBeenCalledWith(
+      "visuals",
+      expect.objectContaining({ type: "music_generating" }),
+    );
+    expect(onProgress).toHaveBeenCalledWith(
+      "visuals",
+      expect.objectContaining({ type: "music_generated" }),
+    );
   });
 
   it("emits fallback progress event when Lyria fails", async () => {
@@ -133,6 +162,9 @@ describe("resolveMusic", () => {
       callbacks,
     });
 
-    expect(onProgress).toHaveBeenCalledWith("visuals", expect.objectContaining({ type: "music_fallback" }));
+    expect(onProgress).toHaveBeenCalledWith(
+      "visuals",
+      expect.objectContaining({ type: "music_fallback" }),
+    );
   });
 });

@@ -1,6 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { LanguageModel } from "ai";
+import { optimizeImagePrompt } from "../../agents/image-prompter.js";
+import type { PipelineCallbacks } from "../../pipeline/utils.js";
+import type { ArchetypeConfig } from "../../schema/archetype.js";
 import type {
   ImageProvider,
   LLMProvider,
@@ -8,11 +11,8 @@ import type {
   StockCandidate,
   StockProvider,
 } from "../../schema/providers.js";
-import type { ArchetypeConfig } from "../../schema/archetype.js";
-import type { PipelineCallbacks } from "../../pipeline/utils.js";
 import { reformulateStockQuery } from "./query-reformer.js";
 import { verifyStockResult } from "./stock-verifier.js";
-import { optimizeImagePrompt } from "../../agents/image-prompter.js";
 
 export interface StockResolutionAttempt {
   query: string;
@@ -24,7 +24,7 @@ export interface StockResolutionAttempt {
 }
 
 export interface StockResolution {
-  method: "stock_verified" | "stock_unverified" | "ai_fallback";
+  method: "stock_verified" | "stock_unverified" | "procedural_fallback" | "ai_fallback";
   attempts: StockResolutionAttempt[];
   originalQuery: string;
 }
@@ -45,6 +45,11 @@ interface ResolverConfig {
   maxAttempts: number;
   callbacks?: PipelineCallbacks;
   archetype: ArchetypeConfig;
+  /**
+   * When true, never call the image provider. Stock resolution failures return
+   * `path: null`, which the renderer turns into a procedural text card.
+   */
+  noAiFallback?: boolean;
 }
 
 /**
@@ -53,7 +58,7 @@ interface ResolverConfig {
  * Flow:
  *   1. Try original query on each provider (query-first ordering)
  *   2. If all rejected → reformulate → try reformulated queries
- *   3. If all fail → fall back to AI image generation with negative examples
+ *   3. If all fail → fall back to AI image generation, unless AI assets are disabled
  */
 export async function resolveStockAdaptive(
   visualType: "stock_image" | "stock_video",
@@ -229,7 +234,27 @@ export async function resolveStockAdaptive(
     }
   }
 
-  // All attempts exhausted — fall back to AI image generation
+  // All attempts exhausted — no AI assets mode renders a procedural text card.
+  if (config.noAiFallback) {
+    config.callbacks?.onProgress?.("visuals", {
+      type: "stock_unavailable",
+      scene: sceneIndex,
+      attempts: attempts.length,
+      fallback: "text_card",
+    });
+    return {
+      path: null,
+      usage: sumUsages(llmUsages),
+      durationSeconds: null,
+      resolution: {
+        method: "procedural_fallback",
+        attempts,
+        originalQuery: visualPrompt,
+      },
+    };
+  }
+
+  // Fall back to AI image generation
   config.callbacks?.onProgress?.("visuals", {
     type: "stock_fallback",
     scene: sceneIndex,
@@ -241,9 +266,10 @@ export async function resolveStockAdaptive(
     .filter((a) => a.result === "rejected" && a.reason)
     .map((a) => `"${a.query}" returned: ${a.reason} (confidence: ${a.confidence?.toFixed(2)})`)
     .slice(0, 3);
-  const rejectionContext = rejections.length > 0
-    ? `Stock footage search failed. Rejected results:\n${rejections.join("\n")}\nGenerate an image that matches the original request, avoiding what the stock results showed.`
-    : undefined;
+  const rejectionContext =
+    rejections.length > 0
+      ? `Stock footage search failed. Rejected results:\n${rejections.join("\n")}\nGenerate an image that matches the original request, avoiding what the stock results showed.`
+      : undefined;
 
   try {
     let prompt = visualPrompt;

@@ -8,10 +8,42 @@ vi.mock("node:fs");
 
 const mockManifest = {
   tracks: [
-    { id: "epic-01", mood: "epic_cinematic", filename: "epic-cinematic-01.mp3", durationSec: 90, source: "pixabay", sourceId: 1, license: "Pixabay License" },
-    { id: "epic-02", mood: "epic_cinematic", filename: "epic-cinematic-02.mp3", durationSec: 90, source: "pixabay", sourceId: 2, license: "Pixabay License" },
-    { id: "chill-01", mood: "chill_lofi", filename: "chill-lofi-01.mp3", durationSec: 90, source: "pixabay", sourceId: 3, license: "Pixabay License" },
-    { id: "warm-01", mood: "warm_acoustic", filename: "warm-acoustic-01.mp3", durationSec: 90, source: "pixabay", sourceId: 4, license: "Pixabay License" },
+    {
+      id: "epic-01",
+      mood: "epic_cinematic",
+      filename: "epic-cinematic-01.mp3",
+      durationSec: 90,
+      source: "pixabay",
+      sourceId: 1,
+      license: "Pixabay License",
+    },
+    {
+      id: "epic-02",
+      mood: "epic_cinematic",
+      filename: "epic-cinematic-02.mp3",
+      durationSec: 90,
+      source: "pixabay",
+      sourceId: 2,
+      license: "Pixabay License",
+    },
+    {
+      id: "chill-01",
+      mood: "chill_lofi",
+      filename: "chill-lofi-01.mp3",
+      durationSec: 90,
+      source: "pixabay",
+      sourceId: 3,
+      license: "Pixabay License",
+    },
+    {
+      id: "warm-01",
+      mood: "warm_acoustic",
+      filename: "warm-acoustic-01.mp3",
+      durationSec: 90,
+      source: "pixabay",
+      sourceId: 4,
+      license: "Pixabay License",
+    },
   ],
 };
 

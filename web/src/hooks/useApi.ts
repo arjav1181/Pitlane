@@ -1,10 +1,22 @@
+import { apiKeyHeaders } from "@/lib/apiKey";
+
 const API_BASE = "/api/v1";
+
+/**
+ * Auth mode for OpenAI-compatible endpoints.
+ * - auto: send a Bearer token when a key is available
+ * - bearer: require a key, sent as `Authorization: Bearer <key>`
+ * - custom-header: send the key in a caller-specified header (e.g. `x-api-key`)
+ * - none: never send credentials
+ */
+export type LLMAuthType = "auto" | "none" | "bearer" | "custom-header";
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...apiKeyHeaders(),
       ...init?.headers,
     },
   });
@@ -24,6 +36,10 @@ export interface JobSummary {
   status: string;
   createdAt?: string;
   completedAt?: string;
+  noAiAssets?: boolean;
+  retryOf?: string;
+  metadata?: Record<string, unknown>;
+  links?: Record<string, string | null>;
   videoPath?: string;
   stages?: Record<string, { status: string; detail?: string; durationSec?: number }>;
   costEstimate?: CostBreakdown;
@@ -139,14 +155,26 @@ export interface CreateJobRequest {
   pacing?: string;
   platform?: string;
   dryRun?: boolean;
+  noAiAssets?: boolean;
+  metadata?: Record<string, unknown>;
   direction?: string;
   score?: Record<string, unknown>;
   providers?: {
     llm?: string;
     tts?: string;
     image?: string;
+    stock?: string;
+    video?: string;
+    videoModel?: string;
     music?: string;
+    llmModel?: string;
+    llmBaseUrl?: string;
+    llmAuthType?: LLMAuthType;
+    llmAuthHeader?: string;
+    searchProvider?: string;
   };
+  /** BYOK (bring-your-own-key) credentials sent with the job. Never stored server-side. */
+  keys?: Record<string, string>;
 }
 
 export const api = {
@@ -192,7 +220,13 @@ export const api = {
   },
 
   getHealth() {
-    return fetchJson<{ status: string; redis: string; keys?: Record<string, boolean> }>("/health");
+    return fetchJson<{
+      status: string;
+      version?: string;
+      redis: string;
+      apiKeyRequired?: boolean;
+      keys?: Record<string, boolean>;
+    }>("/health");
   },
 
   getStats() {

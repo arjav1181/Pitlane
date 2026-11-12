@@ -1,6 +1,6 @@
+import type { LanguageModel } from "ai";
 import { describe, expect, it, vi } from "vitest";
 import { verifyStockResult } from "./stock-verifier.js";
-import type { LanguageModel } from "ai";
 
 // Mock AI SDK generateText
 vi.mock("ai", () => ({
@@ -11,6 +11,7 @@ vi.mock("ai", () => ({
 }));
 
 import { generateText } from "ai";
+
 const mockGenerateText = vi.mocked(generateText);
 
 // Mock fs and child_process for frame extraction
@@ -37,7 +38,11 @@ describe("verifyStockResult", () => {
     } as any);
 
     const result = await verifyStockResult(
-      mockModel, "/tmp/test.jpg", "rocket launch", "A rocket launches", 0.6,
+      mockModel,
+      "/tmp/test.jpg",
+      "rocket launch",
+      "A rocket launches",
+      0.6,
     );
 
     expect(result.relevant).toBe(true);
@@ -52,7 +57,11 @@ describe("verifyStockResult", () => {
     } as any);
 
     const result = await verifyStockResult(
-      mockModel, "/tmp/test.jpg", "rocket launch", "A rocket launches", 0.6,
+      mockModel,
+      "/tmp/test.jpg",
+      "rocket launch",
+      "A rocket launches",
+      0.6,
     );
 
     expect(result.relevant).toBe(false);
@@ -67,7 +76,11 @@ describe("verifyStockResult", () => {
     } as any);
 
     const result = await verifyStockResult(
-      mockModel, "/tmp/test.jpg", "rocket launch", "A rocket launches", 0.6,
+      mockModel,
+      "/tmp/test.jpg",
+      "rocket launch",
+      "A rocket launches",
+      0.6,
     );
 
     expect(result.relevant).toBe(false); // below threshold
@@ -81,7 +94,11 @@ describe("verifyStockResult", () => {
     } as any);
 
     const result = await verifyStockResult(
-      mockModel, "/tmp/test.jpg", "rocket launch", "A rocket launches", 0.6,
+      mockModel,
+      "/tmp/test.jpg",
+      "rocket launch",
+      "A rocket launches",
+      0.6,
     );
 
     expect(result.relevant).toBe(true);
@@ -94,7 +111,11 @@ describe("verifyStockResult", () => {
     } as any);
 
     const result = await verifyStockResult(
-      mockModel, "/tmp/test.jpg", "rocket launch", "A rocket launches", 0.6,
+      mockModel,
+      "/tmp/test.jpg",
+      "rocket launch",
+      "A rocket launches",
+      0.6,
     );
 
     expect(result.relevant).toBe(false);
@@ -106,7 +127,11 @@ describe("verifyStockResult", () => {
     mockGenerateText.mockRejectedValueOnce(new Error("Network timeout"));
 
     const result = await verifyStockResult(
-      mockModel, "/tmp/test.jpg", "rocket launch", "A rocket launches", 0.6,
+      mockModel,
+      "/tmp/test.jpg",
+      "rocket launch",
+      "A rocket launches",
+      0.6,
     );
 
     expect(result.relevant).toBe(true); // stock_unverified: use it
@@ -121,7 +146,11 @@ describe("verifyStockResult", () => {
     } as any);
 
     const result = await verifyStockResult(
-      mockModel, "/tmp/test.mp4", "rocket launch", "A rocket launches", 0.6,
+      mockModel,
+      "/tmp/test.mp4",
+      "rocket launch",
+      "A rocket launches",
+      0.6,
     );
 
     expect(result.relevant).toBe(true);

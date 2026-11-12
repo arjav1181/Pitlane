@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { KokoroTTS } from "./kokoro.js";
 
 // Mock child_process.execFile
@@ -21,8 +21,8 @@ describe("KokoroTTS", () => {
   });
 
   it("returns audio buffer with empty words array", async () => {
-    mockExecFile.mockImplementation(
-      (_cmd: string, _args: string[], _opts: object, cb: Function) => cb(null, "", ""),
+    mockExecFile.mockImplementation((_cmd: string, _args: string[], _opts: object, cb: Function) =>
+      cb(null, "", ""),
     );
 
     const tts = new KokoroTTS();
@@ -33,8 +33,8 @@ describe("KokoroTTS", () => {
   });
 
   it("writes config JSON with correct voice and text", async () => {
-    mockExecFile.mockImplementation(
-      (_cmd: string, _args: string[], _opts: object, cb: Function) => cb(null, "", ""),
+    mockExecFile.mockImplementation((_cmd: string, _args: string[], _opts: object, cb: Function) =>
+      cb(null, "", ""),
     );
 
     const tts = new KokoroTTS("bf_emma");
@@ -49,8 +49,8 @@ describe("KokoroTTS", () => {
   });
 
   it("uses default voice af_heart", async () => {
-    mockExecFile.mockImplementation(
-      (_cmd: string, _args: string[], _opts: object, cb: Function) => cb(null, "", ""),
+    mockExecFile.mockImplementation((_cmd: string, _args: string[], _opts: object, cb: Function) =>
+      cb(null, "", ""),
     );
 
     const tts = new KokoroTTS();
@@ -63,9 +63,8 @@ describe("KokoroTTS", () => {
   });
 
   it("wraps subprocess errors with descriptive message", async () => {
-    mockExecFile.mockImplementation(
-      (_cmd: string, _args: string[], _opts: object, cb: Function) =>
-        cb(new Error("spawn npx ENOENT"), "", "Command not found"),
+    mockExecFile.mockImplementation((_cmd: string, _args: string[], _opts: object, cb: Function) =>
+      cb(new Error("spawn npx ENOENT"), "", "Command not found"),
     );
 
     const tts = new KokoroTTS();
@@ -73,9 +72,8 @@ describe("KokoroTTS", () => {
   });
 
   it("includes stderr in error message", async () => {
-    mockExecFile.mockImplementation(
-      (_cmd: string, _args: string[], _opts: object, cb: Function) =>
-        cb(new Error("exit code 1"), "", "ONNX runtime error: SIGABRT"),
+    mockExecFile.mockImplementation((_cmd: string, _args: string[], _opts: object, cb: Function) =>
+      cb(new Error("exit code 1"), "", "ONNX runtime error: SIGABRT"),
     );
 
     const tts = new KokoroTTS();
@@ -83,12 +81,12 @@ describe("KokoroTTS", () => {
   });
 
   it("passes text safely through JSON config (special characters)", async () => {
-    mockExecFile.mockImplementation(
-      (_cmd: string, _args: string[], _opts: object, cb: Function) => cb(null, "", ""),
+    mockExecFile.mockImplementation((_cmd: string, _args: string[], _opts: object, cb: Function) =>
+      cb(null, "", ""),
     );
 
     const tts = new KokoroTTS();
-    const specialText = 'He said "hello" & she said \'goodbye\'\nnew line';
+    const specialText = "He said \"hello\" & she said 'goodbye'\nnew line";
     await tts.generate(specialText);
 
     const { writeFile } = await import("node:fs/promises");
@@ -98,8 +96,8 @@ describe("KokoroTTS", () => {
   });
 
   it("cleans up temp directory after success", async () => {
-    mockExecFile.mockImplementation(
-      (_cmd: string, _args: string[], _opts: object, cb: Function) => cb(null, "", ""),
+    mockExecFile.mockImplementation((_cmd: string, _args: string[], _opts: object, cb: Function) =>
+      cb(null, "", ""),
     );
 
     const tts = new KokoroTTS();
@@ -110,9 +108,8 @@ describe("KokoroTTS", () => {
   });
 
   it("cleans up temp directory after error", async () => {
-    mockExecFile.mockImplementation(
-      (_cmd: string, _args: string[], _opts: object, cb: Function) =>
-        cb(new Error("failed"), "", ""),
+    mockExecFile.mockImplementation((_cmd: string, _args: string[], _opts: object, cb: Function) =>
+      cb(new Error("failed"), "", ""),
     );
 
     const tts = new KokoroTTS();

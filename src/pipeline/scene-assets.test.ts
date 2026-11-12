@@ -24,11 +24,16 @@ function getSceneAssetUrl(
   if (fb === "ai_image") return `${base}/scene-${index}-ai.png`;
   if (fb === "ai_video_to_image") return `${base}/scene-${index}-ai.png`;
   switch (scene.visual_type) {
-    case "ai_image": return `${base}/scene-${index}-ai.png`;
-    case "ai_video": return `${base}/scene-${index}-ai-video.mp4`;
-    case "stock_image": return `${base}/scene-${index}-stock.jpg`;
-    case "stock_video": return `${base}/scene-${index}-stock.mp4`;
-    case "text_card": return null;
+    case "ai_image":
+      return `${base}/scene-${index}-ai.png`;
+    case "ai_video":
+      return `${base}/scene-${index}-ai-video.mp4`;
+    case "stock_image":
+      return `${base}/scene-${index}-stock.jpg`;
+    case "stock_video":
+      return `${base}/scene-${index}-stock.mp4`;
+    case "text_card":
+      return null;
   }
 }
 

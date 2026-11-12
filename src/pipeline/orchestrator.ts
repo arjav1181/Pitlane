@@ -4,13 +4,13 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { Mastra } from "@mastra/core";
 import { createStep, createWorkflow } from "@mastra/core/workflows";
+import { bundle } from "@remotion/bundler";
+import { renderMedia, selectComposition } from "@remotion/renderer";
 import { z } from "zod";
 import { generateDirectorScore, reviseDirectorScore } from "../agents/creative-director.js";
 import { evaluate } from "../agents/critic.js";
 import { optimizeImagePrompt } from "../agents/image-prompter.js";
 import { research } from "../agents/research.js";
-import { resolveStockAdaptive, type StockResolution } from "../providers/stock/adaptive-resolver.js";
-import { resolveAIVideo, type VideoResolution } from "../providers/video/video-resolver.js";
 import type { CostBreakdown } from "../cli/cost-estimator.js";
 import {
   computeActualLLMCost,
@@ -21,41 +21,42 @@ import {
 import { ProgressDisplay } from "../cli/progress.js";
 import { getArchetype } from "../config/archetype-registry.js";
 import { getPlatformConfig } from "../config/platforms.js";
-import { resolveMusic, type MusicResolution } from "./music-resolver.js";
-import { bundle } from "@remotion/bundler";
-import { renderMedia, selectComposition } from "@remotion/renderer";
+import {
+  resolveStockAdaptive,
+  type StockResolution,
+} from "../providers/stock/adaptive-resolver.js";
+import { resolveAIVideo, type VideoResolution } from "../providers/video/video-resolver.js";
 import { getTotalDurationInFrames, mapScoreToProps } from "../remotion/lib/score-to-props.js";
 import type { ArchetypeConfig } from "../schema/archetype.js";
 import type { DirectorScore } from "../schema/director-score.js";
-import type {
-  LLMUsage,
-  WordTimestamp,
-} from "../schema/providers.js";
+import { sanitizeScoreForNoAiAssets } from "../schema/no-ai-assets.js";
+import type { LLMUsage, WordTimestamp } from "../schema/providers.js";
+import { type MusicResolution, resolveMusic } from "./music-resolver.js";
 
 // Re-export types and utilities from utils.ts for backward compatibility
 export {
-  STAGE_NAMES,
-  type StageName,
+  confirm,
+  getVideoDuration,
   type PipelineCallbacks,
   type PipelineOptions,
   type PipelineResult,
+  STAGE_NAMES,
+  type StageName,
   shouldAutoConfirm,
   shouldSkipPreview,
   splitWordsIntoScenes,
-  getVideoDuration,
-  confirm,
 } from "./utils.js";
 
 import {
-  type StageName,
+  confirm,
   type PipelineCallbacks,
   type PipelineOptions,
   type PipelineResult,
   STAGE_NAMES,
+  type StageName,
   shouldAutoConfirm,
   shouldSkipPreview,
   splitWordsIntoScenes,
-  confirm,
 } from "./utils.js";
 
 /** Create CLI callbacks that wrap ProgressDisplay for terminal output */
@@ -119,9 +120,15 @@ interface RunLog {
   totalCost?: { estimated: number; actual?: number };
   stockResolutions?: StockResolution[];
   videoResolutions?: VideoResolution[];
-  musicResolution?: { provider: string; prompt?: string; metadata?: Record<string, unknown>; fallback: boolean };
+  musicResolution?: {
+    provider: string;
+    prompt?: string;
+    metadata?: Record<string, unknown>;
+    fallback: boolean;
+  };
   direction?: string;
   replay?: boolean;
+  noAiAssets?: boolean;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -161,7 +168,9 @@ async function generateAIImage(
     prompt = optimized.prompt;
     usage = optimized.usage;
   } catch (err) {
-    console.warn(`[visuals] Scene ${sceneIndex} prompt optimization failed, using original: ${err}`);
+    console.warn(
+      `[visuals] Scene ${sceneIndex} prompt optimization failed, using original: ${err}`,
+    );
   }
 
   try {
@@ -173,7 +182,9 @@ async function generateAIImage(
     if (!isSafetyRejection(err)) throw err;
 
     // Safety rejection: retry once with a sanitized prompt
-    console.warn(`[visuals] Scene ${sceneIndex} image rejected by safety filter, retrying with softened prompt`);
+    console.warn(
+      `[visuals] Scene ${sceneIndex} image rejected by safety filter, retrying with softened prompt`,
+    );
     try {
       const sanitized = await optimizeImagePrompt(
         opts.llm,
@@ -216,6 +227,29 @@ function isSafetyRejection(err: unknown): boolean {
   );
 }
 
+/**
+ * Enforce the no-AI-assets visual contract before any asset work begins.
+ * This covers LLM drift as well as user-supplied replay scores.
+ */
+function prepareScore(
+  score: DirectorScore,
+  noAiAssets: boolean,
+  cb: PipelineCallbacks,
+): DirectorScore {
+  if (!noAiAssets) return score;
+
+  const { score: sanitized, adjustments } = sanitizeScoreForNoAiAssets(score);
+  if (adjustments.length > 0) {
+    cb.onLog?.(
+      `[director] No-AI-assets mode rewrote ${adjustments.length} scene(s): ${adjustments
+        .map((a) => `${a.sceneIndex + 1}:${a.from}->${a.to}`)
+        .join(", ")}`,
+    );
+    cb.onProgress?.("director", { type: "no_ai_sanitized", adjustments });
+  }
+  return sanitized;
+}
+
 async function resolveVisualAsset(
   scene: DirectorScore["scenes"][number],
   index: number,
@@ -228,7 +262,20 @@ async function resolveVisualAsset(
 ): Promise<VisualAssetResult> {
   switch (scene.visual_type) {
     case "ai_image":
-      return generateAIImage(opts, scene.visual_prompt, scene.script_line, index, totalScenes, archetype, assetsDir);
+      // Defense in depth: the director step sanitizes scores in no-AI mode,
+      // but a replay score or a future code path must never generate an image.
+      if (opts.noAiAssets) {
+        return { path: null, usage: null, durationSeconds: null };
+      }
+      return generateAIImage(
+        opts,
+        scene.visual_prompt,
+        scene.script_line,
+        index,
+        totalScenes,
+        archetype,
+        assetsDir,
+      );
 
     case "stock_image":
     case "stock_video": {
@@ -249,6 +296,7 @@ async function resolveVisualAsset(
           maxAttempts: opts.stockMaxAttempts ?? 4,
           callbacks: cb,
           archetype,
+          noAiFallback: opts.noAiAssets === true,
         },
       );
       return {
@@ -260,29 +308,54 @@ async function resolveVisualAsset(
     }
 
     case "ai_video": {
+      if (opts.noAiAssets) {
+        return { path: null, usage: null, durationSeconds: null };
+      }
       // If no video providers available, fall back to ai_image silently
       if (!opts.videoProviders?.length) {
-        return generateAIImage(opts, scene.visual_prompt, scene.script_line, index, totalScenes, archetype, assetsDir);
+        return generateAIImage(
+          opts,
+          scene.visual_prompt,
+          scene.script_line,
+          index,
+          totalScenes,
+          archetype,
+          assetsDir,
+        );
       }
       // Phase 1: Generate AI image (first frame)
       const imageStart = Date.now();
-      const imgResult = await generateAIImage(opts, scene.visual_prompt, scene.script_line, index, totalScenes, archetype, assetsDir);
+      const imgResult = await generateAIImage(
+        opts,
+        scene.visual_prompt,
+        scene.script_line,
+        index,
+        totalScenes,
+        archetype,
+        assetsDir,
+      );
       const imageGenTimeMs = Date.now() - imageStart;
       const imageBuffer = fs.readFileSync(imgResult.path!);
 
       // Phase 2: Animate with video provider via resolver
-      const videoResult = await resolveAIVideo(scene, {
-        path: imgResult.path!,
-        buffer: imageBuffer,
-        usage: imgResult.usage,
-      }, index, assetsDir, {
-        videoProviders: opts.videoProviders,
-        llm: opts.llm,
-        archetype,
-        callbacks: cb,
-        totalScenes,
-        sceneDurationSeconds,
-      });
+      const videoResult = await resolveAIVideo(
+        scene,
+        {
+          path: imgResult.path!,
+          buffer: imageBuffer,
+          usage: imgResult.usage,
+        },
+        index,
+        assetsDir,
+        {
+          videoProviders: opts.videoProviders,
+          llm: opts.llm,
+          archetype,
+          callbacks: cb,
+          totalScenes,
+          sceneDurationSeconds,
+        },
+      );
 
       // Adjust imageGenTimeMs in the resolution metadata
       if (videoResult.videoResolution) {
@@ -352,7 +425,12 @@ function buildPipelineWorkflow(
     sceneAssets: (string | null)[];
     sceneSourceDurations: (number | null)[];
     musicFilePath?: string | null;
-    musicSelection?: { trackId: string; mood: string; requestedMood: string; fallback: boolean } | null;
+    musicSelection?: {
+      trackId: string;
+      mood: string;
+      requestedMood: string;
+      fallback: boolean;
+    } | null;
     musicResolution?: MusicResolution | null;
   } = { sceneAssets: [], sceneSourceDurations: [] };
 
@@ -425,12 +503,19 @@ function buildPipelineWorkflow(
 
       cb.onStageStart?.("director");
       const start = Date.now();
-      const videoEnabled = !opts.noVideo && (opts.videoProviders?.length ?? 0) > 0;
-      const directorOpts = { archetype: opts.archetype, pacing: opts.pacing, videoEnabled, direction: opts.direction };
+      const noAiAssets = opts.noAiAssets === true;
+      const videoEnabled = !noAiAssets && !opts.noVideo && (opts.videoProviders?.length ?? 0) > 0;
+      const directorOpts = {
+        archetype: opts.archetype,
+        pacing: opts.pacing,
+        videoEnabled,
+        noAiAssets,
+        direction: opts.direction,
+      };
 
       // ── Replay mode: use provided score, skip generation + revision ──
       if (opts.replayScore) {
-        const score = opts.replayScore;
+        const score = prepareScore(opts.replayScore, noAiAssets, cb);
         directorResult.score = score;
         directorResult.config = getArchetype(score.archetype);
 
@@ -453,15 +538,31 @@ function buildPipelineWorkflow(
         }
 
         // Cost estimation with replay flag (omits research/director/critic LLM costs)
-        const costBreakdown = estimateCost(score, opts.imageProvider, opts.ttsProvider, opts.videoProvider, opts.llm.id, opts.musicProviderKey, 0, 0, { replay: true });
+        const costBreakdown = estimateCost(
+          score,
+          opts.imageProvider,
+          opts.ttsProvider,
+          opts.videoProvider,
+          opts.llm.id,
+          opts.musicProviderKey,
+          0,
+          0,
+          { replay: true },
+        );
         directorResult.costBreakdown = costBreakdown;
         log.totalCost = { estimated: costBreakdown.totalCost };
 
         if (cb.onCostEstimate) {
-          const stockSceneCount = score.scenes.filter(
-            (s) => s.visual_type === "stock_image" || s.visual_type === "stock_video",
-          ).length;
-          const proceed = await cb.onCostEstimate(costBreakdown, opts.imageProvider, stockSceneCount);
+          const stockSceneCount = noAiAssets
+            ? 0
+            : score.scenes.filter(
+                (s) => s.visual_type === "stock_image" || s.visual_type === "stock_video",
+              ).length;
+          const proceed = await cb.onCostEstimate(
+            costBreakdown,
+            opts.imageProvider,
+            stockSceneCount,
+          );
           if (!proceed) {
             directorResult.costRejected = true;
             return { done: true };
@@ -469,7 +570,11 @@ function buildPipelineWorkflow(
         }
 
         const dur = (Date.now() - start) / 1000;
-        cb.onStageComplete?.("director", `Replayed: ${score.scenes.length} scenes, ${score.archetype}`, dur);
+        cb.onStageComplete?.(
+          "director",
+          `Replayed: ${score.scenes.length} scenes, ${score.archetype}`,
+          dur,
+        );
         log.stages.push({ name: "creative-director", duration: dur, status: "done" });
         return { done: true };
       }
@@ -477,7 +582,7 @@ function buildPipelineWorkflow(
       // ── Generate initial DirectorScore ──
       const cdOutput = await generateDirectorScore(opts.llm, opts.topic, inputData, directorOpts);
       llmUsages.push(cdOutput.usage);
-      let score = cdOutput.data;
+      let score = prepareScore(cdOutput.data, noAiAssets, cb);
 
       // ── Revision loop: evaluate → revise until score >= 7 or max rounds ──
       //
@@ -510,12 +615,25 @@ function buildPipelineWorkflow(
 
           if (critique.score >= 7 || !critique.revision_needed) break;
 
-          cb.onProgress?.("director", { type: "revision", round: round + 1, critiqueScore: critique.score });
-          cb.onLog?.(`\n[director] Critic score: ${critique.score}/10 (round ${round + 1}), revising...`);
+          cb.onProgress?.("director", {
+            type: "revision",
+            round: round + 1,
+            critiqueScore: critique.score,
+          });
+          cb.onLog?.(
+            `\n[director] Critic score: ${critique.score}/10 (round ${round + 1}), revising...`,
+          );
 
-          const revised = await reviseDirectorScore(opts.llm, opts.topic, inputData, score, critique, directorOpts);
+          const revised = await reviseDirectorScore(
+            opts.llm,
+            opts.topic,
+            inputData,
+            score,
+            critique,
+            directorOpts,
+          );
           llmUsages.push(revised.usage);
-          score = revised.data;
+          score = prepareScore(revised.data, noAiAssets, cb);
           revisionRoundsCompleted++;
         } catch (err) {
           // Graceful degradation: if the critic or revision fails, proceed with current best score
@@ -548,11 +666,7 @@ function buildPipelineWorkflow(
       directorResult.config = getArchetype(score.archetype);
 
       const dur = (Date.now() - start) / 1000;
-      cb.onStageComplete?.(
-        "director",
-        `${score.scenes.length} scenes, ${score.archetype}`,
-        dur,
-      );
+      cb.onStageComplete?.("director", `${score.scenes.length} scenes, ${score.archetype}`, dur);
       log.stages.push({ name: "creative-director", duration: dur, status: "done" });
 
       // Write score.json and emit progress AFTER the revision loop
@@ -574,14 +688,25 @@ function buildPipelineWorkflow(
       // Cost estimation (uses the final revised score for accurate scene counts)
       // Pass evaluations and revisions separately: evaluations count critic calls,
       // revisions count director calls (evaluations >= revisions since gate always evaluates)
-      const costBreakdown = estimateCost(score, opts.imageProvider, opts.ttsProvider, opts.videoProvider, opts.llm.id, opts.musicProviderKey, evaluationsCompleted, revisionRoundsCompleted);
+      const costBreakdown = estimateCost(
+        score,
+        opts.imageProvider,
+        opts.ttsProvider,
+        opts.videoProvider,
+        opts.llm.id,
+        opts.musicProviderKey,
+        evaluationsCompleted,
+        revisionRoundsCompleted,
+      );
       directorResult.costBreakdown = costBreakdown;
       log.totalCost = { estimated: costBreakdown.totalCost };
 
       if (cb.onCostEstimate) {
-        const stockSceneCount = score.scenes.filter(
-          (s) => s.visual_type === "stock_image" || s.visual_type === "stock_video",
-        ).length;
+        const stockSceneCount = noAiAssets
+          ? 0
+          : score.scenes.filter(
+              (s) => s.visual_type === "stock_image" || s.visual_type === "stock_video",
+            ).length;
         const proceed = await cb.onCostEstimate(costBreakdown, opts.imageProvider, stockSceneCount);
         if (!proceed) {
           directorResult.costRejected = true;
@@ -651,7 +776,16 @@ function buildPipelineWorkflow(
         score.scenes.map(async (scene, i) => {
           try {
             const sceneDuration = sceneDurations[i];
-            return await resolveVisualAsset(scene, i, totalScenes, assetsDir, opts, archetype, cb, sceneDuration);
+            return await resolveVisualAsset(
+              scene,
+              i,
+              totalScenes,
+              assetsDir,
+              opts,
+              archetype,
+              cb,
+              sceneDuration,
+            );
           } catch (err) {
             cb.onProgress?.("visuals", { type: "asset_failed", scene: i, error: String(err) });
             return { path: null, usage: null, durationSeconds: null } as VisualAssetResult;
@@ -778,10 +912,16 @@ function buildPipelineWorkflow(
           fs.copyFileSync(musicFilePath, path.join(publicDir, "music.mp3"));
           // Clean up temp file from Lyria to prevent /tmp disk fill on servers
           if (musicFilePath.includes(os.tmpdir())) {
-            try { fs.unlinkSync(musicFilePath); } catch { /* ignore cleanup error */ }
+            try {
+              fs.unlinkSync(musicFilePath);
+            } catch {
+              /* ignore cleanup error */
+            }
           }
         } catch (err) {
-          console.warn(`[orchestrator] Failed to copy music file, proceeding without music: ${err}`);
+          console.warn(
+            `[orchestrator] Failed to copy music file, proceeding without music: ${err}`,
+          );
           musicFilePath = null;
         }
       }
@@ -814,6 +954,13 @@ function buildPipelineWorkflow(
       });
 
       cb.onProgress?.("assembly", { type: "rendering", totalFrames });
+
+      // The default delayRender timeout is 28s. On a small CPU-only machine the
+      // renderer can spend longer extracting a frame from a stock clip, which
+      // fails the whole render with a timeout error. remotion.config.ts is only
+      // read by the Remotion CLI, so the client config has to be set here.
+      const { Config: RemotionConfig } = await import("@remotion/cli/config");
+      RemotionConfig.setDelayRenderTimeoutInMilliseconds(120_000);
 
       const composition = await selectComposition({
         serveUrl: bundled,
@@ -923,6 +1070,7 @@ export async function runPipeline(
     stages: [],
     ...(opts.direction ? { direction: opts.direction } : {}),
     ...(opts.replayScore ? { replay: true } : {}),
+    ...(opts.noAiAssets ? { noAiAssets: true } : {}),
   };
 
   // Create output directory with timestamp to avoid overwrites

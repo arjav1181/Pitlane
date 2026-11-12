@@ -1,12 +1,12 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import type { LanguageModel } from "ai";
 import type {
   ImageProvider,
   ImageProviderKey,
+  LLMAuthType,
   LLMProvider,
   LLMProviderKey,
   MusicProvider,
@@ -19,12 +19,13 @@ import type {
   VideoProvider,
   VideoProviderKey,
 } from "../schema/providers.js";
+import { DisabledImageProvider } from "./image/disabled.js";
 import { GeminiImage } from "./image/gemini.js";
 import { OpenAIImage } from "./image/openai.js";
 import { AnthropicLLM } from "./llm/anthropic.js";
 import { GeminiLLM } from "./llm/gemini.js";
 import { OpenAILLM } from "./llm/openai.js";
-import { OpenAICompatibleLLM } from "./llm/openai-compatible.js";
+import { createOpenAICompatibleProvider, OpenAICompatibleLLM } from "./llm/openai-compatible.js";
 import { OpenRouterLLM } from "./llm/openrouter.js";
 import { BundledMusic } from "./music/bundled-adapter.js";
 import { LyriaMusic } from "./music/lyria.js";
@@ -53,7 +54,11 @@ export interface ProviderConfig {
   keys?: Record<string, string>;
   llmModel?: string;
   llmBaseUrl?: string;
+  llmAuthType?: LLMAuthType;
+  llmAuthHeader?: string;
   searchProvider?: SearchProviderKey;
+  /** Disable AI image/video providers entirely (stock + procedural assets only). */
+  noAiAssets?: boolean;
 }
 
 export interface Providers {
@@ -109,6 +114,14 @@ function resolveSearchTools(
   return {};
 }
 
+/** Read the OpenAI-compatible auth mode from config or env, ignoring invalid values. */
+function resolveAuthType(configured?: LLMAuthType): LLMAuthType {
+  const candidate = configured ?? process.env["OPENREELS_LLM_AUTH"];
+  return candidate === "none" || candidate === "bearer" || candidate === "custom-header"
+    ? candidate
+    : "auto";
+}
+
 export function createProviders(config: ProviderConfig): Providers {
   const k = config.keys ?? {};
   const searchTools = resolveSearchTools(config.llm, config.searchProvider, k);
@@ -130,7 +143,10 @@ export function createProviders(config: ProviderConfig): Providers {
       if (!baseUrl) throw new Error("llmBaseUrl is required for openai-compatible provider");
       if (!model) throw new Error("llmModel is required for openai-compatible provider");
       const apiKey = k["OPENREELS_LLM_API_KEY"] ?? process.env["OPENREELS_LLM_API_KEY"];
-      llm = new OpenAICompatibleLLM(baseUrl, model, apiKey, searchTools);
+      llm = new OpenAICompatibleLLM(baseUrl, model, apiKey, searchTools, {
+        type: resolveAuthType(config.llmAuthType),
+        headerName: config.llmAuthHeader ?? process.env["OPENREELS_LLM_AUTH_HEADER"],
+      });
       break;
     }
     default:
@@ -161,8 +177,9 @@ export function createProviders(config: ProviderConfig): Providers {
       break;
   }
 
-  const imageGen: ImageProvider =
-    config.image === "openai"
+  const imageGen: ImageProvider = config.noAiAssets
+    ? new DisabledImageProvider()
+    : config.image === "openai"
       ? new OpenAIImage(undefined, k["OPENAI_API_KEY"])
       : new GeminiImage(undefined, k["GOOGLE_API_KEY"]);
 
@@ -181,18 +198,21 @@ export function createProviders(config: ProviderConfig): Providers {
     if (pixabayKey) stock.push(new PixabayStock(pixabayKey));
   }
 
-  // Build video provider array: construct available providers, primary first
+  // Build video provider array: construct available providers, primary first.
+  // No-AI-assets mode never constructs or calls a video provider.
   const videoProviders: VideoProvider[] = [];
   const googleKey = k["GOOGLE_API_KEY"] ?? process.env["GOOGLE_API_KEY"];
   const falKey = k["FAL_API_KEY"] ?? process.env["FAL_API_KEY"];
   const videoPrimary = config.video ?? (googleKey ? "gemini" : falKey ? "fal" : undefined);
 
-  if (videoPrimary === "fal") {
-    if (falKey) videoProviders.push(new FalVideo(undefined, falKey));
-    if (googleKey) videoProviders.push(new GeminiVideo(config.videoModel, googleKey));
-  } else if (videoPrimary === "gemini" || videoPrimary === undefined) {
-    if (googleKey) videoProviders.push(new GeminiVideo(config.videoModel, googleKey));
-    if (falKey) videoProviders.push(new FalVideo(undefined, falKey));
+  if (!config.noAiAssets) {
+    if (videoPrimary === "fal") {
+      if (falKey) videoProviders.push(new FalVideo(undefined, falKey));
+      if (googleKey) videoProviders.push(new GeminiVideo(config.videoModel, googleKey));
+    } else if (videoPrimary === "gemini" || videoPrimary === undefined) {
+      if (googleKey) videoProviders.push(new GeminiVideo(config.videoModel, googleKey));
+      if (falKey) videoProviders.push(new FalVideo(undefined, falKey));
+    }
   }
 
   // Music provider: lyria requires GOOGLE_API_KEY, bundled is always available
@@ -207,6 +227,11 @@ export function createVerificationModel(
   provider: LLMProviderKey,
   model?: string,
   apiKey?: string,
+  openAICompatible?: {
+    baseUrl?: string;
+    authType?: LLMAuthType;
+    authHeader?: string;
+  },
 ): LanguageModel {
   switch (provider) {
     case "openai": {
@@ -225,10 +250,9 @@ export function createVerificationModel(
       return openrouter(model ?? "anthropic/claude-sonnet-4");
     }
     case "openai-compatible": {
-      const baseUrl = process.env["OPENREELS_LLM_BASE_URL"];
+      const baseUrl = openAICompatible?.baseUrl ?? process.env["OPENREELS_LLM_BASE_URL"];
       if (!baseUrl) {
-        // BYOK path: base URL was passed via job keys, not env var.
-        // Fall back to Anthropic for stock verification (needs VLM).
+        // No endpoint configured: fall back to Anthropic for stock verification (needs VLM).
         const antKey = process.env["ANTHROPIC_API_KEY"];
         if (!antKey) {
           throw new Error(
@@ -241,12 +265,15 @@ export function createVerificationModel(
         const anthropic = createAnthropic({ apiKey: antKey });
         return anthropic(model ?? "claude-sonnet-4-6");
       }
-      const compat = createOpenAICompatible({
-        name: "openreels-custom",
-        baseURL: baseUrl,
-        ...(apiKey ? { apiKey } : {}),
-      });
-      return compat(model ?? "gpt-4o");
+      const compat = createOpenAICompatibleProvider(
+        baseUrl,
+        apiKey ?? process.env["OPENREELS_LLM_API_KEY"],
+        {
+          type: resolveAuthType(openAICompatible?.authType),
+          headerName: openAICompatible?.authHeader ?? process.env["OPENREELS_LLM_AUTH_HEADER"],
+        },
+      );
+      return compat(model ?? process.env["OPENREELS_LLM_MODEL"] ?? "gpt-4o");
     }
     default: {
       const anthropic = apiKey ? createAnthropic({ apiKey }) : createAnthropic();

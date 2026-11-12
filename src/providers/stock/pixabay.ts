@@ -24,16 +24,18 @@ export class PixabayStock implements StockProvider {
     if (!response.ok) return [];
 
     const data = (await response.json()) as PixabayVideoResponse;
-    return (data.hits ?? []).map((hit) => {
-      const videoSource = hit.videos.medium ?? hit.videos.large;
-      return {
-        url: videoSource?.url ?? "",
-        width: videoSource?.width ?? 1280,
-        height: videoSource?.height ?? 720,
-        duration: hit.duration,
-        id: `pixabay-video-${hit.id}`,
-      };
-    }).filter((c) => c.url !== "");
+    return (data.hits ?? [])
+      .map((hit) => {
+        const videoSource = hit.videos.medium ?? hit.videos.large;
+        return {
+          url: videoSource?.url ?? "",
+          width: videoSource?.width ?? 1280,
+          height: videoSource?.height ?? 720,
+          duration: hit.duration,
+          id: `pixabay-video-${hit.id}`,
+        };
+      })
+      .filter((c) => c.url !== "");
   }
 
   async searchImage(query: string): Promise<StockCandidate[]> {

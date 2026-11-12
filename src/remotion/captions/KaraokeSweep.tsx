@@ -32,12 +32,10 @@ export const KaraokeSweep: React.FC<CaptionStyleProps> = ({ wordStates, accentCo
           const fillProgress =
             ws.word.start >= ws.word.end
               ? 100
-              : interpolate(
-                  currentTime,
-                  [ws.word.start, ws.word.end],
-                  [0, 100],
-                  { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-                );
+              : interpolate(currentTime, [ws.word.start, ws.word.end], [0, 100], {
+                  extrapolateLeft: "clamp",
+                  extrapolateRight: "clamp",
+                });
           background = `linear-gradient(90deg, ${accentColor} ${fillProgress}%, rgba(255,255,255,0.1) ${fillProgress}%)`;
         } else if (ws.state === "spoken") {
           background = accentColor;

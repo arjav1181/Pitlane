@@ -3,11 +3,7 @@ import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from "remotion"
 import { TEXT_CARD_FONTS } from "../lib/fonts";
 import type { SceneProps } from "../lib/score-to-props";
 
-export const TextCardBeat: React.FC<SceneProps> = ({
-  scriptLine,
-  colorPalette,
-  textCardFont,
-}) => {
+export const TextCardBeat: React.FC<SceneProps> = ({ scriptLine, colorPalette, textCardFont }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 

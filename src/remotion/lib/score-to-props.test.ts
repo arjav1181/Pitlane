@@ -65,6 +65,23 @@ describe("mapScoreToProps", () => {
     expect(props.scenes[1]!.motion).toBe("zoom_in");
   });
 
+  it("renders scenes without a resolved asset as text cards", () => {
+    const score: DirectorScore = {
+      ...baseScore,
+      scenes: baseScore.scenes.map((scene) => ({ ...scene, visual_type: "stock_image" as const })),
+    };
+    const props = mapScoreToProps(score, {
+      ...baseAssets,
+      sceneAssets: [null, null, null],
+    });
+    expect(props.scenes.map((scene) => scene.visualType)).toEqual([
+      "text_card",
+      "text_card",
+      "text_card",
+    ]);
+    expect(props.scenes.every((scene) => scene.assetSrc === null)).toBe(true);
+  });
+
   it("passes scriptLine from score to scene props", () => {
     const props = mapScoreToProps(baseScore, baseAssets);
     expect(props.scenes[0]!.scriptLine).toBe("Scene one.");

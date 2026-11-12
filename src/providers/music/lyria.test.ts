@@ -1,7 +1,7 @@
 import * as fsp from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LyriaMusic, _sanitizePrompt } from "./lyria.js";
 import type { MusicMood } from "../../schema/director-score.js";
+import { _sanitizePrompt, LyriaMusic } from "./lyria.js";
 
 // Mock @google/genai — must return stable object reference for models
 const mockGenerateContent = vi.fn();
@@ -122,10 +122,15 @@ describe("LyriaMusic", () => {
     mockGenerateContent.mockRejectedValueOnce(new Error("Content blocked by safety filter"));
     // Second call: success
     mockGenerateContent.mockResolvedValueOnce({
-      candidates: [{ content: { parts: [{ inlineData: { data: fakeAudio, mimeType: "audio/mp3" } }] } }],
+      candidates: [
+        { content: { parts: [{ inlineData: { data: fakeAudio, mimeType: "audio/mp3" } }] } },
+      ],
     });
 
-    const result = await lyria.generate("oppressive dark intense music", "dark_cinematic" as MusicMood);
+    const result = await lyria.generate(
+      "oppressive dark intense music",
+      "dark_cinematic" as MusicMood,
+    );
     expect(result.filePath).toMatch(/\.mp3$/);
     expect(mockGenerateContent).toHaveBeenCalledTimes(2);
 

@@ -2,10 +2,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { VideoProvider, VideoResult, LLMProvider, LLMUsage } from "../../schema/providers.js";
-import type { ArchetypeConfig } from "../../schema/archetype.js";
 import type { PipelineCallbacks } from "../../pipeline/utils.js";
+import type { ArchetypeConfig } from "../../schema/archetype.js";
 import type { DirectorScore } from "../../schema/director-score.js";
+import type { LLMProvider, LLMUsage, VideoProvider, VideoResult } from "../../schema/providers.js";
 
 // Mock image-prompter
 vi.mock("../../agents/image-prompter.js", () => ({
@@ -75,12 +75,18 @@ const mockLlm = {} as LLMProvider;
 describe("resolveAIVideo", () => {
   it("returns video on primary provider success", async () => {
     const primary = makeProvider();
-    const result = await resolveAIVideo(mockScene, mockImageResult, 0, path.join(tmpDir, "assets"), {
-      videoProviders: [primary],
-      llm: mockLlm,
-      archetype: mockArchetype,
-      callbacks: mockCallbacks,
-    });
+    const result = await resolveAIVideo(
+      mockScene,
+      mockImageResult,
+      0,
+      path.join(tmpDir, "assets"),
+      {
+        videoProviders: [primary],
+        llm: mockLlm,
+        archetype: mockArchetype,
+        callbacks: mockCallbacks,
+      },
+    );
 
     expect(result.videoResolution.method).toBe("image_to_video");
     expect(result.durationSeconds).toBe(6);
@@ -91,12 +97,18 @@ describe("resolveAIVideo", () => {
     const primary = makeProvider({ shouldFail: true });
     const secondary = makeProvider();
 
-    const result = await resolveAIVideo(mockScene, mockImageResult, 0, path.join(tmpDir, "assets"), {
-      videoProviders: [primary, secondary],
-      llm: mockLlm,
-      archetype: mockArchetype,
-      callbacks: mockCallbacks,
-    });
+    const result = await resolveAIVideo(
+      mockScene,
+      mockImageResult,
+      0,
+      path.join(tmpDir, "assets"),
+      {
+        videoProviders: [primary, secondary],
+        llm: mockLlm,
+        archetype: mockArchetype,
+        callbacks: mockCallbacks,
+      },
+    );
 
     expect(result.videoResolution.method).toBe("image_to_video");
     expect(primary.generate).toHaveBeenCalledOnce();
@@ -107,12 +119,18 @@ describe("resolveAIVideo", () => {
     const primary = makeProvider({ shouldFail: true });
     const secondary = makeProvider({ shouldFail: true });
 
-    const result = await resolveAIVideo(mockScene, mockImageResult, 0, path.join(tmpDir, "assets"), {
-      videoProviders: [primary, secondary],
-      llm: mockLlm,
-      archetype: mockArchetype,
-      callbacks: mockCallbacks,
-    });
+    const result = await resolveAIVideo(
+      mockScene,
+      mockImageResult,
+      0,
+      path.join(tmpDir, "assets"),
+      {
+        videoProviders: [primary, secondary],
+        llm: mockLlm,
+        archetype: mockArchetype,
+        callbacks: mockCallbacks,
+      },
+    );
 
     expect(result.videoResolution.method).toBe("image_fallback");
     expect(result.path).toBe(mockImageResult.path);
@@ -171,7 +189,10 @@ describe("resolveAIVideo", () => {
 
   it("uses defaults only when antiArtifactGuidance is empty", async () => {
     const primary = makeProvider();
-    const emptyArchetype = { ...mockArchetype, antiArtifactGuidance: "" } as unknown as ArchetypeConfig;
+    const emptyArchetype = {
+      ...mockArchetype,
+      antiArtifactGuidance: "",
+    } as unknown as ArchetypeConfig;
 
     await resolveAIVideo(mockScene, mockImageResult, 0, path.join(tmpDir, "assets"), {
       videoProviders: [primary],
@@ -189,12 +210,18 @@ describe("resolveAIVideo", () => {
 
   it("includes motionPrompt and negativePrompt in VideoResolution metadata", async () => {
     const primary = makeProvider();
-    const result = await resolveAIVideo(mockScene, mockImageResult, 0, path.join(tmpDir, "assets"), {
-      videoProviders: [primary],
-      llm: mockLlm,
-      archetype: mockArchetype,
-      callbacks: mockCallbacks,
-    });
+    const result = await resolveAIVideo(
+      mockScene,
+      mockImageResult,
+      0,
+      path.join(tmpDir, "assets"),
+      {
+        videoProviders: [primary],
+        llm: mockLlm,
+        archetype: mockArchetype,
+        callbacks: mockCallbacks,
+      },
+    );
 
     expect(result.videoResolution.motionPrompt).toBeDefined();
     expect(result.videoResolution.motionPrompt).toContain("rocket");
@@ -204,42 +231,64 @@ describe("resolveAIVideo", () => {
 
   it("surfaces motion prompter LLM usage for cost tracking", async () => {
     const primary = makeProvider();
-    const result = await resolveAIVideo(mockScene, mockImageResult, 0, path.join(tmpDir, "assets"), {
-      videoProviders: [primary],
-      llm: mockLlm,
-      archetype: mockArchetype,
-      callbacks: mockCallbacks,
-    });
+    const result = await resolveAIVideo(
+      mockScene,
+      mockImageResult,
+      0,
+      path.join(tmpDir, "assets"),
+      {
+        videoProviders: [primary],
+        llm: mockLlm,
+        archetype: mockArchetype,
+        callbacks: mockCallbacks,
+      },
+    );
 
     expect(result.prompterUsage).toEqual({ inputTokens: 100, outputTokens: 50 });
   });
 
   it("returns null prompterUsage when motion prompt LLM fails", async () => {
     const { optimizeImagePrompt } = await import("../../agents/image-prompter.js");
-    (optimizeImagePrompt as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("LLM failed"));
+    (optimizeImagePrompt as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("LLM failed"),
+    );
 
     const primary = makeProvider();
-    const result = await resolveAIVideo(mockScene, mockImageResult, 0, path.join(tmpDir, "assets"), {
-      videoProviders: [primary],
-      llm: mockLlm,
-      archetype: mockArchetype,
-      callbacks: mockCallbacks,
-    });
+    const result = await resolveAIVideo(
+      mockScene,
+      mockImageResult,
+      0,
+      path.join(tmpDir, "assets"),
+      {
+        videoProviders: [primary],
+        llm: mockLlm,
+        archetype: mockArchetype,
+        callbacks: mockCallbacks,
+      },
+    );
 
     expect(result.prompterUsage).toBeNull();
   });
 
   it("uses raw visual_prompt as motion prompt when LLM optimization fails", async () => {
     const { optimizeImagePrompt } = await import("../../agents/image-prompter.js");
-    (optimizeImagePrompt as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("LLM failed"));
+    (optimizeImagePrompt as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("LLM failed"),
+    );
 
     const primary = makeProvider();
-    const result = await resolveAIVideo(mockScene, mockImageResult, 0, path.join(tmpDir, "assets"), {
-      videoProviders: [primary],
-      llm: mockLlm,
-      archetype: mockArchetype,
-      callbacks: mockCallbacks,
-    });
+    const result = await resolveAIVideo(
+      mockScene,
+      mockImageResult,
+      0,
+      path.join(tmpDir, "assets"),
+      {
+        videoProviders: [primary],
+        llm: mockLlm,
+        archetype: mockArchetype,
+        callbacks: mockCallbacks,
+      },
+    );
 
     const generateCall = (primary.generate as ReturnType<typeof vi.fn>).mock.calls[0]![0];
     expect(generateCall.prompt).toBe("A rocket launching");

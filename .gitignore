@@ -10,3 +10,6 @@ docs/src/data/
 docs/.source/
 docs/cli.json
 docs/next-env.d.ts
+
+# Local automation pipeline: kept on the machine, never published.
+n8n/

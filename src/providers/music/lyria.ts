@@ -90,8 +90,8 @@ export class LyriaMusic implements MusicProvider {
         // See: https://discuss.ai.google.dev/t/gemini-2-5-flash-returning-finishreason-other-and-no-explanation-or-candidates/103858
         throw new Error(
           "Lyria returned empty response (finishReason: OTHER). " +
-          "This can be a transient issue with the preview API or a non-configurable " +
-          "content filter. Check the rejected prompt in the logs for content issues.",
+            "This can be a transient issue with the preview API or a non-configurable " +
+            "content filter. Check the rejected prompt in the logs for content issues.",
         );
       }
       const reason = finishReason ? ` (finishReason: ${finishReason})` : "";
@@ -155,7 +155,8 @@ function isSafetyFilterError(err: Error): boolean {
     msg.includes("content policy") ||
     msg.includes("blocklist") ||
     msg.includes("prohibited") ||
-    (msg.includes("blocked") && (msg.includes("safety") || msg.includes("harm") || msg.includes("content")))
+    (msg.includes("blocked") &&
+      (msg.includes("safety") || msg.includes("harm") || msg.includes("content")))
   );
 }
 

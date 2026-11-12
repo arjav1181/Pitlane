@@ -149,6 +149,10 @@ Create a `.env` file in the project root. Both the API server and worker read fr
 | `REDIS_URL` | `redis://localhost:6379` | Redis connection string |
 | `JOBS_DIR` | `./jobs` | Job artifact directory |
 | `MAX_JOBS` | `0` (disabled) | Auto-prune old completed jobs when count exceeds this |
+| `OPENREELS_API_KEY` | unset | Require this key on non-public API routes |
+| `OPENREELS_CORS_ORIGIN` | `*` | Allowed browser origins, comma-separated, or `false` |
+| `OPENREELS_ALLOW_PRIVATE_CALLBACKS` | `false` | Allow webhook targets on private networks |
+| `OPENREELS_NO_AI_ASSETS` | `false` | Default every job to stock media + procedural text cards |
 
 ---
 

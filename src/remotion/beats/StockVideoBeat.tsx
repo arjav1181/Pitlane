@@ -2,7 +2,11 @@ import type React from "react";
 import { AbsoluteFill, Loop, OffthreadVideo, useVideoConfig } from "remotion";
 import type { SceneProps } from "../lib/score-to-props";
 
-export const StockVideoBeat: React.FC<SceneProps> = ({ assetSrc, sourceDurationInSeconds, visualType }) => {
+export const StockVideoBeat: React.FC<SceneProps> = ({
+  assetSrc,
+  sourceDurationInSeconds,
+  visualType,
+}) => {
   const { fps, durationInFrames } = useVideoConfig();
   const sceneDurationSeconds = durationInFrames / fps;
 
@@ -10,7 +14,9 @@ export const StockVideoBeat: React.FC<SceneProps> = ({ assetSrc, sourceDurationI
   // Exception: AI-generated video clips create visible seams when looped — play once instead.
   // Otherwise, play once with trim (endAt handles videos longer than the scene).
   const needsLoop =
-    sourceDurationInSeconds != null && sourceDurationInSeconds < sceneDurationSeconds && visualType !== "ai_video";
+    sourceDurationInSeconds != null &&
+    sourceDurationInSeconds < sceneDurationSeconds &&
+    visualType !== "ai_video";
   const loopDurationInFrames =
     sourceDurationInSeconds != null ? Math.floor(sourceDurationInSeconds * fps) : durationInFrames;
 

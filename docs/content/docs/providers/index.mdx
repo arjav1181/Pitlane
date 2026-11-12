@@ -38,7 +38,7 @@ pnpm start "topic" --provider google --tts-provider elevenlabs
 
 ## Bring Your Own Keys (BYOK)
 
-OpenReels never stores API keys. You provide them via environment variables (`.env` file or system env). The web UI's Settings page lets you enter keys per-session — they are sent with each API request and never persisted server-side.
+OpenReels never stores API keys on the server. You provide them via environment variables (`.env` file or system env). The web UI's Home page lets you enter keys per job — they are sent with each API request and never persisted server-side. An optional **Remember credentials** toggle (off by default) can save them in your browser's `localStorage` instead.
 
 Minimum to run:
 - **One LLM key** — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GOOGLE_API_KEY`

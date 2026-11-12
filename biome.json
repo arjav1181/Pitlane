@@ -5,7 +5,13 @@
     "clientKind": "git",
     "useIgnoreFile": true
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -37,6 +43,11 @@
     }
   },
   "files": {
-    "includes": ["**", "!**/node_modules", "!**/dist"]
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!n8n/**"
+    ]
   }
 }

@@ -1,9 +1,20 @@
+import {
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Gauge,
+  Lightbulb,
+  Lock,
+  MonitorPlay,
+  Shuffle,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { type Archetype, api, type Platform, type ProviderOptions } from "@/hooks/useApi";
+import { ArchetypeCard } from "@/components/ArchetypeCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -11,17 +22,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 import {
-  ArrowRight,
-  Gauge,
-  MonitorPlay,
-  SlidersHorizontal,
-  Lightbulb,
-  Shuffle,
-} from "lucide-react";
-import { ArchetypeCard } from "@/components/ArchetypeCard";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+  type Archetype,
+  api,
+  type LLMAuthType,
+  type Platform,
+  type ProviderOptions,
+} from "@/hooks/useApi";
+import {
+  AUTH_LABELS,
+  AUTH_OPTIONS,
+  clearCredentials,
+  loadCredentialDefaults,
+  loadRememberPreference,
+  saveCredentials,
+  saveRememberPreference,
+} from "@/lib/credentials";
+import { cn } from "@/lib/utils";
 
 const TOPIC_CATEGORIES: Record<string, string[]> = {
   History: [
@@ -84,22 +102,30 @@ function displayName(key: string): string {
 
 export function HomePage() {
   const navigate = useNavigate();
+  // Credentials remembered in this browser (loaded once, then kept in sync below).
+  const [defaults] = useState(loadCredentialDefaults);
   const [topic, setTopic] = useState("");
   const [archetype, setArchetype] = useState("");
   const [platform, setPlatform] = useState("youtube");
-  const [llmProvider, setLlmProvider] = useState("anthropic");
-  const [llmModel, setLlmModel] = useState("");
-  const [llmBaseUrl, setLlmBaseUrl] = useState("");
-  const [searchProvider, setSearchProvider] = useState("");
-  const [ttsProvider, setTtsProvider] = useState("elevenlabs");
-  const [imageProvider, setImageProvider] = useState("gemini");
-  const [musicProvider, setMusicProvider] = useState("bundled");
+  const [llmProvider, setLlmProvider] = useState(defaults.llmProvider);
+  const [llmModel, setLlmModel] = useState(defaults.llmModel);
+  const [llmBaseUrl, setLlmBaseUrl] = useState(defaults.llmBaseUrl);
+  const [llmApiKey, setLlmApiKey] = useState(defaults.llmApiKey);
+  const [llmAuthType, setLlmAuthType] = useState<LLMAuthType>(defaults.llmAuthType);
+  const [llmAuthHeader, setLlmAuthHeader] = useState(defaults.llmAuthHeader);
+  const [searchProvider, setSearchProvider] = useState(defaults.searchProvider);
+  const [ttsProvider, setTtsProvider] = useState(defaults.ttsProvider);
+  const [imageProvider, setImageProvider] = useState(defaults.imageProvider);
+  const [musicProvider, setMusicProvider] = useState(defaults.musicProvider);
   const [pacing, setPacing] = useState("");
   const [dryRun, setDryRun] = useState(false);
+  const [noAiAssets, setNoAiAssets] = useState(false);
   const [directionText, setDirectionText] = useState("");
   const [scoreJson, setScoreJson] = useState<Record<string, unknown> | null>(null);
   const [scoreFileName, setScoreFileName] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [rememberCredentials, setRememberCredentials] = useState(loadRememberPreference);
+  const [showApiKey, setShowApiKey] = useState(false);
 
   const [archetypes, setArchetypes] = useState<Archetype[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -112,17 +138,92 @@ export function HomePage() {
   const [shuffledTopics, setShuffledTopics] = useState<string[]>([]);
 
   useEffect(() => {
-    api.listArchetypes().then(setArchetypes).catch(() => {});
-    api.listPlatforms().then(setPlatforms).catch(() => {});
-    api.listProviders().then(setProviders).catch(() => {});
+    api
+      .listArchetypes()
+      .then(setArchetypes)
+      .catch(() => {});
+    api
+      .listPlatforms()
+      .then(setPlatforms)
+      .catch(() => {});
+    api
+      .listProviders()
+      .then(setProviders)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
     setShuffledTopics(TOPIC_CATEGORIES[activeCategory] ?? []);
   }, [activeCategory]);
 
+  // Remember credentials and provider settings in this browser so they only have
+  // to be entered once.
+  useEffect(() => {
+    if (!rememberCredentials) return;
+    saveCredentials({
+      llmProvider,
+      llmModel,
+      llmBaseUrl,
+      llmApiKey,
+      llmAuthType,
+      llmAuthHeader,
+      ttsProvider,
+      imageProvider,
+      musicProvider,
+      searchProvider,
+    });
+  }, [
+    rememberCredentials,
+    llmProvider,
+    llmModel,
+    llmBaseUrl,
+    llmApiKey,
+    llmAuthType,
+    llmAuthHeader,
+    ttsProvider,
+    imageProvider,
+    musicProvider,
+    searchProvider,
+  ]);
+
+  const handleRememberChange = (checked: boolean) => {
+    setRememberCredentials(checked);
+    if (checked) {
+      saveRememberPreference(true);
+    } else {
+      clearCredentials();
+    }
+  };
+
   const handleShuffle = () => {
     setShuffledTopics((prev) => [...prev].sort(() => Math.random() - 0.5));
+  };
+
+  const buildJobRequest = () => {
+    // The API key only applies to the OpenAI-compatible provider.
+    const trimmedKey = llmProvider === "openai-compatible" ? llmApiKey.trim() : "";
+    return {
+      topic: topic.trim(),
+      archetype: archetype || undefined,
+      pacing: pacing || undefined,
+      platform,
+      dryRun,
+      noAiAssets,
+      ...(directionText.trim() ? { direction: directionText.trim() } : {}),
+      ...(scoreJson ? { score: scoreJson } : {}),
+      providers: {
+        llm: llmProvider,
+        tts: ttsProvider,
+        image: imageProvider,
+        music: musicProvider,
+        ...(llmModel ? { llmModel } : {}),
+        ...(llmBaseUrl ? { llmBaseUrl } : {}),
+        ...(llmAuthType !== "auto" ? { llmAuthType } : {}),
+        ...(llmAuthHeader ? { llmAuthHeader } : {}),
+        ...(searchProvider ? { searchProvider } : {}),
+      },
+      ...(trimmedKey ? { keys: { OPENREELS_LLM_API_KEY: trimmedKey } } : {}),
+    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -133,24 +234,7 @@ export function HomePage() {
     setError("");
 
     try {
-      const result = await api.createJob({
-        topic: topic.trim(),
-        archetype: archetype || undefined,
-        pacing: pacing || undefined,
-        platform,
-        dryRun,
-        ...(directionText.trim() ? { direction: directionText.trim() } : {}),
-        ...(scoreJson ? { score: scoreJson } : {}),
-        providers: {
-          llm: llmProvider,
-          tts: ttsProvider,
-          image: imageProvider,
-          music: musicProvider,
-          ...(llmModel ? { llmModel } : {}),
-          ...(llmBaseUrl ? { llmBaseUrl } : {}),
-          ...(searchProvider ? { searchProvider } : {}),
-        },
-      });
+      const result = await api.createJob(buildJobRequest());
       navigate(`/jobs/${result.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create job");
@@ -178,9 +262,7 @@ export function HomePage() {
           <div
             className={cn(
               "rounded-[14px] border bg-card px-5 sm:px-6 py-5 transition-all",
-              hasTopic
-                ? "border-primary/40 shadow-glow-md shadow-primary/20"
-                : "border-border",
+              hasTopic ? "border-primary/40 shadow-glow-md shadow-primary/20" : "border-border",
             )}
           >
             {/* Topic Input */}
@@ -339,7 +421,9 @@ export function HomePage() {
                       </label>
                       <Input
                         className="h-9 rounded-lg text-sm"
-                        placeholder={llmProvider === "openrouter" ? "anthropic/claude-sonnet-4" : "llama3:8b"}
+                        placeholder={
+                          llmProvider === "openrouter" ? "anthropic/claude-sonnet-4" : "llama3:8b"
+                        }
                         value={llmModel}
                         onChange={(e) => setLlmModel(e.target.value)}
                       />
@@ -360,11 +444,27 @@ export function HomePage() {
                     </div>
                   )}
 
+                  {llmProvider === "openai-compatible" && (
+                    <CompatibleAuthFields
+                      authType={llmAuthType}
+                      onAuthTypeChange={setLlmAuthType}
+                      headerName={llmAuthHeader}
+                      onHeaderNameChange={setLlmAuthHeader}
+                      apiKey={llmApiKey}
+                      onApiKeyChange={setLlmApiKey}
+                      showApiKey={showApiKey}
+                      onToggleApiKeyVisibility={() => setShowApiKey(!showApiKey)}
+                    />
+                  )}
+
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                       Search Provider
                     </label>
-                    <Select value={searchProvider} onValueChange={(v) => setSearchProvider(v ?? "")}>
+                    <Select
+                      value={searchProvider}
+                      onValueChange={(v) => setSearchProvider(v ?? "")}
+                    >
                       <SelectTrigger className="h-9 w-full rounded-lg">
                         <SelectValue placeholder="Auto" />
                       </SelectTrigger>
@@ -408,11 +508,32 @@ export function HomePage() {
                   <span className="text-xs font-medium text-muted-foreground">Dry Run</span>
                   <div className="flex items-center gap-2">
                     <Switch checked={dryRun} onCheckedChange={setDryRun} size="sm" />
+                    <span className="text-xs text-muted-foreground">{dryRun ? "On" : "Off"}</span>
+                  </div>
+                </div>
+
+                {/* No AI Assets */}
+                <div className="mt-3 flex items-center justify-between gap-4">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs font-medium text-muted-foreground">No AI Assets</span>
+                    <span className="text-[11px] text-text-faint">
+                      Use stock media and procedural text cards only. No AI image or video
+                      generation.
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch checked={noAiAssets} onCheckedChange={setNoAiAssets} size="sm" />
                     <span className="text-xs text-muted-foreground">
-                      {dryRun ? "On" : "Off"}
+                      {noAiAssets ? "On" : "Off"}
                     </span>
                   </div>
                 </div>
+
+                {/* Saved credentials */}
+                <RememberCredentialsToggle
+                  checked={rememberCredentials}
+                  onCheckedChange={handleRememberChange}
+                />
 
                 {/* Direction & Replay */}
                 <div className="mt-4 border-t border-border pt-4 space-y-3">
@@ -431,7 +552,8 @@ export function HomePage() {
                       rows={3}
                     />
                     <p className="mt-1 text-right text-[10px] text-muted-foreground">
-                      {new TextEncoder().encode(directionText).length.toLocaleString()} / 10,240 bytes
+                      {new TextEncoder().encode(directionText).length.toLocaleString()} / 10,240
+                      bytes
                     </p>
                   </div>
 
@@ -556,5 +678,123 @@ export function HomePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+interface RememberCredentialsToggleProps {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}
+
+/** Toggle that keeps credentials in this browser so they only have to be entered once. */
+function RememberCredentialsToggle({ checked, onCheckedChange }: RememberCredentialsToggleProps) {
+  return (
+    <div className="mt-4 flex items-start justify-between gap-4 border-t border-border pt-4">
+      <div className="flex flex-col gap-0.5">
+        <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <Lock className="size-3" />
+          Remember credentials
+        </span>
+        <span className="text-[11px] text-text-faint">
+          Saves the API key, base URL, model, and provider selection in this browser so you don't
+          have to re-enter them.
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Switch checked={checked} onCheckedChange={onCheckedChange} size="sm" />
+        <span className="text-xs text-muted-foreground">{checked ? "On" : "Off"}</span>
+      </div>
+    </div>
+  );
+}
+
+interface CompatibleAuthFieldsProps {
+  authType: LLMAuthType;
+  onAuthTypeChange: (value: LLMAuthType) => void;
+  headerName: string;
+  onHeaderNameChange: (value: string) => void;
+  apiKey: string;
+  onApiKeyChange: (value: string) => void;
+  showApiKey: boolean;
+  onToggleApiKeyVisibility: () => void;
+}
+
+/** Auth configuration for OpenAI-compatible endpoints (Bearer, custom header, or none). */
+function CompatibleAuthFields({
+  authType,
+  onAuthTypeChange,
+  headerName,
+  onHeaderNameChange,
+  apiKey,
+  onApiKeyChange,
+  showApiKey,
+  onToggleApiKeyVisibility,
+}: CompatibleAuthFieldsProps) {
+  return (
+    <>
+      <div>
+        <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Auth</span>
+        <Select value={authType} onValueChange={(v) => v && onAuthTypeChange(v as LLMAuthType)}>
+          <SelectTrigger className="h-9 w-full rounded-lg">
+            <SelectValue>{AUTH_LABELS[authType]}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {AUTH_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {authType === "custom-header" && (
+        <div>
+          <label
+            htmlFor="llm-auth-header"
+            className="mb-1.5 block text-xs font-medium text-muted-foreground"
+          >
+            Auth Header
+          </label>
+          <Input
+            id="llm-auth-header"
+            className="h-9 rounded-lg text-sm"
+            placeholder="x-api-key"
+            value={headerName}
+            onChange={(e) => onHeaderNameChange(e.target.value)}
+          />
+        </div>
+      )}
+
+      {authType !== "none" && (
+        <div>
+          <label
+            htmlFor="llm-api-key"
+            className="mb-1.5 block text-xs font-medium text-muted-foreground"
+          >
+            API Key
+          </label>
+          <div className="relative">
+            <Input
+              id="llm-api-key"
+              className="h-9 rounded-lg pr-9 text-sm"
+              type={showApiKey ? "text" : "password"}
+              placeholder="Uses OPENREELS_LLM_API_KEY if empty"
+              autoComplete="off"
+              value={apiKey}
+              onChange={(e) => onApiKeyChange(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={onToggleApiKeyVisibility}
+              aria-label={showApiKey ? "Hide API key" : "Show API key"}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {showApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildPacingInstruction, PACING_CONFIG, reviseDirectorScore } from "./creative-director.js";
 import type { DirectorScore } from "../schema/director-score.js";
 import type { LLMProvider } from "../schema/providers.js";
+import { buildPacingInstruction, PACING_CONFIG, reviseDirectorScore } from "./creative-director.js";
 import type { CritiqueResult } from "./critic.js";
 import type { ResearchResult } from "./research.js";
 
@@ -114,14 +114,62 @@ const baseScore: DirectorScore = {
   archetype: "infographic",
   music_mood: "epic_cinematic",
   scenes: [
-    { visual_type: "text_card", visual_prompt: "Title", motion: "static", script_line: "Did you know this?", transition: null },
-    { visual_type: "ai_image", visual_prompt: "A diagram", motion: "zoom_in", script_line: "Here is the truth.", transition: "crossfade" },
-    { visual_type: "stock_video", visual_prompt: "Ocean", motion: "static", script_line: "It changed everything.", transition: "slide_left" },
-    { visual_type: "ai_image", visual_prompt: "Chart", motion: "pan_right", script_line: "The numbers prove it.", transition: "crossfade" },
-    { visual_type: "stock_image", visual_prompt: "Sunset", motion: "zoom_out", script_line: "Think about that.", transition: "crossfade" },
-    { visual_type: "text_card", visual_prompt: "CTA", motion: "static", script_line: "What do you think?", transition: "wipe" },
-    { visual_type: "ai_image", visual_prompt: "Finale", motion: "zoom_in", script_line: "Comment below!", transition: null },
-    { visual_type: "stock_video", visual_prompt: "Stars", motion: "static", script_line: "Follow for more.", transition: "crossfade" },
+    {
+      visual_type: "text_card",
+      visual_prompt: "Title",
+      motion: "static",
+      script_line: "Did you know this?",
+      transition: null,
+    },
+    {
+      visual_type: "ai_image",
+      visual_prompt: "A diagram",
+      motion: "zoom_in",
+      script_line: "Here is the truth.",
+      transition: "crossfade",
+    },
+    {
+      visual_type: "stock_video",
+      visual_prompt: "Ocean",
+      motion: "static",
+      script_line: "It changed everything.",
+      transition: "slide_left",
+    },
+    {
+      visual_type: "ai_image",
+      visual_prompt: "Chart",
+      motion: "pan_right",
+      script_line: "The numbers prove it.",
+      transition: "crossfade",
+    },
+    {
+      visual_type: "stock_image",
+      visual_prompt: "Sunset",
+      motion: "zoom_out",
+      script_line: "Think about that.",
+      transition: "crossfade",
+    },
+    {
+      visual_type: "text_card",
+      visual_prompt: "CTA",
+      motion: "static",
+      script_line: "What do you think?",
+      transition: "wipe",
+    },
+    {
+      visual_type: "ai_image",
+      visual_prompt: "Finale",
+      motion: "zoom_in",
+      script_line: "Comment below!",
+      transition: null,
+    },
+    {
+      visual_type: "stock_video",
+      visual_prompt: "Stars",
+      motion: "static",
+      script_line: "Follow for more.",
+      transition: "crossfade",
+    },
   ],
 };
 
@@ -159,7 +207,13 @@ function mockRevisionLLM(): LLMProvider & { lastUserMessage: string } {
 describe("reviseDirectorScore", () => {
   it("generates a revised DirectorScore from critique feedback", async () => {
     const llm = mockRevisionLLM();
-    const result = await reviseDirectorScore(llm, "test topic", baseResearch, baseScore, baseCritique);
+    const result = await reviseDirectorScore(
+      llm,
+      "test topic",
+      baseResearch,
+      baseScore,
+      baseCritique,
+    );
     expect(result.data.archetype).toBe("infographic");
     expect(result.data.scenes.length).toBeGreaterThanOrEqual(3);
     expect(result.usage.inputTokens).toBe(200);

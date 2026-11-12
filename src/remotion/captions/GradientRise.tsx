@@ -33,9 +33,7 @@ export const GradientRise: React.FC<CaptionStyleProps> = ({ wordStates }) => (
               color: isLit ? undefined : "rgba(255,255,255,0.45)",
               textShadow: isLit ? "none" : "0 2px 8px rgba(0,0,0,0.5)",
               filter:
-                ws.state === "active"
-                  ? "drop-shadow(0 3px 12px rgba(159,122,234,0.5))"
-                  : "none",
+                ws.state === "active" ? "drop-shadow(0 3px 12px rgba(159,122,234,0.5))" : "none",
             } as React.CSSProperties
           }
         >

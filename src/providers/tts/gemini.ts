@@ -17,10 +17,7 @@ export class GeminiTTS implements TTSProvider {
 
   constructor(model: string = "gemini-2.5-flash-preview-tts", apiKey?: string) {
     const key = apiKey ?? process.env["GOOGLE_API_KEY"];
-    if (!key)
-      throw new Error(
-        "GOOGLE_API_KEY environment variable is required for Gemini TTS",
-      );
+    if (!key) throw new Error("GOOGLE_API_KEY environment variable is required for Gemini TTS");
     this.client = new GoogleGenAI({ apiKey: key });
     this.model = model;
   }
@@ -43,22 +40,15 @@ export class GeminiTTS implements TTSProvider {
       if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED")) {
         throw new Error(`Gemini TTS rate limited: ${msg}`);
       }
-      if (
-        msg.includes("401") ||
-        msg.includes("403") ||
-        msg.includes("API_KEY_INVALID")
-      ) {
-        throw new Error(
-          `Gemini TTS authentication failed: ${msg}. Check your GOOGLE_API_KEY.`,
-        );
+      if (msg.includes("401") || msg.includes("403") || msg.includes("API_KEY_INVALID")) {
+        throw new Error(`Gemini TTS authentication failed: ${msg}. Check your GOOGLE_API_KEY.`);
       }
       throw new Error(`Gemini TTS API error: ${msg}`);
     }
 
     const candidate = response.candidates?.[0];
-    const audioPart = candidate?.content?.parts?.find(
-      (p: { inlineData?: { mimeType?: string } }) =>
-        p.inlineData?.mimeType?.startsWith("audio/"),
+    const audioPart = candidate?.content?.parts?.find((p: { inlineData?: { mimeType?: string } }) =>
+      p.inlineData?.mimeType?.startsWith("audio/"),
     );
 
     if (!audioPart?.inlineData?.data) {
@@ -77,11 +67,7 @@ export class GeminiTTS implements TTSProvider {
     } else {
       // Raw PCM bytes → Int16Array (wavefile.fromScratch treats Buffer elements as
       // individual samples, doubling the data size and garbling the audio)
-      const samples = new Int16Array(
-        rawAudio.buffer,
-        rawAudio.byteOffset,
-        rawAudio.byteLength / 2,
-      );
+      const samples = new Int16Array(rawAudio.buffer, rawAudio.byteOffset, rawAudio.byteLength / 2);
       const wav = new wavefile.WaveFile();
       wav.fromScratch(1, 24000, "16", samples);
       wavBuffer = Buffer.from(wav.toBuffer());

@@ -2,9 +2,9 @@ import { AlertTriangle, Download, Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CompletedPanel } from "@/components/pipeline/CompletedPanel";
+import { CostBreakdownCard } from "@/components/pipeline/CostBreakdownCard";
 import { FailedPanel } from "@/components/pipeline/FailedPanel";
 import { StoryboardPanel } from "@/components/pipeline/StoryboardPanel";
-import { CostBreakdownCard } from "@/components/pipeline/CostBreakdownCard";
 import { STAGE_LABELS, StageCard } from "@/components/StageCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,9 @@ import {
   type JobSummary,
   type ResearchData,
 } from "@/hooks/useApi";
-import type { SceneFallbacks } from "@/lib/scene-assets";
 import { useSSE } from "@/hooks/useSSE";
+import { withApiKey } from "@/lib/apiKey";
+import type { SceneFallbacks } from "@/lib/scene-assets";
 import { formatArchetypeName } from "@/lib/utils";
 
 const STAGES = ["research", "director", "tts", "visuals", "assembly", "critic"] as const;
@@ -255,7 +256,9 @@ export function JobPage() {
   const isCompleted = job.status === "completed";
   const isFailed = job.status === "failed";
   const isCancelled = job.status === "cancelled";
-  const videoUrl = job.videoPath ? `/api/v1/jobs/${job.id}/artifacts/${job.videoPath}` : null;
+  const videoUrl = job.videoPath
+    ? withApiKey(`/api/v1/jobs/${job.id}/artifacts/${job.videoPath}`)
+    : null;
 
   // Find the failed stage for error display
   const failedStage = isFailed
@@ -285,7 +288,8 @@ export function JobPage() {
     : undefined;
 
   // Stage status helpers
-  const visualsComplete = job.stages?.visuals?.status === "done" || job.stages?.visuals?.status === "skipped";
+  const visualsComplete =
+    job.stages?.visuals?.status === "done" || job.stages?.visuals?.status === "skipped";
 
   return (
     <div className="py-6 px-4 sm:px-6 lg:px-10">
@@ -300,6 +304,14 @@ export function JobPage() {
                 className="rounded-md border-0 bg-primary/12 px-2.5 py-1 text-xs font-medium text-primary/80"
               >
                 {formatArchetypeName(job.archetype)}
+              </Badge>
+            )}
+            {job.noAiAssets && (
+              <Badge
+                variant="secondary"
+                className="rounded-md border-0 bg-status-success/12 px-2.5 py-1 text-xs font-medium text-status-success"
+              >
+                No AI Assets
               </Badge>
             )}
             <span className="text-xs text-muted-foreground">YouTube Shorts</span>
@@ -433,9 +445,7 @@ export function JobPage() {
           )}
 
           {/* Research card — always visible once available */}
-          {researchData && (
-            <ResearchCard data={researchData} />
-          )}
+          {researchData && <ResearchCard data={researchData} />}
 
           {/* Storyboard — always visible once score available */}
           {score && (
@@ -455,9 +465,7 @@ export function JobPage() {
           )}
 
           {/* Music status — live during visuals */}
-          {musicInfo.status !== "idle" && !isCompleted && (
-            <MusicStatusCard info={musicInfo} />
-          )}
+          {musicInfo.status !== "idle" && !isCompleted && <MusicStatusCard info={musicInfo} />}
 
           {/* Asset failure warnings */}
           {assetFailures.length > 0 && !isCompleted && (
@@ -521,9 +529,7 @@ function ResearchCard({ data }: { data: ResearchData }) {
           {data.key_facts.length} facts
         </span>
       </div>
-      <p className="mb-3 text-xs leading-relaxed text-secondary-foreground">
-        {data.summary}
-      </p>
+      <p className="mb-3 text-xs leading-relaxed text-secondary-foreground">{data.summary}</p>
       {data.key_facts.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {facts.map((fact, i) => (
@@ -568,9 +574,7 @@ function MusicStatusCard({ info }: { info: MusicInfo }) {
       {info.status === "generated" && (
         <>
           <span className="size-2 rounded-full bg-status-success" />
-          <span className="text-[11px] text-text-subtle">
-            Music generated via {providerLabel}
-          </span>
+          <span className="text-[11px] text-text-subtle">Music generated via {providerLabel}</span>
         </>
       )}
       {info.status === "fallback" && (

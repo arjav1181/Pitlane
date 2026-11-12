@@ -88,17 +88,23 @@ export function showUsageReport(outputDir: string): void {
   console.log(`${BOLD}OpenReels Usage Report${RESET}`);
   console.log(`${DIM}${"─".repeat(60)}${RESET}`);
   console.log(`${DIM}Source: ${resolved}${RESET}`);
-  console.log(`${DIM}Runs found: ${entries.length} (from log.json files in output directories)${RESET}`);
+  console.log(
+    `${DIM}Runs found: ${entries.length} (from log.json files in output directories)${RESET}`,
+  );
   console.log();
 
   // Summary box
   console.log(`${BOLD}  Total Cost Summary${RESET}`);
   console.log(`${DIM}  ${"─".repeat(40)}${RESET}`);
   if (runsWithActual > 0) {
-    console.log(`  ${GREEN}Actual cost:${RESET}    ${BOLD}$${totalActual.toFixed(4)}${RESET}  ${DIM}(${runsWithActual} runs)${RESET}`);
+    console.log(
+      `  ${GREEN}Actual cost:${RESET}    ${BOLD}$${totalActual.toFixed(4)}${RESET}  ${DIM}(${runsWithActual} runs)${RESET}`,
+    );
   }
   if (runsWithEstimate > 0) {
-    console.log(`  ${CYAN}Estimated cost:${RESET} ${BOLD}$${totalEstimated.toFixed(4)}${RESET}  ${DIM}(${runsWithEstimate} runs)${RESET}`);
+    console.log(
+      `  ${CYAN}Estimated cost:${RESET} ${BOLD}$${totalEstimated.toFixed(4)}${RESET}  ${DIM}(${runsWithEstimate} runs)${RESET}`,
+    );
   }
   if (runsWithActual === 0 && runsWithEstimate === 0) {
     console.log(`  ${DIM}No cost data recorded in any run.${RESET}`);
@@ -122,7 +128,9 @@ export function showUsageReport(outputDir: string): void {
     if (entry.actual !== null) {
       console.log(`  ${GREEN}Actual: $${entry.actual.toFixed(4)}${RESET}`);
     } else if (entry.estimated !== null) {
-      console.log(`  ${CYAN}Estimated: $${entry.estimated.toFixed(4)}${RESET}  ${DIM}(pipeline did not complete)${RESET}`);
+      console.log(
+        `  ${CYAN}Estimated: $${entry.estimated.toFixed(4)}${RESET}  ${DIM}(pipeline did not complete)${RESET}`,
+      );
     } else {
       console.log(`  ${DIM}No cost data${RESET}`);
     }
@@ -131,7 +139,9 @@ export function showUsageReport(outputDir: string): void {
   // Footer
   console.log();
   console.log(`${DIM}${"─".repeat(60)}${RESET}`);
-  console.log(`${YELLOW}Note:${RESET} This report is based on log.json files in the output directory.`);
+  console.log(
+    `${YELLOW}Note:${RESET} This report is based on log.json files in the output directory.`,
+  );
   console.log(`If you delete a run folder, its cost data will no longer appear here.`);
   console.log();
 }

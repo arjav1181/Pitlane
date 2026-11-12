@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { withApiKey } from "@/lib/apiKey";
 
 interface SSEEvent {
   event: string;
@@ -15,7 +16,7 @@ export function useSSE(jobId: string | undefined, onEvent: (event: SSEEvent) => 
   const connect = useCallback(() => {
     if (!jobId || doneRef.current) return;
 
-    const es = new EventSource(`/api/v1/jobs/${jobId}/events`);
+    const es = new EventSource(withApiKey(`/api/v1/jobs/${jobId}/events`));
     eventSourceRef.current = es;
 
     const handleEvent = (e: MessageEvent) => {
@@ -24,7 +25,7 @@ export function useSSE(jobId: string | undefined, onEvent: (event: SSEEvent) => 
         onEventRef.current({ event: e.type, data });
 
         // Stop reconnecting once the job is terminal
-        if (e.type === "job:completed" || e.type === "job:failed") {
+        if (e.type === "job:completed" || e.type === "job:failed" || e.type === "job:cancelled") {
           doneRef.current = true;
           es.close();
         }
@@ -41,6 +42,7 @@ export function useSSE(jobId: string | undefined, onEvent: (event: SSEEvent) => 
       "job:snapshot",
       "job:completed",
       "job:failed",
+      "job:cancelled",
     ];
 
     for (const type of eventTypes) {

@@ -1,9 +1,11 @@
 ---
 title: REST API
-description: Complete reference for the OpenReels HTTP API — job management, health checks, and artifact serving.
+description: Complete reference for the OpenReels HTTP API — job management, authentication, idempotency, webhooks, artifacts, and automation.
 ---
 
-The OpenReels API server is a Fastify application that manages video generation jobs via a BullMQ queue backed by Redis. All endpoints are prefixed with `/api/v1`.
+The OpenReels API server is a Fastify application that manages video generation jobs through a BullMQ queue backed by Redis. Every endpoint is prefixed with `/api/v1`.
+
+For automation, use the machine-readable OpenAPI 3.1 document at [`/api/v1/openapi.json`](/api/v1/openapi.json) or the interactive reference at [`/api/v1/docs`](/api/v1/docs). This page explains the behavior behind the schema.
 
 ## Base URL
 
@@ -11,23 +13,91 @@ The OpenReels API server is a Fastify application that manages video generation 
 http://localhost:3000/api/v1
 ```
 
-The host and port are configurable via the `HOST` and `PORT` environment variables (defaults: `0.0.0.0:3000`).
+The host and port are configurable through `HOST` and `PORT` (defaults: `0.0.0.0:3000`).
 
 ---
 
-## Health Check
+## Authentication
+
+Authentication is optional. Set `OPENREELS_API_KEY` to require a key on every API route except the public system routes:
+
+| Public route | Why |
+|---|---|
+| `GET /api/v1/health` | Load balancers and uptime checks |
+| `GET /api/v1/openapi.json` | Client generation |
+| `GET /api/v1/docs` | Documentation |
+
+When a key is configured, send it in any of these forms:
+
+```bash
+# Authorization: Bearer
+curl -H "Authorization: Bearer $OPENREELS_API_KEY" \
+  http://localhost:3000/api/v1/jobs
+
+# X-API-Key
+curl -H "X-API-Key: $OPENREELS_API_KEY" \
+  http://localhost:3000/api/v1/jobs
+
+# Query parameter — only for EventSource, media, and download URLs
+curl "http://localhost:3000/api/v1/jobs?api_key=$OPENREELS_API_KEY"
+```
+
+`Authorization` takes precedence over `X-API-Key`, which takes precedence over the query parameter. The query parameter exists because the browser `EventSource` API cannot set headers; prefer headers everywhere else so keys do not appear in logs or browser history.
+
+A missing or incorrect key returns `401 Unauthorized` with `WWW-Authenticate: Bearer realm="openreels"`. Comparison is constant-time.
+
+The web UI has a **Server Access** section in **Settings** for storing this key in the browser. It is separate from provider credentials and is never sent with the job payload.
+
+### CORS
+
+`OPENREELS_CORS_ORIGIN` controls browser access:
+
+| Value | Behavior |
+|---|---|
+| unset or `*` | Allow any origin |
+| `https://app.example.com,https://admin.example.com` | Allow only the listed origins |
+| `false` | Disable CORS |
+
+Allowed headers include `Content-Type`, `Authorization`, `X-API-Key`, `Idempotency-Key`, and `Last-Event-ID`. `Idempotency-Replayed` and `Location` are exposed to browser clients.
+
+---
+
+## Idempotency
+
+`POST /api/v1/jobs` accepts an `Idempotency-Key` header (or `idempotencyKey` in the body). Keys are 1–255 printable ASCII characters.
+
+```bash
+curl -X POST http://localhost:3000/api/v1/jobs \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: coffee-video-2026-05-01" \
+  -d '{"topic":"The history of coffee"}'
+```
+
+- The first request returns `201 Created`.
+- A replay with the same key returns `200 OK`, the original job, and `Idempotency-Replayed: true`.
+- The mapping is stored in `JOBS_DIR/.idempotency.json`, survives server restarts, and is cleaned up when the job is deleted or pruned.
+- If enqueueing fails, the reservation is released so the client can retry.
+- A fresh reservation whose job directory does not exist yet is kept for a 10-minute grace period; after that it is treated as stale and reclaimed.
+
+Use a new key for each distinct job. Reusing a key always returns the first job, even if the body differs.
+
+---
+
+## System
 
 ### `GET /api/v1/health`
 
-Returns the server health status, Redis connectivity, and which API keys are configured.
-
-**Response**
+Returns server health, Redis connectivity, the API version, whether authentication is required, and which provider keys are configured. Values are booleans — the keys themselves are never returned.
 
 ```json
 {
   "status": "healthy",
+  "version": "0.18.0",
   "redis": "connected",
   "jobsDir": "exists",
+  "apiKeyRequired": false,
+  "callbacks": true,
+  "noAiAssets": true,
   "keys": {
     "ANTHROPIC_API_KEY": true,
     "OPENAI_API_KEY": false,
@@ -35,22 +105,58 @@ Returns the server health status, Redis connectivity, and which API keys are con
     "ELEVENLABS_API_KEY": true,
     "INWORLD_TTS_API_KEY": false,
     "PEXELS_API_KEY": true,
-    "PIXABAY_API_KEY": false
+    "PIXABAY_API_KEY": false,
+    "OPENROUTER_API_KEY": false,
+    "OPENREELS_LLM_API_KEY": false
   }
 }
 ```
 
-The `status` field is `"healthy"` when Redis is connected, `"degraded"` otherwise. The `keys` object shows which API keys are present in the environment (values are booleans, not the actual keys).
+`status` is `"healthy"` when Redis is connected and `"degraded"` otherwise.
 
----
+### `GET /api/v1/capabilities`
 
-## Aggregate Stats
+Returns the feature flags, provider catalog, platform specifications, and server limits that an automation client needs to configure itself.
+
+```json
+{
+  "version": "0.18.0",
+  "apiKeyRequired": false,
+  "features": {
+    "noAiAssets": true,
+    "callbacks": true,
+    "idempotency": true,
+    "batchJobs": true,
+    "jobRetry": true,
+    "sse": true,
+    "artifactListing": true
+  },
+  "providers": { "llm": [], "search": [], "tts": [], "image": [], "video": [] },
+  "platforms": [
+    { "name": "youtube", "width": 1080, "height": 1920, "fps": 30, "maxDurationSeconds": 60 }
+  ],
+  "limits": {
+    "maxTopicLength": 500,
+    "maxDirectionBytes": 10240,
+    "maxMetadataBytes": 8192,
+    "maxBatchJobs": 25,
+    "maxJobsPerPage": 100,
+    "maxIdempotencyKeyLength": 255
+  },
+  "callbacks": {
+    "events": ["job.completed", "job.failed", "job.cancelled"],
+    "signature": "HMAC-SHA256",
+    "signatureHeader": "X-OpenReels-Signature",
+    "signatureFormat": "sha256=<hex digest of `${timestamp}.${rawBody}`>"
+  },
+  "idempotency": { "header": "Idempotency-Key" },
+  "stages": ["research", "director", "tts", "visuals", "assembly", "critic"]
+}
+```
 
 ### `GET /api/v1/stats`
 
-Returns aggregate statistics across all jobs.
-
-**Response**
+Returns aggregate job counts and total completed-job cost.
 
 ```json
 {
@@ -62,7 +168,7 @@ Returns aggregate statistics across all jobs.
 }
 ```
 
-`totalCost` is the sum of actual costs (or estimated costs as fallback) for all completed jobs, rounded to two decimal places.
+`failedJobs` includes cancelled jobs. `totalCost` sums actual costs with estimated costs as a fallback, rounded to two decimals.
 
 ---
 
@@ -70,87 +176,184 @@ Returns aggregate statistics across all jobs.
 
 ### `POST /api/v1/jobs`
 
-Creates a new video generation job and adds it to the processing queue.
+Creates a job and adds it to the queue. The server generates a UUID job ID and writes a placeholder `meta.json` before returning, so the job is immediately readable.
 
-**Request Body**
+**Request body**
 
 ```json
 {
   "topic": "The history of the Roman Colosseum",
   "archetype": "editorial_caricature",
-  "pacing": "standard",
+  "pacing": "moderate",
   "platform": "youtube",
   "dryRun": false,
   "noMusic": false,
   "noVideo": false,
+  "noAiAssets": false,
+  "direction": "Bold, cinematic, with a dry sense of humor.",
+  "metadata": { "customer": "acme", "campaign": "spring" },
   "providers": {
     "llm": "anthropic",
     "tts": "elevenlabs",
     "image": "gemini",
     "stock": "pexels",
     "video": "gemini",
-    "videoModel": "veo-3.0-generate-preview",
-    "music": "bundled"
+    "videoModel": "veo-3.1-lite-preview",
+    "music": "bundled",
+    "searchProvider": "native"
   },
   "keys": {
     "ANTHROPIC_API_KEY": "sk-ant-...",
     "ELEVENLABS_API_KEY": "..."
-  }
+  },
+  "callbackUrl": "https://example.com/hooks/openreels",
+  "callbackSecret": "whsec_...",
+  "callbackEvents": ["job.completed", "job.failed"]
 }
 ```
 
 | Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `topic` | string | Yes | - | The video topic (max 500 characters) |
-| `archetype` | string | No | auto-selected | Visual style archetype |
-| `pacing` | string | No | auto-selected | Pacing tier (`slow`, `standard`, `fast`) |
-| `platform` | string | No | `"youtube"` | Target platform |
-| `dryRun` | boolean | No | `false` | Skip rendering, produce only the DirectorScore |
-| `noMusic` | boolean | No | `false` | Skip music generation/selection |
-| `noVideo` | boolean | No | `false` | Skip AI video generation for scenes |
-| `direction` | string | No | — | Creative direction text (free-form markdown, max 10KB). Guides the AI's DirectorScore generation. |
-| `score` | object | No | — | A previous DirectorScore JSON for replay. Skips research, director, and critic stages. Must be a valid DirectorScore schema. |
+|---|---|---|---|---|
+| `topic` | string | Yes | — | Video topic (max 500 characters) |
+| `archetype` | string | No | auto-selected | Visual archetype; see `/api/v1/archetypes` |
+| `pacing` | string | No | archetype default | `fast`, `moderate`, or `cinematic` |
+| `platform` | string | No | `"youtube"` | `youtube`, `tiktok`, or `instagram` |
+| `dryRun` | boolean | No | `false` | Produce the DirectorScore without rendering assets |
+| `noMusic` | boolean | No | `false` | Skip music selection/generation |
+| `noVideo` | boolean | No | `false` | Skip AI video generation |
+| `noAiAssets` | boolean | No | `false` | Disable AI image and video generation entirely |
+| `direction` | string | No | — | Creative brief (max 10 KB UTF-8) |
+| `score` | object | No | — | Valid DirectorScore to replay; skips research, director, and critic |
+| `metadata` | object | No | — | Caller metadata stored on the job (max 8 KB JSON) |
 | `providers` | object | No | see defaults | Provider selection per category |
-| `keys` | object | No | `{}` | BYOK (Bring Your Own Key) API keys |
+| `keys` | object | No | `{}` | Per-job BYOK credentials |
+| `idempotencyKey` | string | No | — | Alternative to the `Idempotency-Key` header |
+| `callbackUrl` | string | No | — | HTTPS endpoint for signed lifecycle webhooks |
+| `callbackSecret` | string | No | — | HMAC-SHA256 signing secret (max 512 chars) |
+| `callbackEvents` | string[] | No | all events | Restrict which webhook events are delivered |
+| `callback` | object | No | — | Nested form of `callbackUrl`, `callbackSecret`, and `callbackEvents` |
 
-**Provider defaults**: `llm: "anthropic"`, `tts: "elevenlabs"`, `image: "gemini"`, `stock: "pexels"`, `music: "bundled"`.
+**Provider defaults**: `llm: "anthropic"`, `tts: "elevenlabs"`, `image: "gemini"`, `stock: "pexels"`, `music: "bundled"`, `searchProvider: "native"`.
+
+Key names must match `^[A-Z][A-Z0-9_]*$`. Keys are forwarded to the worker through Redis and are **never written to `meta.json`**, so they cannot leak through the job API. The same applies to `callbackSecret`.
+
+**OpenAI-compatible options** (when `providers.llm` is `"openai-compatible"`):
+
+| Field | Required | Description |
+|---|---|---|
+| `providers.llmBaseUrl` | Yes | Endpoint base URL (falls back to `OPENREELS_LLM_BASE_URL`) |
+| `providers.llmModel` | Yes | Model ID (falls back to `OPENREELS_LLM_MODEL`) |
+| `providers.llmAuthType` | No | `auto`, `bearer`, `custom-header`, or `none` (default `auto`) |
+| `providers.llmAuthHeader` | For `custom-header` | Header name such as `x-api-key` |
+| `keys.OPENREELS_LLM_API_KEY` | For `bearer` / `custom-header` | Key sent to the endpoint |
+
+`auto` sends a Bearer token when a key exists and nothing otherwise. `none` never sends credentials — use it for Ollama, LM Studio, or a local vLLM server. `bearer` and `custom-header` fail fast when no key is available.
 
 **Response** `201 Created`
 
 ```json
 {
-  "id": "1",
+  "id": "8a1f6c0e-7f0f-4a6a-9d0e-3f2b7c1d9a44",
   "topic": "The history of the Roman Colosseum",
   "archetype": "editorial_caricature",
-  "status": "queued"
+  "pacing": "moderate",
+  "platform": "youtube",
+  "status": "queued",
+  "createdAt": "2026-05-01T12:00:00.000Z",
+  "noAiAssets": false,
+  "metadata": { "customer": "acme" },
+  "stages": {
+    "research": { "status": "pending" },
+    "director": { "status": "pending" },
+    "tts": { "status": "pending" },
+    "visuals": { "status": "pending" },
+    "assembly": { "status": "pending" },
+    "critic": { "status": "pending" }
+  },
+  "request": {
+    "providers": { "llm": "anthropic", "tts": "elevenlabs", "image": "gemini", "stock": "pexels", "music": "bundled" },
+    "platform": "youtube",
+    "pacing": "moderate",
+    "dryRun": false
+  },
+  "links": {
+    "self": "/api/v1/jobs/8a1f6c0e-7f0f-4a6a-9d0e-3f2b7c1d9a44",
+    "events": "/api/v1/jobs/8a1f6c0e-7f0f-4a6a-9d0e-3f2b7c1d9a44/events",
+    "artifacts": "/api/v1/jobs/8a1f6c0e-7f0f-4a6a-9d0e-3f2b7c1d9a44/artifacts",
+    "video": null,
+    "score": "/api/v1/jobs/8a1f6c0e-7f0f-4a6a-9d0e-3f2b7c1d9a44/score",
+    "log": "/api/v1/jobs/8a1f6c0e-7f0f-4a6a-9d0e-3f2b7c1d9a44/log",
+    "cancel": "/api/v1/jobs/8a1f6c0e-7f0f-4a6a-9d0e-3f2b7c1d9a44/cancel",
+    "retry": null
+  }
 }
 ```
+
+The `Location` header contains the job URL. `links.cancel` is present while the job is queued or running; `links.retry` is present once it reaches a terminal state.
 
 **Errors**
 
 | Status | Condition |
-|--------|-----------|
-| `400` | Missing or empty `topic` |
-| `400` | `topic` exceeds 500 characters |
-| `400` | Unknown `archetype` |
-| `400` | Unknown `pacing` tier |
-| `400` | Unknown `platform` |
-| `400` | `direction` exceeds 10KB |
-| `400` | `direction` is not a string |
-| `400` | `score` is not a valid DirectorScore schema |
+|---|---|
+| `400` | Body is not a JSON object, or `topic` is missing, empty, non-string, or over 500 characters |
+| `400` | Unknown `archetype`, `pacing` tier, or `platform` |
+| `400` | A boolean flag is not a boolean |
+| `400` | `direction` is not a string or exceeds 10 KB |
+| `400` | `metadata` is not an object or exceeds 8 KB |
+| `400` | Invalid key name or non-string key value |
+| `400` | Unknown `llmAuthType`, or incomplete OpenAI-compatible configuration |
+| `400` | `score` is not a valid DirectorScore or references an unknown archetype |
+| `400` | Invalid callback URL, event, secret, or missing URL |
+| `400` | Malformed or oversized `idempotencyKey` |
+| `500` | Queue enqueue failed |
+
+---
+
+### `POST /api/v1/jobs/batch`
+
+Creates up to 25 jobs in one request. Each item accepts the same body as `POST /api/v1/jobs` (including a body `idempotencyKey`).
+
+```json
+{
+  "jobs": [
+    { "topic": "The history of coffee", "metadata": { "batch": "001" } },
+    { "topic": "Why the sky is blue", "noAiAssets": true }
+  ]
+}
+```
+
+**Responses**
+
+| Status | Meaning |
+|---|---|
+| `201` | All jobs created |
+| `207` | Some jobs created; inspect `errors` |
+| `400` | No jobs created, invalid envelope, empty array, or more than 25 jobs |
+
+```json
+{
+  "jobs": [{ "id": "...", "status": "queued" }],
+  "errors": [{ "index": 1, "error": "Unknown platform: myspace" }]
+}
+```
 
 ---
 
 ### `GET /api/v1/jobs`
 
-Lists all jobs, sorted by creation time (newest first).
-
-**Query Parameters**
+Lists jobs with filtering, search, date ranges, sorting, and pagination.
 
 | Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `limit` | number | `20` | Max jobs to return (capped at 100) |
-| `offset` | number | `0` | Number of jobs to skip |
+|---|---|---|---|
+| `status` | string | all | Comma-separated statuses (`queued,running,completed,failed,cancelled`) |
+| `archetype` | string | all | Exact archetype name |
+| `platform` | string | all | Exact platform name |
+| `q` | string | — | Case-insensitive topic search |
+| `since` | ISO-8601 | — | Include jobs created at or after this time |
+| `until` | ISO-8601 | — | Include jobs created at or before this time |
+| `sort` | string | `newest` | `newest` or `oldest` |
+| `limit` | integer | `20` | Page size (1–100) |
+| `offset` | integer | `0` | Jobs to skip |
 
 **Response**
 
@@ -158,34 +361,38 @@ Lists all jobs, sorted by creation time (newest first).
 {
   "jobs": [
     {
-      "id": "3",
+      "id": "8a1f6c0e-7f0f-4a6a-9d0e-3f2b7c1d9a44",
       "topic": "Black holes explained",
       "status": "completed",
-      "createdAt": "2025-01-15T10:30:00.000Z",
-      "completedAt": "2025-01-15T10:35:00.000Z",
-      "stages": { ... }
+      "createdAt": "2026-05-01T12:00:00.000Z",
+      "completedAt": "2026-05-01T12:05:00.000Z",
+      "stages": {},
+      "links": {}
     }
   ],
-  "total": 42
+  "total": 42,
+  "limit": 20,
+  "offset": 0,
+  "hasMore": true
 }
 ```
+
+Malformed `since` or `until` values return `400`.
 
 ---
 
 ### `GET /api/v1/jobs/:id`
 
-Returns full metadata for a single job including stage statuses, cost estimates, research data, the DirectorScore, and critic review.
-
-**Response**
+Returns full public metadata: stage statuses, cost estimate, actual cost, research data, the DirectorScore, critic review, music selection, revision history, and request snapshot. Provider keys and webhook secrets are never included.
 
 ```json
 {
-  "id": "1",
+  "id": "8a1f6c0e-7f0f-4a6a-9d0e-3f2b7c1d9a44",
   "topic": "The history of the Roman Colosseum",
-  "archetype": "editorial_caricature",
   "status": "completed",
-  "createdAt": "2025-01-15T10:30:00.000Z",
-  "completedAt": "2025-01-15T10:35:00.000Z",
+  "createdAt": "2026-05-01T12:00:00.000Z",
+  "completedAt": "2026-05-01T12:05:00.000Z",
+  "noAiAssets": true,
   "stages": {
     "research": { "status": "done", "detail": "5 key facts", "durationSec": 4.2 },
     "director": { "status": "done", "detail": "8 scenes", "durationSec": 6.1 },
@@ -196,40 +403,111 @@ Returns full metadata for a single job including stage statuses, cost estimates,
   },
   "costEstimate": { "totalCost": 0.12 },
   "actualCost": { "totalCost": 0.11 },
-  "videoPath": "run-20250115-103000/final.mp4",
-  "runDir": "run-20250115-103000",
-  "researchData": {
-    "summary": "...",
-    "key_facts": ["..."],
-    "mood": "epic_cinematic"
-  },
-  "score": { ... },
-  "criticReview": {
-    "score": 8.5,
-    "strengths": ["..."],
-    "weaknesses": ["..."]
-  }
+  "videoPath": "run-20260501-120000/final.mp4",
+  "runDir": "run-20260501-120000",
+  "score": {},
+  "criticReview": { "score": 8.5, "strengths": [], "weaknesses": [] }
 }
 ```
 
-**Stage statuses**: `"pending"`, `"running"`, `"done"`, `"skipped"`, `"error"`
+**Stage statuses**: `pending`, `running`, `done`, `skipped`, `error`
+**Job statuses**: `queued`, `running`, `completed`, `failed`, `cancelled`
 
-**Job statuses**: `"queued"`, `"running"`, `"completed"`, `"failed"`, `"cancelled"`
-
-**Errors**
-
-| Status | Condition |
-|--------|-----------|
-| `400` | Invalid job ID format |
-| `404` | Job not found |
+**Errors**: `400` invalid job ID, `404` not found.
 
 ---
 
+### `POST /api/v1/jobs/:id/retry`
+
+Re-runs a finished job as a **new job** with a fresh UUID and `retryOf` set to the original ID. The original job and its artifacts are untouched.
+
+```json
+{
+  "id": "new-uuid",
+  "retryOf": "original-uuid",
+  "status": "queued",
+  "links": { "self": "/api/v1/jobs/new-uuid" }
+}
+```
+
+The retry uses the original BullMQ payload when it is still in Redis. If Redis has pruned it, the sanitized request snapshot in `meta.json` is used instead (provider selections, pacing, platform, flags, metadata, and score). Provider keys are not recoverable from disk; a retry that needs BYOK keys must be created with a new `POST /jobs` request.
+
+Returns `201` with the new job, `404` when the original does not exist, and `409` when the job is queued/running or its request data is unavailable.
+
+---
+
+### `POST /api/v1/jobs/:id/cancel`
+
+Requests cancellation.
+
+- **Queued, waiting, or delayed** jobs are removed from the queue immediately and finalized as `cancelled`. Response: `{ "status": "cancelled" }`.
+- **Running** jobs get `cancelRequested: true`; the worker checks this flag between pipeline stages and finalizes the job. Response: `{ "status": "cancelled", "requested": true }`. Poll the job or watch SSE for the terminal `job:cancelled` event.
+- A job that is already completed, failed, or cancelled returns `409`.
+
+If a callback is configured, cancellation delivers a `job.cancelled` webhook.
+
+---
+
+### `DELETE /api/v1/jobs/:id`
+
+Deletes a terminal job, its artifacts, and any idempotency keys pointing at it. Queued, waiting, and active jobs return `409`.
+
+```json
+{ "status": "deleted" }
+```
+
+---
+
+## Artifacts
+
+### `GET /api/v1/jobs/:id/artifacts`
+
+Lists every file under the job directory with its size, modification time, content type, and a download URL.
+
+```json
+{
+  "jobId": "8a1f6c0e-7f0f-4a6a-9d0e-3f2b7c1d9a44",
+  "artifacts": [
+    {
+      "path": "run-20260501-120000/final.mp4",
+      "size": 4821044,
+      "modifiedAt": "2026-05-01T12:05:00.000Z",
+      "contentType": "video/mp4",
+      "url": "/api/v1/jobs/8a1f6c0e-7f0f-4a6a-9d0e-3f2b7c1d9a44/artifacts/run-20260501-120000/final.mp4"
+    }
+  ]
+}
+```
+
+Symlinks are skipped. `meta.json`, `score.json`, `log.json`, scene assets, audio, music, and subtitles are included.
+
+### `GET /api/v1/jobs/:id/artifacts/*`
+
+Serves a file from the job directory. Path traversal is blocked by resolving the path and requiring it to stay inside the job directory; symlinks are rejected.
+
+```bash
+curl -O "http://localhost:3000/api/v1/jobs/$JOB_ID/artifacts/run-20260501-120000/final.mp4"
+```
+
+**Errors**: `400` invalid job ID, `403` path traversal or symlink, `404` missing file.
+
+### Aliases
+
+| Route | Returns |
+|---|---|
+| `GET /api/v1/jobs/:id/video` | The rendered `final.mp4` with `video/mp4` |
+| `GET /api/v1/jobs/:id/score` | `score.json` from `meta.json` or the run directory |
+| `GET /api/v1/jobs/:id/log` | `log.json` from the run directory |
+
+Each returns `404` when the artifact is not available.
+
+---
+
+## Real-time events
+
 ### `GET /api/v1/jobs/:id/events`
 
-Opens a Server-Sent Events (SSE) stream for real-time job progress. See [SSE Events](/docs/api/sse-events) for the full event reference.
-
-**Headers**
+Streams Server-Sent Events for a job. See [SSE Events](/docs/api/sse-events) for the event reference.
 
 ```
 Content-Type: text/event-stream
@@ -237,153 +515,190 @@ Cache-Control: no-cache
 Connection: keep-alive
 ```
 
-The connection sends a `job:snapshot` event immediately with the current job state, then streams progress events until the job completes or fails.
-
-**Errors**
-
-| Status | Condition |
-|--------|-----------|
-| `400` | Invalid job ID format |
-| `404` | Job not found in queue or on disk |
+- The server sends `job:snapshot` immediately with the current public metadata.
+- Finished jobs removed from Redis still replay their final state from `meta.json`.
+- A comment heartbeat (`: keep-alive`) is written every 15 seconds.
+- Terminal events are `job:completed`, `job:failed`, and `job:cancelled`.
+- EventSource clients must use `?api_key=` when server authentication is enabled.
 
 ---
 
-### `DELETE /api/v1/jobs/:id`
+## Webhooks
 
-Deletes a job and all its artifacts from disk. Active or queued jobs cannot be deleted.
-
-**Response**
+Register a callback when creating a job. Webhooks are delivered when the job reaches a terminal state.
 
 ```json
-{ "status": "deleted" }
+{
+  "topic": "The history of coffee",
+  "callback": {
+    "url": "https://example.com/hooks/openreels",
+    "secret": "whsec_...",
+    "events": ["job.completed", "job.failed"]
+  }
+}
 ```
 
-**Errors**
+### Events
 
-| Status | Condition |
-|--------|-----------|
-| `400` | Invalid job ID format |
-| `404` | Job not found |
-| `409` | Job is active or waiting |
+| Event | When |
+|---|---|
+| `job.completed` | The render finished successfully |
+| `job.failed` | The pipeline failed |
+| `job.cancelled` | The job was cancelled |
 
----
+If `events` is omitted, all three are delivered. The same terminal event is never delivered twice; delivered events are recorded in `meta.json` as `callbackEventsSent`.
 
-### `POST /api/v1/jobs/:id/cancel`
-
-Requests cancellation of a running or queued job. The worker checks for the cancel flag between pipeline stages.
-
-**Response**
+### Payload
 
 ```json
-{ "status": "cancelled" }
+{
+  "event": "job.completed",
+  "jobId": "8a1f6c0e-7f0f-4a6a-9d0e-3f2b7c1d9a44",
+  "status": "completed",
+  "topic": "The history of coffee",
+  "createdAt": "2026-05-01T12:00:00.000Z",
+  "completedAt": "2026-05-01T12:05:00.000Z",
+  "videoPath": "run-20260501-120000/final.mp4",
+  "runDir": "run-20260501-120000",
+  "metadata": { "customer": "acme" },
+  "actualCost": { "totalCost": 0.11 },
+  "costEstimate": { "totalCost": 0.12 },
+  "retryOf": null,
+  "links": { "self": "/api/v1/jobs/..." },
+  "timestamp": "2026-05-01T12:05:01.000Z"
+}
 ```
 
-**Errors**
+Failed and cancelled deliveries also include `error`.
 
-| Status | Condition |
-|--------|-----------|
-| `400` | Invalid job ID format |
-| `404` | Job not found |
-| `409` | Job already completed or failed |
+### Headers
+
+| Header | Description |
+|---|---|
+| `X-OpenReels-Event` | Event name |
+| `X-OpenReels-Job-Id` | Job ID |
+| `X-OpenReels-Delivery` | Unique delivery UUID |
+| `X-OpenReels-Timestamp` | Unix seconds used in the signature |
+| `X-OpenReels-Signature` | `sha256=<hex>` when a secret is configured |
+| `User-Agent` | `OpenReels/<version>` |
+
+### Verifying the signature
+
+The signature is HMAC-SHA256 over `` `${timestamp}.${rawBody}` ``. Verify against the **raw** request body before parsing JSON.
+
+```js
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+function verifyOpenReelsWebhook(rawBody, headers, secret) {
+  const timestamp = headers["x-openreels-timestamp"];
+  const signature = headers["x-openreels-signature"];
+  if (!timestamp || !signature) return false;
+
+  const expected = `sha256=${createHmac("sha256", secret)
+    .update(`${timestamp}.${rawBody}`)
+    .digest("hex")}`;
+
+  const a = Buffer.from(signature);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+```
+
+Compare timestamps against your clock and reject old deliveries to reduce replay risk.
+
+### Delivery and SSRF protection
+
+- Up to 3 attempts with linear backoff and a 10-second timeout per attempt.
+- Non-2xx responses and network errors are retried. A missing subscription is not.
+- Redirects are not followed (`redirect: "manual"`).
+- Callback URLs must be absolute `http`/`https` and must not contain credentials.
+- `localhost`, private, loopback, link-local, CGNAT, multicast, and resolution results pointing at private addresses are rejected by default.
+- Set `OPENREELS_ALLOW_PRIVATE_CALLBACKS=true` to allow internal callback receivers. Only enable this on a trusted network.
+
+Callback secrets live only in the BullMQ payload and are never persisted to `meta.json`.
 
 ---
 
-## Artifacts
+## No-AI assets mode
 
-### `GET /api/v1/jobs/:id/artifacts/*`
+`noAiAssets: true` (or `OPENREELS_NO_AI_ASSETS=true`) disables AI image and AI video generation for a run:
 
-Serves files from a job's output directory. Path traversal is prevented by validating the resolved path stays within the job directory.
+- The image provider is replaced by a disabled stub; any accidental call fails loudly.
+- No video providers are constructed.
+- The DirectorScore sanitizer rewrites `ai_image` to `stock_image` and `ai_video` to `stock_video`, preserving the no-more-than-two-consecutive-visual-types rule by falling back to the other stock type and then to `text_card`.
+- Stock resolution never falls back to AI generation. If no suitable stock asset is found, the scene is marked `procedural_fallback` and rendered as a `TextCardBeat`.
+- AI music (Lyria) is unaffected unless you also set `noMusic: true`. Use `music: "bundled"` for a fully non-AI asset run.
+- The worker does not require image or video API keys in this mode.
 
-**Examples**
-
+```bash
+curl -X POST http://localhost:3000/api/v1/jobs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "topic": "The history of coffee",
+    "noAiAssets": true,
+    "noMusic": true,
+    "metadata": { "mode": "stock-only" }
+  }'
 ```
-GET /api/v1/jobs/1/artifacts/run-20250115-103000/final.mp4
-GET /api/v1/jobs/1/artifacts/run-20250115-103000/scene-001.png
-```
-
-**Errors**
-
-| Status | Condition |
-|--------|-----------|
-| `400` | Invalid job ID format |
-| `403` | Path traversal attempt |
-| `404` | Artifact not found |
 
 ---
 
-## Reference Data
+## Reference data
 
 ### `GET /api/v1/archetypes`
 
-Returns the list of available visual style archetypes with their configuration.
-
-```json
-[
-  {
-    "name": "editorial_caricature",
-    "captionStyle": "glitch",
-    "artStyle": "editorial caricature with bold outlines",
-    "mood": "satirical",
-    "colorPalette": "high contrast",
-    "scenePacing": "standard",
-    "motionIntensity": "medium"
-  }
-]
-```
+Returns every visual archetype with caption style, art style, mood, palettes, scene pacing, and motion intensity.
 
 ### `GET /api/v1/platforms`
 
-Returns available target platforms with their video specifications.
+Returns supported platform dimensions:
 
 ```json
 [
-  {
-    "name": "youtube",
-    "width": 1080,
-    "height": 1920,
-    "fps": 30,
-    "maxDurationSeconds": 60
-  }
+  { "name": "youtube", "width": 1080, "height": 1920, "fps": 30, "maxDurationSeconds": 60 }
 ]
 ```
 
 ### `GET /api/v1/providers`
 
-Returns available providers grouped by category.
-
-```json
-{
-  "llm": [
-    { "key": "anthropic", "label": "Anthropic (Claude)" },
-    { "key": "openai", "label": "OpenAI (GPT)" },
-    { "key": "gemini", "label": "Google Gemini" }
-  ],
-  "tts": [
-    { "key": "elevenlabs", "label": "ElevenLabs" },
-    { "key": "inworld", "label": "Inworld" },
-    { "key": "kokoro", "label": "Kokoro (Local)" },
-    { "key": "gemini-tts", "label": "Gemini TTS" },
-    { "key": "openai-tts", "label": "OpenAI TTS" }
-  ],
-  "image": [
-    { "key": "gemini", "label": "Google Gemini" },
-    { "key": "openai", "label": "OpenAI (GPT Image)" }
-  ],
-  "video": [
-    { "key": "gemini", "label": "Google Veo" },
-    { "key": "fal", "label": "fal.ai (Kling, Wan, etc.)" }
-  ]
-}
-```
+Returns provider keys grouped by category (`llm`, `search`, `tts`, `image`, `video`) with human-readable labels.
 
 ---
 
-## Environment Variables
+## Error format
+
+All JSON errors use the same shape:
+
+```json
+{ "error": "Unknown platform: myspace. Available: youtube, tiktok, instagram" }
+```
+
+| Status | Meaning |
+|---|---|
+| `400` | Invalid request, ID, or query parameter |
+| `401` | Missing or invalid server API key |
+| `403` | Artifact path traversal or symlink |
+| `404` | Job or artifact not found |
+| `409` | Job state does not allow the operation |
+| `500` | Queue or filesystem failure |
+
+---
+
+## Environment variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+|---|---|---|
 | `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
 | `PORT` | `3000` | HTTP server port |
 | `HOST` | `0.0.0.0` | HTTP server bind address |
-| `JOBS_DIR` | `./jobs` | Directory for job artifacts |
-| `MAX_JOBS` | `0` (disabled) | Auto-prune completed jobs when count exceeds this limit |
+| `JOBS_DIR` | `./jobs` | Job metadata and artifact directory |
+| `MAX_JOBS` | `0` (disabled) | Prune terminal jobs when the count exceeds this limit |
+| `OPENREELS_API_KEY` | unset | Require this key on non-public API routes |
+| `OPENREELS_CORS_ORIGIN` | `*` | Allowed browser origins, comma-separated, or `false` |
+| `OPENREELS_ALLOW_PRIVATE_CALLBACKS` | `false` | Allow webhook targets on private networks |
+| `OPENREELS_NO_AI_ASSETS` | `false` | Default jobs to stock + procedural visuals only |
+| `OPENREELS_LLM_BASE_URL` | unset | Default base URL for OpenAI-compatible endpoints |
+| `OPENREELS_LLM_MODEL` | unset | Default model for OpenAI-compatible endpoints |
+| `OPENREELS_LLM_API_KEY` | unset | Default key for OpenAI-compatible endpoints |
+| `OPENREELS_LLM_AUTH` | `auto` | Default auth mode (`auto`, `none`, `bearer`, `custom-header`) |
+| `OPENREELS_LLM_AUTH_HEADER` | unset | Default header for `custom-header` mode |

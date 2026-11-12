@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PipelineCallbacks, StageName } from "./orchestrator.js";
-import type { DirectorScore } from "../schema/director-score.js";
 import type { CritiqueResult } from "../agents/critic.js";
+import type { DirectorScore } from "../schema/director-score.js";
+import type { PipelineCallbacks, StageName } from "./orchestrator.js";
 
 /**
  * Tests for the Director-Critic revision loop inside directorStep.execute.
@@ -17,7 +17,16 @@ const makeScore = (archetype = "infographic", sceneCount = 8): DirectorScore => 
   archetype,
   music_mood: "epic_cinematic",
   scenes: Array.from({ length: sceneCount }, (_, i) => {
-    const visualTypes = ["text_card", "ai_image", "stock_video", "ai_image", "stock_image", "text_card", "ai_image", "stock_video"] as const;
+    const visualTypes = [
+      "text_card",
+      "ai_image",
+      "stock_video",
+      "ai_image",
+      "stock_image",
+      "text_card",
+      "ai_image",
+      "stock_video",
+    ] as const;
     return {
       visual_type: visualTypes[i % 8]!,
       visual_prompt: `Scene ${i + 1}`,
@@ -43,8 +52,13 @@ const makeCritique = (score: number, revisionNeeded: boolean): CritiqueResult =>
  */
 async function simulateRevisionLoop(opts: {
   initialScore: DirectorScore;
-  evaluateFn: (score: DirectorScore) => Promise<{ data: CritiqueResult; usage: { inputTokens: number; outputTokens: number } }>;
-  reviseFn: (score: DirectorScore, critique: CritiqueResult) => Promise<{ data: DirectorScore; usage: { inputTokens: number; outputTokens: number } }>;
+  evaluateFn: (
+    score: DirectorScore,
+  ) => Promise<{ data: CritiqueResult; usage: { inputTokens: number; outputTokens: number } }>;
+  reviseFn: (
+    score: DirectorScore,
+    critique: CritiqueResult,
+  ) => Promise<{ data: DirectorScore; usage: { inputTokens: number; outputTokens: number } }>;
   callbacks?: PipelineCallbacks;
   maxRounds?: number;
 }) {
@@ -68,8 +82,14 @@ async function simulateRevisionLoop(opts: {
 
       if (critique.score >= 7 || !critique.revision_needed) break;
 
-      cb?.onProgress?.("director", { type: "revision", round: round + 1, critiqueScore: critique.score });
-      cb?.onLog?.(`\n[director] Critic score: ${critique.score}/10 (round ${round + 1}), revising...`);
+      cb?.onProgress?.("director", {
+        type: "revision",
+        round: round + 1,
+        critiqueScore: critique.score,
+      });
+      cb?.onLog?.(
+        `\n[director] Critic score: ${critique.score}/10 (round ${round + 1}), revising...`,
+      );
 
       const revised = await reviseFn(score, critique);
       llmUsages.push(revised.usage);
@@ -121,9 +141,16 @@ describe("Director-Critic revision loop", () => {
 
   it("triggers revision when score < 7 and improves to >= 7", async () => {
     const revisedScore = makeScore("infographic", 9);
-    const evaluateFn = vi.fn()
-      .mockResolvedValueOnce({ data: makeCritique(5, true), usage: { inputTokens: 100, outputTokens: 50 } })
-      .mockResolvedValueOnce({ data: makeCritique(8, false), usage: { inputTokens: 100, outputTokens: 50 } });
+    const evaluateFn = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: makeCritique(5, true),
+        usage: { inputTokens: 100, outputTokens: 50 },
+      })
+      .mockResolvedValueOnce({
+        data: makeCritique(8, false),
+        usage: { inputTokens: 100, outputTokens: 50 },
+      });
     const reviseFn = vi.fn().mockResolvedValue({
       data: revisedScore,
       usage: { inputTokens: 200, outputTokens: 100 },
@@ -146,12 +173,23 @@ describe("Director-Critic revision loop", () => {
     const round1Score = makeScore("infographic", 9);
     const round2Score = makeScore("infographic", 10);
 
-    const evaluateFn = vi.fn()
-      .mockResolvedValueOnce({ data: makeCritique(4, true), usage: { inputTokens: 100, outputTokens: 50 } })
-      .mockResolvedValueOnce({ data: makeCritique(6, true), usage: { inputTokens: 100, outputTokens: 50 } })
+    const evaluateFn = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: makeCritique(4, true),
+        usage: { inputTokens: 100, outputTokens: 50 },
+      })
+      .mockResolvedValueOnce({
+        data: makeCritique(6, true),
+        usage: { inputTokens: 100, outputTokens: 50 },
+      })
       // Final evaluation of round2Score after loop exhausts
-      .mockResolvedValueOnce({ data: makeCritique(9, false), usage: { inputTokens: 100, outputTokens: 50 } });
-    const reviseFn = vi.fn()
+      .mockResolvedValueOnce({
+        data: makeCritique(9, false),
+        usage: { inputTokens: 100, outputTokens: 50 },
+      });
+    const reviseFn = vi
+      .fn()
       .mockResolvedValueOnce({ data: round1Score, usage: { inputTokens: 200, outputTokens: 100 } })
       .mockResolvedValueOnce({ data: round2Score, usage: { inputTokens: 200, outputTokens: 100 } });
 
@@ -178,12 +216,23 @@ describe("Director-Critic revision loop", () => {
     // Round 1: round1Score scores 6, revise → round2Score
     // Final eval: round2Score scores 4 (degradation)
     // Result: should use round1Score (scored 6), not round2Score (scored 4)
-    const evaluateFn = vi.fn()
-      .mockResolvedValueOnce({ data: makeCritique(3, true), usage: { inputTokens: 100, outputTokens: 50 } })
-      .mockResolvedValueOnce({ data: makeCritique(6, true), usage: { inputTokens: 100, outputTokens: 50 } })
+    const evaluateFn = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: makeCritique(3, true),
+        usage: { inputTokens: 100, outputTokens: 50 },
+      })
+      .mockResolvedValueOnce({
+        data: makeCritique(6, true),
+        usage: { inputTokens: 100, outputTokens: 50 },
+      })
       // Final evaluation of round2Score — degraded
-      .mockResolvedValueOnce({ data: makeCritique(4, false), usage: { inputTokens: 100, outputTokens: 50 } });
-    const reviseFn = vi.fn()
+      .mockResolvedValueOnce({
+        data: makeCritique(4, false),
+        usage: { inputTokens: 100, outputTokens: 50 },
+      });
+    const reviseFn = vi
+      .fn()
       .mockResolvedValueOnce({ data: round1Score, usage: { inputTokens: 200, outputTokens: 100 } })
       .mockResolvedValueOnce({ data: round2Score, usage: { inputTokens: 200, outputTokens: 100 } });
 
@@ -203,13 +252,22 @@ describe("Director-Critic revision loop", () => {
   it("emits revision progress events", async () => {
     const events: Array<{ stage: StageName; data: Record<string, unknown> }> = [];
     const cb: PipelineCallbacks = {
-      onProgress(stage, data) { events.push({ stage, data }); },
+      onProgress(stage, data) {
+        events.push({ stage, data });
+      },
       onLog() {},
     };
 
-    const evaluateFn = vi.fn()
-      .mockResolvedValueOnce({ data: makeCritique(5, true), usage: { inputTokens: 100, outputTokens: 50 } })
-      .mockResolvedValueOnce({ data: makeCritique(8, false), usage: { inputTokens: 100, outputTokens: 50 } });
+    const evaluateFn = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: makeCritique(5, true),
+        usage: { inputTokens: 100, outputTokens: 50 },
+      })
+      .mockResolvedValueOnce({
+        data: makeCritique(8, false),
+        usage: { inputTokens: 100, outputTokens: 50 },
+      });
     const reviseFn = vi.fn().mockResolvedValue({
       data: makeScore(),
       usage: { inputTokens: 200, outputTokens: 100 },
@@ -244,9 +302,16 @@ describe("Director-Critic revision loop", () => {
   });
 
   it("accumulates LLM usage across all revision rounds", async () => {
-    const evaluateFn = vi.fn()
-      .mockResolvedValueOnce({ data: makeCritique(5, true), usage: { inputTokens: 100, outputTokens: 50 } })
-      .mockResolvedValueOnce({ data: makeCritique(8, false), usage: { inputTokens: 120, outputTokens: 60 } });
+    const evaluateFn = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: makeCritique(5, true),
+        usage: { inputTokens: 100, outputTokens: 50 },
+      })
+      .mockResolvedValueOnce({
+        data: makeCritique(8, false),
+        usage: { inputTokens: 120, outputTokens: 60 },
+      });
     const reviseFn = vi.fn().mockResolvedValue({
       data: makeScore(),
       usage: { inputTokens: 200, outputTokens: 100 },

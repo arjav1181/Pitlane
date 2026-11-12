@@ -1,6 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { AlignedTTSProvider } from "./aligned-tts-provider.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TTSProvider, TTSResult, WordTimestamp } from "../../schema/providers.js";
+import { AlignedTTSProvider } from "./aligned-tts-provider.js";
 import type { WhisperAligner } from "./whisper-aligner.js";
 
 // Mock ffmpeg for WAV→MP3 transcoding
@@ -21,7 +21,10 @@ function createMockProvider(result: TTSResult): TTSProvider {
 }
 
 function createMockAligner(words: WordTimestamp[]): WhisperAligner {
-  return { align: vi.fn().mockResolvedValue(words), alignToTranscript: vi.fn() } as unknown as WhisperAligner;
+  return {
+    align: vi.fn().mockResolvedValue(words),
+    alignToTranscript: vi.fn(),
+  } as unknown as WhisperAligner;
 }
 
 // WAV header for detection

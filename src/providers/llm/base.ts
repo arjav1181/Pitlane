@@ -1,7 +1,8 @@
 import type { LanguageModel } from "ai";
 import { generateText, Output, stepCountIs } from "ai";
-import type { z } from "zod";
+import { z } from "zod";
 import type { LLMProvider, LLMProviderKey, LLMResult, LLMUsage } from "../../schema/providers.js";
+import { withRateLimitRetry } from "./retry.js";
 
 /**
  * Abstract base for LLM providers using the Vercel AI SDK.
@@ -19,6 +20,13 @@ import type { LLMProvider, LLMProviderKey, LLMResult, LLMUsage } from "../../sch
  * via the constructor. If injected, they override the subclass's native tools.
  * Existing subclasses are unaffected when no tools are injected.
  */
+/** Per-request ceiling so a silent gateway cannot hang a job forever. */
+function requestSignal(): AbortSignal {
+  const raw = Number(process.env["OPENREELS_LLM_TIMEOUT_MS"]);
+  const ms = Number.isFinite(raw) && raw > 0 ? raw : 180_000;
+  return AbortSignal.timeout(ms);
+}
+
 export abstract class BaseLLM implements LLMProvider {
   abstract readonly id: LLMProviderKey;
 
@@ -80,13 +88,18 @@ export abstract class BaseLLM implements LLMProvider {
     // Pass 1: Let the model use web search freely
     let textContent: string;
     try {
-      const searchResult = await generateText({
-        model: languageModel,
-        system: opts.systemPrompt,
-        prompt: opts.userMessage,
-        tools: opts.tools as Parameters<typeof generateText>[0]["tools"],
-        stopWhen: stepCountIs(5),
-      });
+      const searchResult = await withRateLimitRetry(
+        () =>
+          generateText({
+            model: languageModel,
+            system: opts.systemPrompt,
+            prompt: opts.userMessage,
+            tools: opts.tools as Parameters<typeof generateText>[0]["tools"],
+            stopWhen: stepCountIs(5),
+            abortSignal: requestSignal(),
+          }),
+        this.retryOptions(),
+      );
 
       totalUsage.inputTokens += searchResult.usage.inputTokens ?? 0;
       totalUsage.outputTokens += searchResult.usage.outputTokens ?? 0;
@@ -130,13 +143,18 @@ export abstract class BaseLLM implements LLMProvider {
     let lastError: Error | undefined;
     for (let attempt = 0; attempt <= MAX_STRUCTURE_RETRIES; attempt++) {
       try {
-        const structuredResult = await generateText({
-          model: languageModel,
-          system:
-            "You are a data extraction assistant. Structure the following research into the exact format requested. Use only the information provided.",
-          prompt: `Based on this research:\n\n${textContent}\n\nStructure this into the required format.`,
-          output: Output.object({ schema: opts.schema }),
-        });
+        const structuredResult = await withRateLimitRetry(
+          () =>
+            generateText({
+              model: languageModel,
+              system:
+                "You are a data extraction assistant. Structure the following research into the exact format requested. Use only the information provided.",
+              prompt: `Based on this research:\n\n${textContent}\n\nStructure this into the required format.`,
+              output: Output.object({ schema: opts.schema }),
+              abortSignal: requestSignal(),
+            }),
+          this.retryOptions(),
+        );
 
         totalUsage.inputTokens += structuredResult.usage.inputTokens ?? 0;
         totalUsage.outputTokens += structuredResult.usage.outputTokens ?? 0;
@@ -166,23 +184,149 @@ export abstract class BaseLLM implements LLMProvider {
   }): Promise<LLMResult<z.infer<T>>> {
     const languageModel = this.createLanguageModel();
 
-    const result = await generateText({
-      model: languageModel,
-      system: opts.systemPrompt,
-      prompt: opts.userMessage,
-      output: Output.object({ schema: opts.schema }),
+    const structured = await this.generateStructuredOutput(languageModel, opts).catch((err) => {
+      // Endpoints without structured-output or tool support (some OpenAI-compatible
+      // gateways, Gemini via a compatibility layer) still return valid JSON in the
+      // message body. Fall back to plain text generation and validate it locally.
+      console.warn(
+        `[${this.id}] Structured output failed, retrying as plain JSON. ` +
+          `Original error: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return null;
     });
 
-    if (result.output == null) {
+    if (structured === null) {
+      return this.generateStructuredFromText(opts, languageModel);
+    }
+
+    if (structured.output == null) {
       throw new Error(`${this.id} did not return structured output`);
     }
 
     return {
-      data: result.output as z.infer<T>,
+      data: structured.output as z.infer<T>,
       usage: {
-        inputTokens: result.usage.inputTokens ?? 0,
-        outputTokens: result.usage.outputTokens ?? 0,
+        inputTokens: structured.usage.inputTokens ?? 0,
+        outputTokens: structured.usage.outputTokens ?? 0,
       },
     };
+  }
+
+  /** Shared retry policy for gateway rate limiting. */
+  private retryOptions() {
+    return {
+      onRetry: ({
+        attempt,
+        delayMs,
+        error,
+      }: {
+        attempt: number;
+        delayMs: number;
+        error: unknown;
+      }) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[${this.id}] Rate limited (attempt ${attempt}), waiting ${delayMs}ms: ${message.slice(0, 160)}`,
+        );
+      },
+    };
+  }
+
+  /** Single structured-output call against the configured model. */
+  private generateStructuredOutput<T extends z.ZodType>(
+    languageModel: LanguageModel,
+    opts: { systemPrompt: string; userMessage: string; schema: T },
+  ) {
+    return withRateLimitRetry(
+      () =>
+        generateText({
+          model: languageModel,
+          system: opts.systemPrompt,
+          prompt: opts.userMessage,
+          output: Output.object({ schema: opts.schema }),
+          abortSignal: requestSignal(),
+        }),
+      this.retryOptions(),
+    );
+  }
+
+  /**
+   * Fallback path: ask for raw JSON as text and validate it against the schema.
+   * Retries once with the validation error so the model can correct itself.
+   */
+  private async generateStructuredFromText<T extends z.ZodType>(
+    opts: {
+      systemPrompt: string;
+      userMessage: string;
+      schema: T;
+    },
+    languageModel: LanguageModel,
+  ): Promise<LLMResult<z.infer<T>>> {
+    const totalUsage = { inputTokens: 0, outputTokens: 0 };
+    let lastError = new Error(`${this.id} did not return structured output`);
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const result = await withRateLimitRetry(
+        () =>
+          generateText({
+            model: languageModel,
+            system:
+              opts.systemPrompt +
+              "\n\nRespond with a single JSON object and nothing else. " +
+              "Do not wrap it in markdown code fences and do not add commentary. " +
+              "The JSON must match this schema exactly:\n" +
+              JSON.stringify(z.toJSONSchema(opts.schema)),
+            prompt:
+              attempt === 0
+                ? opts.userMessage
+                : `${opts.userMessage}\n\nYour previous answer was rejected: ${lastError.message}\n` +
+                  "Return corrected JSON that matches the schema exactly.",
+            abortSignal: requestSignal(),
+          }),
+        this.retryOptions(),
+      );
+
+      totalUsage.inputTokens += result.usage.inputTokens ?? 0;
+      totalUsage.outputTokens += result.usage.outputTokens ?? 0;
+
+      const candidate = extractJsonObject(result.text);
+      if (candidate === null) {
+        lastError = new Error(`${this.id} did not return a JSON object`);
+        continue;
+      }
+
+      const validated = opts.schema.safeParse(candidate);
+      if (validated.success) {
+        return { data: validated.data as z.infer<T>, usage: totalUsage };
+      }
+
+      lastError = new Error(
+        `${this.id} returned JSON that does not match the schema: ${validated.error.message}`,
+      );
+      console.warn(
+        `[${this.id}] JSON did not match the schema, retrying as plain JSON (${attempt + 1}/2)...`,
+      );
+    }
+
+    throw lastError;
+  }
+}
+
+/** Extract the first JSON object from a model response (tolerating code fences). */
+function extractJsonObject(text: string): unknown | null {
+  const trimmed = text.trim();
+  const withoutFences = trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```$/, "")
+    .trim();
+
+  const start = withoutFences.indexOf("{");
+  const end = withoutFences.lastIndexOf("}");
+  if (start === -1 || end === -1 || end < start) return null;
+
+  try {
+    return JSON.parse(withoutFences.slice(start, end + 1));
+  } catch {
+    return null;
   }
 }

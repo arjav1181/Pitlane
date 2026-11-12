@@ -3,6 +3,7 @@ import { Command, Option } from "commander";
 import { PACING_CONFIG } from "../agents/creative-director.js";
 import type {
   ImageProviderKey,
+  LLMAuthType,
   LLMProviderKey,
   MusicProviderKey,
   SearchProviderKey,
@@ -24,8 +25,12 @@ export interface CLIOptions {
   kokoroVoice?: string;
   llmModel?: string;
   llmBaseUrl?: string;
+  llmAuthType?: LLMAuthType;
+  llmAuthHeader?: string;
   searchProvider?: SearchProviderKey;
   noVideo: boolean;
+  /** Disable AI image and AI video generation (stock + procedural assets only). */
+  noAiAssets: boolean;
   archetype?: string;
   pacing?: string;
   platform: string;
@@ -51,6 +56,7 @@ function makeUsageResult(outputDir: string): CLIOptions {
     ttsProvider: "elevenlabs" as TTSProviderKey,
     musicProvider: "bundled" as MusicProviderKey,
     noVideo: false,
+    noAiAssets: false,
     platform: "youtube",
     dryRun: false,
     preview: false,
@@ -106,6 +112,16 @@ export function parseArgs(): CLIOptions {
     .option(
       "--llm-base-url <url>",
       "Base URL for openai-compatible provider (e.g. http://localhost:11434/v1)",
+    )
+    .addOption(
+      new Option(
+        "--llm-auth <mode>",
+        "Auth mode for openai-compatible provider (auto sends a Bearer token when a key is set)",
+      ).choices(["auto", "none", "bearer", "custom-header"]),
+    )
+    .option(
+      "--llm-auth-header <name>",
+      "Header name for openai-compatible custom-header auth (e.g. x-api-key)",
     )
     .addOption(
       new Option(
@@ -170,10 +186,17 @@ export function parseArgs(): CLIOptions {
     )
     .option("--video", "Enable AI video generation (use --no-video to disable)", true)
     .option(
+      "--no-ai-assets",
+      "Disable AI image/video generation; use only stock assets and procedural text cards",
+    )
+    .option(
       "--direction <file>",
       "Creative brief file (markdown). Describe visual style, script notes, music mood, scene ideas. The AI reads it like a human editor would. See examples/direction-brief.md",
     )
-    .option("--score <path>", "Replay from a saved score.json, skipping research and director stages")
+    .option(
+      "--score <path>",
+      "Replay from a saved score.json, skipping research and director stages",
+    )
     .option("--usage", "Show cost usage report from past runs in the output directory", false)
     .parse();
 
@@ -218,6 +241,11 @@ export function parseArgs(): CLIOptions {
     if (!opts["llmModel"]) {
       program.error("--llm-model is required when using --provider openai-compatible");
     }
+    if (opts["llmAuth"] === "custom-header" && !opts["llmAuthHeader"]) {
+      program.error(
+        "--llm-auth-header is required when using --llm-auth custom-header (e.g. x-api-key)",
+      );
+    }
   } else if (opts["provider"] === "local") {
     opts["provider"] = "anthropic"; // LLM defaults unchanged
     const ttsSource = program.getOptionValueSource("ttsProvider");
@@ -237,8 +265,15 @@ export function parseArgs(): CLIOptions {
     kokoroVoice: opts["kokoroVoice"] as string | undefined,
     llmModel: opts["llmModel"] as string | undefined,
     llmBaseUrl: opts["llmBaseUrl"] as string | undefined,
+    llmAuthType: opts["llmAuth"] as LLMAuthType | undefined,
+    llmAuthHeader: opts["llmAuthHeader"] as string | undefined,
     searchProvider: opts["searchProvider"] as SearchProviderKey | undefined,
     noVideo: opts["video"] === false,
+    noAiAssets:
+      opts["aiAssets"] === false ||
+      ["1", "true", "yes", "on"].includes(
+        (process.env["OPENREELS_NO_AI_ASSETS"] ?? "").toLowerCase(),
+      ),
     archetype: opts["archetype"] as string | undefined,
     pacing: opts["pacing"] as string | undefined,
     platform: opts["platform"] as string,

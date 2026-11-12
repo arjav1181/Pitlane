@@ -62,7 +62,7 @@ describe("computeWordStates", () => {
 
   it("calls springFn for active and spoken words", () => {
     const chunk = words.slice(0, 3);
-    const mockSpring = (idx: number) => idx === 0 ? 0.7 : 1.0;
+    const mockSpring = (idx: number) => (idx === 0 ? 0.7 : 1.0);
     const result = computeWordStates(chunk, 0, 1.8, mockSpring);
 
     expect(result[0]!.springProgress).toBe(0.7); // spoken, springFn(0) = 0.7

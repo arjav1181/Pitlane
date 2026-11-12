@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WhisperAligner } from "./whisper-aligner.js";
 
 // Mock @huggingface/transformers so tests don't download a 460MB model

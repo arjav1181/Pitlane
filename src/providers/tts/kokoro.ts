@@ -31,10 +31,7 @@ export class KokoroTTS implements TTSProvider {
       const configPath = join(tmp, "config.json");
       const outputPath = join(tmp, "output.wav");
 
-      await writeFile(
-        configPath,
-        JSON.stringify({ text, voice: this.voice, outputPath }),
-      );
+      await writeFile(configPath, JSON.stringify({ text, voice: this.voice, outputPath }));
 
       await new Promise<void>((resolve, reject) => {
         execFile(

@@ -3,6 +3,15 @@ import type { MusicMood } from "./director-score.js";
 
 export type LLMProviderKey = "anthropic" | "openai" | "gemini" | "openrouter" | "openai-compatible";
 export type SearchProviderKey = "native" | "tavily" | "none";
+/**
+ * Authentication mode for OpenAI-compatible endpoints.
+ * - auto: send a Bearer token when a key is available (default, backward-compatible)
+ * - bearer: require a key and send `Authorization: Bearer <key>`
+ * - custom-header: send the key in a caller-specified header (e.g. `x-api-key`)
+ * - none: never send credentials (local Ollama/LM Studio servers)
+ */
+export type LLMAuthType = "auto" | "none" | "bearer" | "custom-header";
+export const LLM_AUTH_TYPES: readonly LLMAuthType[] = ["auto", "none", "bearer", "custom-header"];
 export type TTSProviderKey = "elevenlabs" | "inworld" | "kokoro" | "gemini-tts" | "openai-tts";
 export type ImageProviderKey = "gemini" | "openai";
 export type StockProviderKey = "pexels" | "pixabay";

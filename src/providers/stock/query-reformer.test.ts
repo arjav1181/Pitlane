@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { reformulateStockQuery } from "./query-reformer.js";
 import type { LLMProvider } from "../../schema/providers.js";
+import { reformulateStockQuery } from "./query-reformer.js";
 
 function mockLLM(queries: string[], reasoning = "test"): LLMProvider {
   return {

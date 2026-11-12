@@ -2,6 +2,44 @@
 
 All notable changes to OpenReels will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Plain-JSON fallback for structured output**: providers whose endpoint does not support the AI SDK's structured-output request (for example Gemini behind an OpenAI-compatible gateway) now fall back to plain JSON text that is validated against the schema locally, with one correction pass.
+- **Comprehensive automation REST API**: the server now publishes an OpenAPI 3.1 document at `/api/v1/openapi.json`, interactive docs at `/api/v1/docs`, and `/api/v1/capabilities` for feature/provider/limit discovery. Job routes cover filtered listing (`status`, `archetype`, `platform`, `q`, `since`, `until`, `sort`, `limit`, `offset`), detail, retry, cancel, delete, artifact listing, video/score/log aliases, and SSE progress.
+- **Optional server authentication**: set `OPENREELS_API_KEY` to require `Authorization: Bearer`, `X-API-Key`, or `?api_key=` on non-public routes. Health, OpenAPI, and docs stay public. Comparison is constant-time.
+- **Idempotent job creation**: send `Idempotency-Key` (or `idempotencyKey`) to make retries safe. Replays return the original job with `Idempotency-Replayed: true`; the mapping is persisted in `JOBS_DIR/.idempotency.json`.
+- **Batch job creation**: `POST /api/v1/jobs/batch` accepts up to 25 jobs and reports per-item errors with `201`, `207`, or `400`.
+- **Signed webhooks**: jobs can register `callbackUrl`/`callbackSecret`/`callbackEvents` (or a nested `callback` object) for `job.completed`, `job.failed`, and `job.cancelled`. Payloads are HMAC-SHA256 signed over `${timestamp}.${rawBody}` with bounded retries and SSRF protection.
+- **Job retry**: `POST /api/v1/jobs/:id/retry` creates a new job with `retryOf`, reusing the original Redis payload or the sanitized request snapshot in `meta.json`.
+- **Job metadata and pagination filters**: `metadata` (max 8 KB, returned in job responses and webhooks) and richer list responses with `total`, `limit`, `offset`, and `hasMore`.
+- **No-AI-assets mode**: `noAiAssets` on jobs, the `--no-ai-assets` CLI flag, the `OPENREELS_NO_AI_ASSETS` environment default, and a web UI toggle disable AI image and video generation. The DirectorScore sanitizer rewrites AI visual types to stock, stock resolution falls back to procedural text cards instead of AI, and the image provider is replaced by a disabled stub.
+- **Configurable CORS**: `OPENREELS_CORS_ORIGIN` accepts `*`, a comma-separated allowlist, or `false`.
+- **Graceful server shutdown**: SIGTERM/SIGINT close the HTTP server, queue, and Redis connections with a 10-second force-exit guard.
+
+### Changed
+- **LLM requests time out after 180s**: a silent gateway connection could previously leave a job "running" forever. Every request now carries an abort signal (`OPENREELS_LLM_TIMEOUT_MS` overrides the ceiling), so a stuck provider fails the stage instead of hanging the job.
+- **LLM rate limits are retried with backoff**: `429`/`RESOURCE_EXHAUSTED` responses from shared or free gateways are retried up to five times with exponential backoff and jitter, honouring `Retry-After` when present. Previously each caller retried immediately, so a rate-limited window failed the whole job within a second with `Too Many Requests`.
+- **Concurrent `meta.json` writes no longer race**: each atomic write uses a unique temporary file name. The API server and the worker both update metadata (create/cancel next to stage progress), and the shared `.meta.tmp` let one writer rename the other's file away, failing the job with `ENOENT .meta.tmp -> meta.json`.
+- **Remotion's delayRender timeout is raised to 120s** (from the 28s default). On a small CPU-only machine the renderer can spend longer extracting a frame from a stock clip, which failed the whole assembly with a timeout error.
+- **Stock downloads are capped at 40MB**: Pexels serves the same clip in many resolutions and the largest variant can be hundreds of megabytes. Oversized variants are skipped in favour of a smaller file of the same clip, and a download that declares a size above the cap is rejected instead of filling the disk.
+- **OpenAI-compatible auth modes**: choose how a custom endpoint is authenticated — `auto` (Bearer when a key is set), `bearer`, `custom-header` (e.g. `x-api-key`), or `none` for local servers. Available in the web UI (Auth dropdown + API key + header fields), the API (`providers.llmAuthType`, `providers.llmAuthHeader`), and the CLI (`--llm-auth`, `--llm-auth-header`, plus `OPENREELS_LLM_AUTH` / `OPENREELS_LLM_AUTH_HEADER`).
+- **Remember credentials in the web UI**: the "Remember credentials" toggle (off by default) in the Advanced panel saves the API key, base URL, model, auth mode, and provider selection in the browser's `localStorage`, so they only have to be entered once. The Settings page shows what is saved (key masked) and can clear it.
+- **Job-time OpenAI-compatible credentials**: the API key entered in the web UI is sent with the job as a BYOK credential (`keys.OPENREELS_LLM_API_KEY`) and is never stored on the server.
+- **Server API key in the web UI**: Settings now has a Server Access section for `OPENREELS_API_KEY`. It is stored separately in browser `localStorage` and appended to EventSource/media URLs as `?api_key=`.
+- `POST /api/v1/jobs` validates the OpenAI-compatible configuration up front (base URL, model, auth mode, header name, and key when required) and returns a `400` with a clear message instead of failing mid-pipeline.
+- `/api/v1/health` now reports the server version, `apiKeyRequired`, `OPENROUTER_API_KEY`, and `OPENREELS_LLM_API_KEY` status.
+- Job IDs are UUIDs for new jobs. Numeric IDs from older installations remain readable.
+- `meta.json` now stores a sanitized request snapshot (providers, platform, pacing, flags) for retries, but never provider API keys or webhook secrets.
+- The stock verification VLM now uses the configured OpenAI-compatible endpoint (base URL, model, and auth) instead of only reading `OPENREELS_LLM_BASE_URL` from the environment, falling back to Anthropic only when no endpoint is configured.
+
+### For contributors
+- New API modules: `src/api/auth.ts`, `callbacks.ts`, `create-job.ts`, `idempotency.ts`, `job-data.ts`, `job-meta.ts`, `jobs.ts`, `openapi.ts`, and `version.ts`.
+- `src/server.ts` was rewritten around these modules and now supports auth, idempotency, batch creation, list filters, retry, cancellation finalization, artifact listing, OpenAPI/docs routes, SSE heartbeat/cancelled events, CORS env configuration, and graceful shutdown.
+- `src/worker.ts` now threads `noAiAssets`, persists placeholder metadata, sends terminal webhooks, and prunes idempotency records alongside jobs.
+- New tests cover API auth, callback signing/SSRF/delivery, idempotency, OpenAPI, job creation/validation/retry, no-AI fallbacks, provider factory behavior, and Remotion null-asset rendering.
+
+
 ## [0.18.0] - 2026-04-10
 
 ### Added

@@ -75,6 +75,12 @@ export function mapScoreToProps(
       }
     }
 
+    // No asset (stock miss with AI fallback disabled, generation failure, etc.)
+    // renders as a procedural text card instead of a blank frame.
+    if (visualType !== "text_card" && !assetSrc) {
+      visualType = "text_card";
+    }
+
     return {
       visualType,
       assetSrc,
