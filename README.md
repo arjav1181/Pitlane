@@ -106,6 +106,16 @@ Mastering is gain and tone only, never a timing change, so word timestamps and c
 exact. If ffmpeg is unavailable the original audio is kept, because a render is never lost to a
 mix.
 
+### The research
+
+The script is grounded in sources, not in the model's memory. The research stage searches the
+web through Tavily when a key is set, and through Wikipedia when it is not - Wikipedia's API
+needs no key, and the facts it returns come with a page the video can cite.
+
+A caller may hand over a fact that was already checked somewhere else. That fact is part of the
+brief, not a replacement for the research: the stage still searches, because a script built on
+one fact is a script that can only say one thing.
+
 ### The footage
 
 Scenes are cut from stock, never generated. Three libraries are searched: Pexels and Pixabay
