@@ -1,8 +1,8 @@
 # Pitlane
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.18.0-green.svg)](CHANGELOG.md)
-[![Tests](https://img.shields.io/badge/tests-611%20passing-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-0.4.0-green.svg)](CHANGELOG.md)
+[![Tests](https://img.shields.io/badge/tests-623%20passing-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6.svg)]()
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg)]()
 
@@ -39,53 +39,34 @@ publishing system:
 Publishing is owned by the calling automation, so YouTube support has been removed from the
 engine itself.
 
-## Demo
+## Screenshots
 
 <div align="center">
+<img src=".github/assets/screens/lock.png" alt="The sign-in gate" width="820" />
 
-
-https://github.com/user-attachments/assets/c4df8893-7764-43c3-b004-ef610fec710f
-
-
-**Topic in, MP4 out.** This video was generated in a single command:
-
-```bash
-openreels "the apollo 13 disaster, from explosion to miraculous return" --provider google
-```
-
+<em>The server is private. The control room does not render until a key is entered.</em>
 </div>
 
-### Web UI
-
-<div align="center">
-<img src=".github/assets/demo.gif" alt="Pitlane web app" width="800" />
-
-**Live pipeline visualization.** Watch research, script, voiceover, visuals, music, and assembly stages stream in real time.
-</div>
-
-<details>
-<summary><strong>Screenshots</strong></summary>
+<br />
 
 <table>
 <tr>
-<td><img src=".github/assets/home.png" alt="Home page" width="400" /></td>
-<td><img src=".github/assets/pipeline.png" alt="Pipeline running" width="400" /></td>
+<td><img src=".github/assets/screens/home.png" alt="New short" /></td>
+<td><img src=".github/assets/screens/gallery.png" alt="Gallery" /></td>
 </tr>
 <tr>
-<td align="center"><em>Topic input with archetype gallery</em></td>
-<td align="center"><em>Live pipeline with storyboard</em></td>
+<td align="center"><em>One fact in, one short out. Styles and topics sit under the topic field.</em></td>
+<td align="center"><em>Every short, with the stage it stopped at if it failed.</em></td>
 </tr>
 <tr>
-<td><img src=".github/assets/pipeline_completed.png" alt="Pipeline completed" width="400" /></td>
-<td><img src=".github/assets/gallery.png" alt="Gallery view" width="400" /></td>
+<td><img src=".github/assets/screens/job.png" alt="A finished short" /></td>
+<td><img src=".github/assets/screens/settings.png" alt="Settings" /></td>
 </tr>
 <tr>
-<td align="center"><em>Completed: video player, cost breakdown, quality review</em></td>
-<td align="center"><em>Gallery with multiple generations</em></td>
+<td align="center"><em>The render, its stage timings, and what it cost.</em></td>
+<td align="center"><em>Server state, saved credentials, and the key this browser sends.</em></td>
 </tr>
 </table>
-
-</details>
 
 ## How it works
 
@@ -275,24 +256,10 @@ After rendering, actual cost is computed from real token usage. Use `--dry-run` 
 
 ## Archetypes
 
-14 visual styles that control colors, captions, motion, lighting, and AI image prompting. Same topic, four different archetypes:
+Each style sets the palette, the type, the caption treatment and how the camera moves, so one
+topic reads differently in each. In stock-only mode the visuals come from footage and procedural
+cards, so the style is carried by grade, type and motion rather than by generated art.
 
-<div align="center">
-<table>
-<tr>
-<td><img src=".github/assets/kaldi_cinematic.jpg" alt="Cinematic Documentary" width="180" /></td>
-<td><img src=".github/assets/kaldi_anime.jpg" alt="Anime Illustration" width="180" /></td>
-<td><img src=".github/assets/kaldi_surreal.jpg" alt="Surreal Dreamscape" width="180" /></td>
-<td><img src=".github/assets/kaldi_vintage.jpg" alt="Vintage Snapshot" width="180" /></td>
-</tr>
-<tr>
-<td align="center"><em>Cinematic Documentary</em></td>
-<td align="center"><em>Anime Illustration</em></td>
-<td align="center"><em>Surreal Dreamscape</em></td>
-<td align="center"><em>Vintage Snapshot</em></td>
-</tr>
-</table>
-</div>
 
 | Archetype | Best for |
 |-----------|----------|

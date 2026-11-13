@@ -25,6 +25,11 @@ const jobSchema = {
     metadata: { type: "object", additionalProperties: true },
     stages: { type: "object", additionalProperties: true },
     videoPath: { type: "string", nullable: true },
+    posterPath: {
+      type: "string",
+      nullable: true,
+      description: "Still frame of the finished short.",
+    },
     runDir: { type: "string", nullable: true },
     score: { type: "object", additionalProperties: true },
     costEstimate: { type: "object", additionalProperties: true },

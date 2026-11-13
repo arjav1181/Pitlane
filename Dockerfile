@@ -68,9 +68,11 @@ COPY . .
 # Build frontend
 RUN cd web && npx vite build
 
-# Word-alignment model, baked in. The aligner caches to ./.cache, so this both
-# warms the cache and proves the model downloads cleanly at build time.
-RUN node scripts/prefetch-aligner.mjs && du -sh .cache
+# Word-alignment model, baked in. transformers.js caches into its own package
+# directory, so this both warms the cache and proves the model downloads
+# cleanly at build time. A fresh container then never fetches it mid-render.
+RUN node scripts/prefetch-aligner.mjs \
+ && du -sh node_modules/@huggingface/transformers/.cache
 
 # Create directories
 RUN mkdir -p /output /app/jobs
