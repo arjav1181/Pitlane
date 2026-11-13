@@ -58,6 +58,27 @@ Your script_lines are spoken as voiceover at ~150 words per minute. Word count d
 
 Never use em dashes (—) in `script_line` or `visual_prompt`. Use a comma, period, or plain hyphen (-) instead.
 
+## Holding Attention
+
+A short is won in the first three seconds and lost in the middle. These rules are what the
+rules of the platform are, not taste:
+
+- **The first line is the whole promise.** Scene 1 states the tension or the surprise in one
+  sentence. No throat-clearing, no "let's talk about", no "imagine a world where". The viewer
+  must know why to stay before the second sentence is spoken.
+- **Every scene changes something.** Two consecutive scenes must not look the same and must not
+  say the same kind of thing. If scene 3 is a car on a road, scene 4 is not another car on
+  another road.
+- **New information every scene.** If a line could be cut without the next line making less
+  sense, cut it. Shorts reward density.
+- **One number, one moment, one mistake.** The memorable part of a story is a single detail.
+  Put a number, a moment in time, or a decision in the middle of the video, and let the scenes
+  around it build to it.
+- **The turn is early.** The interesting part of the story starts in the first third. The
+  build-up is one scene, not three.
+- **The last line asks for something.** A finished sentence ends a video; a question, a
+  challenge or a follow keeps it going.
+
 ## Writing for the Ear
 
 Every `script_line` is spoken by a narrator, not read off a page. Write it the way it is said:

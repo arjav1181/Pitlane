@@ -173,6 +173,9 @@ Think like a YouTube Shorts producer. The hook must grab in 1-2 seconds. Every s
 
 Keep total script under 140 words — verbose scripts create rushed, unwatchable videos.
 
+Hold attention: the first line states the tension in one sentence, every scene changes
+something, every scene adds new information, and the last line asks for something.
+
 Write every script_line for the ear, not the page:
 - One idea per sentence, 8-18 words, never more than two clauses.
 - Spell out units and symbols in words ("kilometres per hour", "horsepower", "percent", "and").

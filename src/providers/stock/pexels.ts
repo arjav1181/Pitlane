@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { StockAsset, StockCandidate, StockProvider } from "../../schema/providers.js";
+import { prepareStockVideo } from "./prepare.js";
 
 const PEXELS_BASE = "https://api.pexels.com";
 
@@ -141,6 +142,19 @@ export class PexelsStock implements StockProvider {
     const ext = candidate.duration != null ? "mp4" : "jpg";
     const filename = `${candidate.id}.${ext}`;
     const filePath = await this.downloadToCache(candidate.url, filename);
+
+    // A library will hand over a four-minute 4K file. The renderer pays for
+    // every frame of it, so the clip is trimmed and scaled first.
+    if (candidate.duration != null) {
+      const prepared = await prepareStockVideo(filePath);
+      return {
+        filePath: prepared.filePath,
+        width: candidate.width,
+        height: candidate.height,
+        duration: prepared.duration ?? candidate.duration,
+      };
+    }
+
     return {
       filePath,
       width: candidate.width,

@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { StockAsset, StockCandidate, StockProvider } from "../../schema/providers.js";
+import { prepareStockVideo } from "./prepare.js";
 
 const PIXABAY_BASE = "https://pixabay.com/api";
 
@@ -58,6 +59,19 @@ export class PixabayStock implements StockProvider {
     const ext = candidate.duration != null ? "mp4" : "jpg";
     const filename = `${candidate.id}.${ext}`;
     const filePath = await this.downloadToCache(candidate.url, filename);
+
+    // Trim and scale before the renderer sees it: a four-minute 4K file
+    // costs minutes of CPU and megabytes of upload.
+    if (candidate.duration != null) {
+      const prepared = await prepareStockVideo(filePath);
+      return {
+        filePath: prepared.filePath,
+        width: candidate.width,
+        height: candidate.height,
+        duration: prepared.duration ?? candidate.duration,
+      };
+    }
+
     return {
       filePath,
       width: candidate.width,

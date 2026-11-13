@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { StockAsset, StockCandidate, StockProvider } from "../../schema/providers.js";
+import { prepareStockVideo } from "./prepare.js";
 
 /**
  * Wikimedia Commons, with no API key.
@@ -195,7 +196,13 @@ export class WikimediaStock implements StockProvider {
         );
       });
 
-      return { filePath, width: candidate.width, height: candidate.height, duration: candidate.duration };
+      const prepared = await prepareStockVideo(filePath);
+      return {
+        filePath: prepared.filePath,
+        width: candidate.width,
+        height: candidate.height,
+        duration: prepared.duration ?? candidate.duration,
+      };
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
