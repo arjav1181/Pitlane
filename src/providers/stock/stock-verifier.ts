@@ -22,8 +22,13 @@ Answer relevant: true when the frame shows the requested subject and is usable:
 - A looser framing of the right subject (a detail shot, a wider shot, a different angle) is still a match.
 - The subject is recognisable and readable in the frame.
 
+A named model is a named model. If the request asks for a specific car ("F40", "917", "Countach")
+and the frame shows a different car, it is not a match, however similar the badge, the colour or
+the shape. A red Mustang wearing a Ferrari badge is not an F40.
+
 Answer relevant: false when:
 - The subject is a different thing entirely (a toy rocket for "rocket launch", a generic sunset for "Mars surface", a sedan for "vintage racing car")
+- The request names a specific model and the frame shows a different one
 - The frame is an illustration, a drawing or a render when real footage was requested
 - The frame is technically unusable: mostly empty sky or haze, heavily blurred, underexposed, or one flat colour
 - The subject occupies a sliver of the frame and cannot be made out

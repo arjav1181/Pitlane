@@ -173,7 +173,8 @@ Think like a YouTube Shorts producer. The hook must grab in 1-2 seconds. Every s
 
 Keep total script under 140 words — verbose scripts create rushed, unwatchable videos.
 
-Hold attention: the first line states the tension in one sentence, every scene changes
+Hold attention: the first line states the tension in one sentence and names the specific
+thing and the specific thing that went wrong (never a general opening), every scene changes
 something, every scene adds new information, and the last line asks for something.
 
 Write every script_line for the ear, not the page:

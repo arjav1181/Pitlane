@@ -66,6 +66,17 @@ rules of the platform are, not taste:
 - **The first line is the whole promise.** Scene 1 states the tension or the surprise in one
   sentence. No throat-clearing, no "let's talk about", no "imagine a world where". The viewer
   must know why to stay before the second sentence is spoken.
+- **Name the thing and the thing that went wrong.** A general opening wastes the only moment
+  that matters. Compare:
+
+  | Weak | Strong |
+  |---|---|
+  | "One of history's greatest supercars almost never made it out of the factory." | "The F40 was built to be the fastest car on Earth. Then Ferrari cancelled it." |
+  | "A famous engine changed everything forever." | "The 917 had so much power the drivers refused to sit in it." |
+  | "Cars from this era were built for war." | "This jeep was drawn on paper in nine days, then built for the army." |
+
+  The strong lines name the specific machine, the specific year or the specific mistake, and
+  they are under twelve words.
 - **Every scene changes something.** Two consecutive scenes must not look the same and must not
   say the same kind of thing. If scene 3 is a car on a road, scene 4 is not another car on
   another road.
