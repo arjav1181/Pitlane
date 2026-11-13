@@ -45,7 +45,16 @@ export interface RenderOptions {
 }
 
 /** Default render timeout. Long enough for a CPU-only box to extract a frame. */
-export const DEFAULT_RENDER_TIMEOUT_MS = 120_000;
+/**
+ * Default render timeout.
+ *
+ * Five minutes. The renderer pulls every frame of every stock clip through a
+ * proxy, and on two cores with six clips in a video that queue gets long
+ * enough for a single request to time out, which kills the render. A second
+ * attempt is made on failure, but the budget should be generous enough that
+ * the first attempt is the one that succeeds.
+ */
+export const DEFAULT_RENDER_TIMEOUT_MS = 300_000;
 
 /** Default OffthreadVideo frame cache: 1 GB. */
 export const DEFAULT_OFFTHREAD_CACHE_BYTES = 1024 * 1024 * 1024;

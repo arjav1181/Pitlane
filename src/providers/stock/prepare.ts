@@ -14,8 +14,9 @@ import * as fs from "node:fs";
  * never a problem.
  */
 
-/** Longest clip we keep. */
-const MAX_SECONDS = 9;
+/** Longest clip we keep. A scene is a handful of seconds, and every extra
+ * second is another frame the renderer has to pull out of the proxy. */
+const MAX_SECONDS = 6;
 /** Largest file we keep without touching it. */
 const MAX_BYTES = 8 * 1024 * 1024;
 /** Tallest frame we keep. */

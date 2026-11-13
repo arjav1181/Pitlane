@@ -1028,27 +1028,42 @@ function buildPipelineWorkflow(
       });
 
       assemblyResult.videoPath = path.join(runDir, "final.mp4");
-      await renderMedia({
-        composition: {
-          ...composition,
-          width: platformConfig.width,
-          height: platformConfig.height,
-          fps: platformConfig.fps,
-          durationInFrames: totalFrames,
-        },
-        serveUrl: bundled,
-        codec: "h264",
-        // CRF 23 rather than the renderer default of 18. A vertical short of
-        // this length came out at 38MB, which is slow to upload off the box
-        // and to serve; YouTube re-encodes it anyway, so the difference is
-        // invisible on the channel.
-        crf: renderOptions.crf,
-        outputLocation: assemblyResult.videoPath,
-        inputProps: compositionProps as unknown as Record<string, unknown>,
-        timeoutInMilliseconds: renderOptions.timeoutInMilliseconds,
-        concurrency: renderOptions.concurrency,
-        offthreadVideoCacheSizeInBytes: renderOptions.offthreadVideoCacheSizeInBytes,
-      });
+      const render = () =>
+        renderMedia({
+          composition: {
+            ...composition,
+            width: platformConfig.width,
+            height: platformConfig.height,
+            fps: platformConfig.fps,
+            durationInFrames: totalFrames,
+          },
+          serveUrl: bundled,
+          codec: "h264",
+          // CRF 23 rather than the renderer default of 18. A vertical short of
+          // this length came out at 38MB, which is slow to upload off the box
+          // and to serve; YouTube re-encodes it anyway, so the difference is
+          // invisible on the channel.
+          crf: renderOptions.crf,
+          outputLocation: assemblyResult.videoPath,
+          inputProps: compositionProps as unknown as Record<string, unknown>,
+          timeoutInMilliseconds: renderOptions.timeoutInMilliseconds,
+          concurrency: renderOptions.concurrency,
+          offthreadVideoCacheSizeInBytes: renderOptions.offthreadVideoCacheSizeInBytes,
+        });
+
+      try {
+        await render();
+      } catch (error) {
+        // The renderer pulls frames out of the stock clips through a proxy,
+        // and on a small machine that can time out under load. A second
+        // attempt clears the cache and usually gets through; a video that
+        // failed to render is a video nobody sees.
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`[assembly] The render failed, trying once more: ${message}`);
+        cb.onProgress?.("assembly", { type: "retrying" });
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        await render();
+      }
 
       // A still of the finished short. Video scenes have no still of their
       // own, so without this a card for a video has nothing to show and falls
