@@ -142,6 +142,8 @@ export interface ResearchData {
   summary: string;
   key_facts: string[];
   mood: string;
+  /** The pages the facts came from. */
+  sources?: string[];
 }
 
 export interface CriticReview {

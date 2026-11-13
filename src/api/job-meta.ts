@@ -48,7 +48,7 @@ export interface JobMeta {
   /** Still frame of the finished short, for cards and anything that cannot play video. */
   posterPath?: string;
   runDir?: string;
-  researchData?: { summary: string; key_facts: string[]; mood: string };
+  researchData?: { summary: string; key_facts: string[]; mood: string; sources?: string[] };
   score?: unknown;
   criticReview?: { score: number; strengths: string[]; weaknesses: string[] };
   musicTrack?: { trackId: string; mood: string; requestedMood: string; fallback: boolean };

@@ -483,6 +483,9 @@ function buildPipelineWorkflow(
           summary: output.data.summary,
           key_facts: output.data.key_facts,
           mood: output.data.mood,
+          // The pages the facts came from, so a fact can be checked without
+          // going back to the search.
+          sources: output.data.sources,
         });
         log.stages.push({ name: "research", duration: dur, status: "done" });
         return output.data;

@@ -492,6 +492,15 @@ export function JobPage() {
 
 /* ─── Inline sub-components ─── */
 
+/** The host of a source, so the row of links stays readable. */
+function sourceLabel(source: string): string {
+  try {
+    return new URL(source).hostname.replace(/^www\./, "");
+  } catch {
+    return source.slice(0, 40);
+  }
+}
+
 function ResearchCard({ data }: { data: ResearchData }) {
   const [expanded, setExpanded] = useState(false);
   const facts = expanded ? data.key_facts : data.key_facts.slice(0, 5);
@@ -506,6 +515,22 @@ function ResearchCard({ data }: { data: ResearchData }) {
         </span>
       </div>
       <p className="mb-4 text-[13px] leading-relaxed text-text-subtle">{data.summary}</p>
+      {data.sources && data.sources.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-1.5">
+          {data.sources.slice(0, 6).map((source) => (
+            <a
+              key={source}
+              href={source}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="rounded-md border border-border bg-surface-inset px-2 py-1 text-[11px] text-text-subtle hover:text-foreground"
+              title={source}
+            >
+              {sourceLabel(source)}
+            </a>
+          ))}
+        </div>
+      )}
       {data.key_facts.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {facts.map((fact, i) => (

@@ -275,6 +275,7 @@ const worker = new Worker<JobData>(
             summary: data.summary as string,
             key_facts: data.key_facts as string[],
             mood: data.mood as string,
+            sources: (data.sources as string[]) ?? [],
           };
           writeMeta(jobDir, meta);
         } else if (data.type === "score") {
