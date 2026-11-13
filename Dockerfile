@@ -54,6 +54,12 @@ ENV PIPER_BINARY=/opt/piper/piper \
 
 WORKDIR /app
 
+# onnxruntime-node (pulled in by @huggingface/transformers and by kokoro-js)
+# downloads a ~1GB CUDA runtime by default, which OOMs a small builder. The
+# CPU binary ships inside the package, so the extra download is skipped.
+ENV ONNXRUNTIME_NODE_INSTALL=skip \
+    ONNXRUNTIME_NODE_INSTALL_CUDA=skip
+
 # Enable pnpm via corepack
 RUN corepack enable pnpm
 
