@@ -125,8 +125,17 @@ and author into the job's credits.
 
 A visual judge checks each candidate against the scene. It judges the subject, not the staging:
 a parked racing car is a usable frame for a scene about a racing car, because the frame is
-cropped to vertical and given a slow camera move. A scene is only dropped to a text card when
-there is nothing usable at all.
+cropped to vertical and given a slow camera move. A named model is a named model, though: a
+Mustang wearing a Ferrari badge is not an F40.
+
+A text card is the exception, not the default. The script allows two of them in a whole video
+(the title, the call to action, a number that cannot be shown), and a scene whose footage cannot
+be found is looked up as the other kind of footage before it falls back to a card.
+
+Every scene carries the same grade, which is what stops a finished video looking like a
+slideshow: a little more contrast, the archetype's colour laid over the picture, a vignette
+that pulls the eye to the middle, and a scrim that keeps the captions readable. The footage
+also gets a slow move across the shot, because a still frame of a car looks like a screenshot.
 
 ## Provider flexibility
 
