@@ -26,6 +26,8 @@ All notable changes to Pitlane will be documented in this file.
   the research brief and the stage still searches.
 
 ### Added
+- **The sources behind the script**: the research stage keeps the pages it read, the job page
+  lists them, and the video description names one. A fact can be checked by anyone who watches.
 - **A better narrator**: Kokoro, a local neural voice (82M, ONNX, quantised), is the default
   narrator. Its model and voice files are baked into the image, the build proves it speaks
   before the image ships, and Piper stands behind it as a fallback so a missing file cannot
