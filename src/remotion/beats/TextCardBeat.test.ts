@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstSentence, splitLines } from "./TextCardBeat.js";
+import { cardHeadline, firstSentence, splitLines } from "./TextCardBeat.js";
 
 describe("firstSentence", () => {
   it("takes the first sentence as the heading", () => {
@@ -46,5 +46,22 @@ describe("splitLines", () => {
 
   it("returns one empty line for empty input", () => {
     expect(splitLines("   ", 20)).toEqual([""]);
+  });
+});
+
+describe("cardHeadline", () => {
+  it("uses the headline the director wrote", () => {
+    expect(cardHeadline("THE CAR THAT ALMOST WASNT", "One of history's greatest supercars...")).toBe(
+      "THE CAR THAT ALMOST WASNT",
+    );
+  });
+
+  it("falls back to the first sentence of the narration", () => {
+    expect(cardHeadline("", "The 917 was a monster. It won twice.")).toBe("The 917 was a monster");
+    expect(cardHeadline(undefined, "The 917 was a monster.")).toBe("The 917 was a monster");
+  });
+
+  it("ignores a headline that is only whitespace", () => {
+    expect(cardHeadline("   ", "A flat twelve and no brakes.")).toBe("A flat twelve and no brakes");
   });
 });

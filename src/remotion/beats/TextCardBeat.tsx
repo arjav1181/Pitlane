@@ -24,6 +24,7 @@ import type { SceneProps } from "../lib/score-to-props";
  */
 export const TextCardBeat: React.FC<SceneProps> = ({
   scriptLine,
+  visualPrompt,
   colorPalette,
   textCardFont,
   sceneIndex,
@@ -42,18 +43,38 @@ export const TextCardBeat: React.FC<SceneProps> = ({
   const marker = spring({ frame: frame - 16, fps, config: { damping: 20, stiffness: 90 } });
 
   const family = (textCardFont && TEXT_CARD_FONTS[textCardFont]) ?? "Inter, sans-serif";
-  const lines = splitLines(firstSentence(scriptLine), 24);
+
+  // The card carries a headline, not the narration. The director writes a
+  // headline for a card ("THE CAR THAT ALMOST WASNT"); the narration is
+  // already on screen as a caption, so repeating it here wastes the card.
+  const lines = splitLines(cardHeadline(visualPrompt, scriptLine), 24);
 
   return (
     <AbsoluteFill
       style={{
         backgroundColor: bg,
+        backgroundImage:
+          "radial-gradient(120% 80% at 22% 45%, rgba(255,255,255,0.07) 0%, rgba(0,0,0,0) 62%)",
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
         padding: "0 96px",
       }}
     >
+      {/* A hairline down the reading edge: the frame the words sit in. */}
+      <div
+        style={{
+          position: "absolute",
+          left: 60,
+          top: 140,
+          bottom: 140,
+          width: 1,
+          backgroundColor: accent,
+          opacity: 0.22,
+          transform: `scaleY(${rule})`,
+          transformOrigin: "top center",
+        }}
+      />
       {/* The cut lands on the card */}
       {sfxAvailable && <Audio src={staticFile("sfx/impact.mp3")} volume={0.4} />}
 
@@ -117,6 +138,19 @@ export const TextCardBeat: React.FC<SceneProps> = ({
     </AbsoluteFill>
   );
 };
+
+/**
+ * The words on a card.
+ *
+ * The director writes a headline for a card; the narration is already on
+ * screen as a caption, so repeating it wastes the card. The script line is
+ * only used when there is no headline.
+ */
+export function cardHeadline(visualPrompt: string | undefined, scriptLine: string): string {
+  const headline = (visualPrompt ?? "").trim();
+  if (headline) return headline;
+  return firstSentence(scriptLine);
+}
 
 /** The part of a line that works as a heading. */
 export function firstSentence(text: string): string {

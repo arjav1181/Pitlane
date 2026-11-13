@@ -35,6 +35,23 @@ Choose the best visual_type for each scene based on what serves the content:
 
 Mixing visual types makes the video feel produced rather than generated - but don't force variety where it doesn't fit. If the topic is best served by mostly AI images (e.g., speculative sci-fi) or mostly stock (e.g., travel destinations), lean into that. Let the content drive the choice.
 
+**A text card is the exception, not the default.** Real footage is what makes a video worth
+watching; a wall of cards looks like a slideshow someone made in a hurry. Use at most two text
+cards in a whole video, and only where a card genuinely beats a picture:
+
+- the opening title card, carrying the promise of the video
+- the closing call to action
+- a number that cannot be shown (a price, a production count, a lap record)
+
+Everything else is a real scene: a car on a road, a factory floor, a drawing board, a crowd,
+an engine. If you cannot picture it, name the thing you would film and write that as the
+search query.
+
+**Make the search query find the real thing.** For a stock scene the visual_prompt is a search
+query, so it must name the subject a library would have footage of: "Ferrari F40 red supercar",
+"vintage military jeep on dirt road", "1960s car factory assembly line". Not "the feeling of
+speed" and not "vintage italian sports car" when the story is about a specific car.
+
 ## Pacing Tiers
 
 Each archetype has a pacing tier that controls scene count and word budget. The user message will tell you which tier to use.

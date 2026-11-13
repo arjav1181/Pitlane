@@ -289,25 +289,47 @@ async function resolveVisualAsset(
     case "stock_image":
     case "stock_video": {
       const stockVerify = opts.stockVerify !== false;
-      const result = await resolveStockAdaptive(
-        scene.visual_type,
-        scene.visual_prompt,
-        scene.script_line,
-        index,
-        totalScenes,
-        assetsDir,
-        {
-          llm: opts.llm,
-          imageGen: opts.imageGen,
-          stocks: opts.stock,
-          verifyModel: stockVerify ? (opts.verifyModel ?? null) : null,
-          confidenceThreshold: opts.stockConfidence ?? 0.6,
-          maxAttempts: opts.stockMaxAttempts ?? 6,
-          callbacks: cb,
-          archetype,
-          noAiFallback: opts.noAiAssets === true,
-        },
-      );
+      const resolve = (type: "stock_image" | "stock_video") =>
+        resolveStockAdaptive(
+          type,
+          scene.visual_prompt,
+          scene.script_line,
+          index,
+          totalScenes,
+          assetsDir,
+          {
+            llm: opts.llm,
+            imageGen: opts.imageGen,
+            stocks: opts.stock,
+            verifyModel: stockVerify ? (opts.verifyModel ?? null) : null,
+            confidenceThreshold: opts.stockConfidence ?? 0.6,
+            maxAttempts: opts.stockMaxAttempts ?? 6,
+            callbacks: cb,
+            archetype,
+            noAiFallback: opts.noAiAssets === true,
+          },
+        );
+
+      const result = await resolve(scene.visual_type);
+
+      // A still of the subject beats a card when the clip cannot be found, and
+      // a clip beats a still. The scene keeps its meaning either way, so the
+      // picture never falls back to text before the other library has been
+      // asked.
+      if (!result.path) {
+        const otherType = scene.visual_type === "stock_video" ? "stock_image" : "stock_video";
+        const second = await resolve(otherType);
+        if (second.path) {
+          return {
+            path: second.path,
+            usage: second.usage,
+            durationSeconds: second.durationSeconds,
+            stockResolution: second.resolution,
+            credit: second.credit,
+          };
+        }
+      }
+
       return {
         path: result.path,
         usage: result.usage,

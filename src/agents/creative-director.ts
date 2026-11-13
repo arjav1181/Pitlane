@@ -173,6 +173,10 @@ Think like a YouTube Shorts producer. The hook must grab in 1-2 seconds. Every s
 
 Keep total script under 140 words — verbose scripts create rushed, unwatchable videos.
 
+Real footage, not slides: use at most two text cards in a video (the title, the call to action,
+a number that cannot be shown) and a real scene everywhere else, with a search query that
+names the subject a stock library would have footage of.
+
 Hold attention: the first line states the tension in one sentence and names the specific
 thing and the specific thing that went wrong (never a general opening), every scene changes
 something, every scene adds new information, and the last line asks for something.
