@@ -141,8 +141,8 @@ export function parseArgs(): CLIOptions {
     )
     .option(
       "--kokoro-voice <voice>",
-      "Kokoro voice preset (e.g. af_heart, bf_emma, am_fenrir)",
-      "af_heart",
+      "Kokoro voice preset (e.g. am_michael, bm_lewis, af_heart)",
+      "am_michael",
     )
     .option("-a, --archetype <archetype>", "Visual archetype override")
     .addOption(

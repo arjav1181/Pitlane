@@ -37,7 +37,7 @@ publishing system:
   verified direction, so one job makes the calls it needs and no more.
 - **A voice that sounds like one channel** — every engine gets the same ear-ready script
   (units, symbols and abbreviations written out, long sentences broken at a comma) and the same
-  broadcast mastering (`-14 LUFS`, `-1.5 dBTP`, de-essed, 192 kbps). Piper is the default
+  broadcast mastering (`-14 LUFS`, `-1.5 dBTP`, de-essed, 192 kbps). Kokoro is the default
   narrator on the high-quality `en_US-ryan-high` voice.
 
 Publishing is owned by the calling automation, so YouTube support has been removed from the
@@ -136,15 +136,15 @@ Mix and match providers or go all-in on one ecosystem:
 |-----------|-----------|
 | **LLM** | Anthropic Claude, OpenAI GPT, Google Gemini, OpenRouter (300+ models), any OpenAI-compatible endpoint |
 | **Search** | Native (provider built-in), Tavily, or parametric knowledge |
-| **TTS** | ElevenLabs, Inworld, OpenAI TTS, Gemini TTS, Piper (free, local, ~20× real time), Kokoro (free, local) |
+| **TTS** | Kokoro (free, local, the default), Piper (free, local, ~20× real time, the fallback), ElevenLabs, Inworld, OpenAI TTS, Gemini TTS |
 | **Images** | Gemini Imagen, OpenAI DALL-E |
 | **Video** | Google Veo 3.1, fal.ai Kling 2.6 Pro (with cross-provider fallback, negative prompts, structured cinematography prompts) |
 | **Music** | Google Lyria 3 Pro (AI-generated, $0.08/track), Bundled library (free) |
-| **Stock** | Pexels, Pixabay (both searched, vision-verified, with AI fallback) |
+| **Stock** | Pexels, Pixabay and Wikimedia Commons, all three searched, judged on the subject, with AI fallback |
 
 **One key, everything Google:** `--provider google` sets LLM, images, TTS, video, and music to Google APIs with a single `GOOGLE_API_KEY`.
 
-**Zero-cost voiceover:** `--provider local` uses Kokoro for free local TTS. `--tts-provider piper` uses Piper, which synthesises at roughly twenty times faster than real time and is the better narrator of the two. No API key needed for either.
+**Zero-cost voiceover:** `--tts-provider kokoro` uses Kokoro, a local neural voice that reads like a person. `--tts-provider piper` uses Piper, which synthesises at roughly twenty times faster than real time. The two back each other up: if one cannot speak, the other does, and the render is not lost to a missing file. No API key needed for either.
 
 **No AI assets:** add `--no-ai-assets` to skip AI image and video generation entirely. Scenes use vision-verified stock media and procedural text cards, so no image or video API key is required.
 
@@ -246,7 +246,7 @@ pnpm start "your topic" --score output/2026-04-10-111939-.../score.json
 - `ELEVENLABS_API_KEY` or `INWORLD_TTS_API_KEY` — [ElevenLabs](https://elevenlabs.io/) / [Inworld](https://inworld.ai/). Or use `--tts-provider piper` (free, no key, recommended), `--tts-provider kokoro` (free, no key), `--tts-provider openai-tts`, or `--tts-provider gemini-tts`
 - `GOOGLE_API_KEY` — also needed for Gemini image generation, AI video (Veo), AI music (Lyria), and Gemini TTS
 
-**Optional:** `PEXELS_API_KEY` ([Pexels](https://www.pexels.com/api/)), `PIXABAY_API_KEY` ([Pixabay](https://pixabay.com/api/docs/)) for stock footage, `FAL_API_KEY` ([fal.ai](https://fal.ai/)) for Kling video generation
+**Optional:** `PEXELS_API_KEY` ([Pexels](https://www.pexels.com/api/)), `PIXABAY_API_KEY` ([Pixabay](https://pixabay.com/api/docs/)) for stock footage. Wikimedia Commons needs no key. `TAVILY_API_KEY` ([Tavily](https://tavily.com/)) for web research; without one the research stage searches Wikipedia. `FAL_API_KEY` ([fal.ai](https://fal.ai/)) for Kling video generation
 
 **Server and automation:** `OPENREELS_API_KEY` (require auth on every API route), `OPENREELS_AUTH_REQUIRED` (fail closed: without a key the API answers 503 instead of serving the whole surface), `PIPER_BINARY` / `PIPER_MODEL` (the local narration engine), `OPENREELS_RENDER_CRF` (video quality, default 23), `OPENREELS_CORS_ORIGIN` (browser origins), `OPENREELS_ALLOW_PRIVATE_CALLBACKS` (internal webhook targets), `OPENREELS_NO_AI_ASSETS` (default to stock + procedural visuals), `OPENREELS_LLM_AUTH` / `OPENREELS_LLM_AUTH_HEADER` (OpenAI-compatible auth defaults), `OPENREELS_LLM_TIMEOUT_MS` (per-request ceiling, default 180000), `OPENREELS_LLM_FALLBACK_MODELS` (comma-separated backup models tried in order when the primary fails), `OPENREELS_LLM_FALLBACK_BUDGET_MS` (total wall-clock budget for the fallback chain, default 300000), `OPENREELS_LLM_FALLBACK_RETRY_BUDGET_MS` (how long one model may spend retrying a rate limit before the chain moves on, default 45000), `OPENREELS_RENDER_TIMEOUT_MS` (Remotion delayRender timeout, default 120000), `OPENREELS_RENDER_CONCURRENCY` (parallel browser tabs, default 1), `OPENREELS_RENDER_OFFTHREAD_CACHE_MB` (OffthreadVideo frame cache, default 1024). See the [REST API reference](https://openreels.tsensei.dev/docs/api/rest).
 
@@ -276,7 +276,7 @@ pnpm start "your topic" --score output/2026-04-10-111939-.../score.json
 | `--stock-confidence <n>` | Min confidence for stock verification (0-1) | `0.6` |
 | `--stock-max-attempts <n>` | Max stock API calls per scene | `4` |
 | `--video-model <model>` | Video model override | provider default |
-| `--kokoro-voice <voice>` | Kokoro voice preset | `af_heart` |
+| `--kokoro-voice <voice>` | Kokoro voice preset | `am_michael` |
 | `--direction <file>` | Creative brief file (markdown) to guide the AI | — |
 | `--score <path>` | Replay from a saved `score.json`, skipping research + director | — |
 | `-y, --yes` | Auto-confirm cost estimation (Docker/CI) | off |
