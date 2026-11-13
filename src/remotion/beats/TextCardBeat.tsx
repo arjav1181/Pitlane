@@ -104,10 +104,10 @@ export const TextCardBeat: React.FC<SceneProps> = ({
               style={{
                 display: "block",
                 fontFamily: family,
-                fontSize: 64,
+                fontSize: 62,
                 fontWeight: 700,
-                lineHeight: 1.1,
-                letterSpacing: "-0.025em",
+                lineHeight: 1.12,
+                letterSpacing: "0.005em",
                 color: text,
                 opacity: interpolate(lineSpring, [0, 1], [0, 1]),
                 transform: `translateY(${interpolate(lineSpring, [0, 1], [20, 0])}px)`,
@@ -148,8 +148,8 @@ export const TextCardBeat: React.FC<SceneProps> = ({
  */
 export function cardHeadline(visualPrompt: string | undefined, scriptLine: string): string {
   const headline = (visualPrompt ?? "").trim();
-  if (headline) return headline;
-  return firstSentence(scriptLine);
+  if (headline) return headline.toUpperCase();
+  return firstSentence(scriptLine).toUpperCase();
 }
 
 /** The part of a line that works as a heading. */

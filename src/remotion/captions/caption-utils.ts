@@ -88,3 +88,22 @@ export function computeWordStates(
     };
   });
 }
+
+/**
+ * Is this background light?
+ *
+ * One archetype is printed on cream. White captions on cream are unreadable,
+ * so the caption layer needs to know which way to write.
+ */
+export function isLightBackground(hex: string | undefined): boolean {
+  if (!hex) return false;
+  const value = hex.replace("#", "").trim();
+  if (value.length !== 6) return false;
+  const r = Number.parseInt(value.slice(0, 2), 16);
+  const g = Number.parseInt(value.slice(2, 4), 16);
+  const b = Number.parseInt(value.slice(4, 6), 16);
+  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) return false;
+  // Relative luminance, the same weighting the eye uses.
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return luminance > 0.6;
+}

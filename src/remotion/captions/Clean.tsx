@@ -6,7 +6,7 @@ import type { CaptionStyleProps } from "./CaptionWrapper";
  * Clean caption style: minimalist white text with subtle shadow.
  * Active word springs slightly larger and brighter. Spoken words settle.
  */
-export const Clean: React.FC<CaptionStyleProps> = ({ wordStates }) => (
+export const Clean: React.FC<CaptionStyleProps> = ({ wordStates, onLight }) => (
   <div
     style={{
       display: "flex",
@@ -24,14 +24,23 @@ export const Clean: React.FC<CaptionStyleProps> = ({ wordStates }) => (
           style={{
             fontSize,
             fontWeight: ws.state === "unspoken" ? 500 : 700,
-            color:
-              ws.state === "unspoken"
+            // On a light card the words are dark, with a light shadow to
+            // lift them. White on cream cannot be read.
+            color: onLight
+              ? ws.state === "unspoken"
+                ? "rgba(20,20,20,0.45)"
+                : ws.state === "active"
+                  ? "#141414"
+                  : "rgba(20,20,20,0.8)"
+              : ws.state === "unspoken"
                 ? "rgba(255,255,255,0.4)"
                 : ws.state === "active"
                   ? "#FFFFFF"
                   : "rgba(255,255,255,0.75)",
             fontFamily: CAPTION_FONTS.inter,
-            textShadow: "0 2px 10px rgba(0,0,0,0.7)",
+            textShadow: onLight
+              ? "0 2px 10px rgba(255,255,255,0.85)"
+              : "0 2px 10px rgba(0,0,0,0.7)",
           }}
         >
           {ws.word.word}

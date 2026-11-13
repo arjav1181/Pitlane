@@ -8,6 +8,8 @@ export interface CaptionStyleProps {
   wordStates: WordRenderState[];
   chunkEntryProgress: number;
   accentColor: string;
+  /** The scene behind the words is light, so the words have to be dark. */
+  onLight?: boolean;
 }
 
 export interface SpringConfig {
@@ -24,6 +26,8 @@ interface CaptionWrapperProps {
   springConfig: SpringConfig;
   emphasisIndices?: number[];
   StyleComponent: React.FC<CaptionStyleProps>;
+  /** True when the scenes behind the captions are light. */
+  onLight?: boolean;
 }
 
 /**
@@ -45,6 +49,7 @@ export const CaptionWrapper: React.FC<CaptionWrapperProps> = ({
   springConfig,
   emphasisIndices,
   StyleComponent,
+  onLight,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -88,6 +93,7 @@ export const CaptionWrapper: React.FC<CaptionWrapperProps> = ({
           wordStates={wordStates}
           chunkEntryProgress={chunkEntryProgress}
           accentColor={accentColor}
+          onLight={onLight}
         />
       </div>
     </AbsoluteFill>

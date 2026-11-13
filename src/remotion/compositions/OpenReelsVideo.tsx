@@ -20,6 +20,7 @@ import {
   type SpringConfig,
 } from "../captions/CaptionWrapper";
 import { Clean } from "../captions/Clean";
+import { isLightBackground } from "../captions/caption-utils";
 import { ColorHighlight } from "../captions/ColorHighlight";
 import { GradientRise } from "../captions/GradientRise";
 import { KaraokeSweep } from "../captions/KaraokeSweep";
@@ -171,6 +172,7 @@ const Main: React.FC<CompositionProps> = ({
           accentColor={captionAccentColor}
           springConfig={style.springConfig}
           StyleComponent={style.component}
+          onLight={isLightBackground(scenes[0]?.colorPalette?.background)}
         />
       )}
 

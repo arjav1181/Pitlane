@@ -50,18 +50,19 @@ describe("splitLines", () => {
 });
 
 describe("cardHeadline", () => {
-  it("uses the headline the director wrote", () => {
+  it("uses the headline the director wrote, in capitals", () => {
     expect(cardHeadline("THE CAR THAT ALMOST WASNT", "One of history's greatest supercars...")).toBe(
       "THE CAR THAT ALMOST WASNT",
     );
+    expect(cardHeadline("vintage car factory", "A line.")).toBe("VINTAGE CAR FACTORY");
   });
 
   it("falls back to the first sentence of the narration", () => {
-    expect(cardHeadline("", "The 917 was a monster. It won twice.")).toBe("The 917 was a monster");
-    expect(cardHeadline(undefined, "The 917 was a monster.")).toBe("The 917 was a monster");
+    expect(cardHeadline("", "The 917 was a monster. It won twice.")).toBe("THE 917 WAS A MONSTER");
+    expect(cardHeadline(undefined, "The 917 was a monster.")).toBe("THE 917 WAS A MONSTER");
   });
 
   it("ignores a headline that is only whitespace", () => {
-    expect(cardHeadline("   ", "A flat twelve and no brakes.")).toBe("A flat twelve and no brakes");
+    expect(cardHeadline("   ", "A flat twelve and no brakes.")).toBe("A FLAT TWELVE AND NO BRAKES");
   });
 });
