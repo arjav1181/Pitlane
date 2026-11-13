@@ -1,6 +1,6 @@
-# OpenReels
+# Pitlane
 
-Open-source AI pipeline that turns any topic into a fully rendered YouTube Short. Includes a web UI with live pipeline visualization, REST API, and CLI.
+A vertical video pipeline that turns one researched, fact-checked story into a finished short: script, voiceover, footage, captions, music and render. Includes a web UI with live pipeline visualization, a keyed REST API, and a CLI.
 
 ## Project structure
 

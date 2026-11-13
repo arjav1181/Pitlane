@@ -18,6 +18,9 @@ import type { SceneProps } from "../lib/score-to-props";
  * words that rise after it, and a chapter marker in mono. Everything sits on
  * the left so the composition has a consistent reading axis, and the palette
  * comes from the archetype so the card belongs to the film around it.
+ *
+ * The card carries a title, not the narration: the first sentence of the line,
+ * so it reads as a chapter heading while the captions carry the script.
  */
 export const TextCardBeat: React.FC<SceneProps> = ({
   scriptLine,
@@ -39,14 +42,12 @@ export const TextCardBeat: React.FC<SceneProps> = ({
   const marker = spring({ frame: frame - 16, fps, config: { damping: 20, stiffness: 90 } });
 
   const family = (textCardFont && TEXT_CARD_FONTS[textCardFont]) ?? "Inter, sans-serif";
-
-  // Break the line into a short stack rather than one long paragraph.
-  const lines = splitLines(scriptLine, 26);
+  const lines = splitLines(firstSentence(scriptLine), 24);
 
   return (
     <AbsoluteFill
       style={{
-        background: `linear-gradient(180deg, ${bg} 0%, ${shade(bg, -0.06)} 100%)`,
+        backgroundColor: bg,
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
@@ -60,17 +61,16 @@ export const TextCardBeat: React.FC<SceneProps> = ({
       <div
         style={{
           width: 96,
-          height: 5,
-          borderRadius: 3,
+          height: 4,
           backgroundColor: accent,
           transformOrigin: "left center",
           transform: `scaleX(${rule})`,
-          marginBottom: 34,
+          marginBottom: 36,
         }}
       />
 
       {/* Words */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {lines.map((line, i) => {
           const lineSpring = spring({
             frame: frame - 10 - i * 4,
@@ -83,13 +83,13 @@ export const TextCardBeat: React.FC<SceneProps> = ({
               style={{
                 display: "block",
                 fontFamily: family,
-                fontSize: 66,
+                fontSize: 64,
                 fontWeight: 700,
-                lineHeight: 1.12,
-                letterSpacing: "-0.02em",
+                lineHeight: 1.1,
+                letterSpacing: "-0.025em",
                 color: text,
                 opacity: interpolate(lineSpring, [0, 1], [0, 1]),
-                transform: `translateY(${interpolate(lineSpring, [0, 1], [22, 0])}px)`,
+                transform: `translateY(${interpolate(lineSpring, [0, 1], [20, 0])}px)`,
               }}
             >
               {line}
@@ -101,23 +101,32 @@ export const TextCardBeat: React.FC<SceneProps> = ({
       {/* Chapter marker */}
       <span
         style={{
-          marginTop: 40,
+          marginTop: 44,
           fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-          fontSize: 22,
-          letterSpacing: "0.18em",
+          fontSize: 20,
+          letterSpacing: "0.16em",
+          fontVariantNumeric: "tabular-nums",
           color: accent,
-          opacity: interpolate(marker, [0, 1], [0, 0.75]),
-          transform: `translateY(${interpolate(marker, [0, 1], [10, 0])}px)`,
+          opacity: interpolate(marker, [0, 1], [0, 0.8]),
+          transform: `translateY(${interpolate(marker, [0, 1], [8, 0])}px)`,
         }}
       >
-        {String(sceneIndex ?? 0).padStart(2, "0")} / {String(sceneCount ?? 1).padStart(2, "0")}
+        {String((sceneIndex ?? 0) + 1).padStart(2, "0")} /{" "}
+        {String(sceneCount ?? 1).padStart(2, "0")}
       </span>
     </AbsoluteFill>
   );
 };
 
+/** The part of a line that works as a heading. */
+export function firstSentence(text: string): string {
+  const trimmed = text.trim().replace(/\s+/g, " ");
+  const match = /^(.*?[.!?])(\s|$)/.exec(trimmed);
+  return (match?.[1] ?? trimmed).replace(/[.!?]$/, "");
+}
+
 /** Break a line into a readable stack of short lines. */
-function splitLines(text: string, maxChars: number): string[] {
+export function splitLines(text: string, maxChars: number): string[] {
   const words = text.trim().split(/\s+/).filter(Boolean);
   if (!words.length) return [""];
 
@@ -134,16 +143,4 @@ function splitLines(text: string, maxChars: number): string[] {
   }
   if (current) lines.push(current);
   return lines.slice(0, 3);
-}
-
-/** Darken or lighten a hex colour by a fraction of its own luminance. */
-function shade(hex: string, amount: number): string {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return hex;
-  const num = parseInt(m[1]!, 16);
-  const channels = [(num >> 16) & 255, (num >> 8) & 255, num & 255].map((c) => {
-    const v = amount < 0 ? c * (1 + amount) : c + (255 - c) * amount;
-    return Math.max(0, Math.min(255, Math.round(v)));
-  });
-  return `#${channels.map((c) => c.toString(16).padStart(2, "0")).join("")}`;
 }

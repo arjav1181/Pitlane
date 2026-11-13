@@ -1,7 +1,7 @@
 import { CALLBACK_EVENTS } from "./callbacks.js";
 import { VERSION } from "./version.js";
 
-export const OPENAPI_TITLE = "OpenReels API";
+export const OPENAPI_TITLE = "Pitlane API";
 export const OPENAPI_VERSION = "1.0.0";
 
 const jobSchema = {

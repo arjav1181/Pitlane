@@ -1,10 +1,36 @@
 # Changelog
 
-All notable changes to OpenReels will be documented in this file.
+All notable changes to Pitlane will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **The API no longer defaults to Anthropic on a gateway server**: when a request names no
+  LLM provider and the server has `OPENREELS_LLM_BASE_URL` configured, the job now uses the
+  OpenAI-compatible gateway instead of failing with a missing Anthropic key. Callers that
+  name their own provider are unaffected.
+
+### Fixed
+- **The footage stage stops throwing scenes away**: the visual judge asked whether a frame
+  matched the request exactly, so a parked vintage racing car was rejected for a scene about
+  a vintage racing car and the scene fell back to a text card. The judge now judges the
+  subject, a near miss is used rather than discarded, and more candidates are tried.
+- **The research stage runs again**: a caller-supplied fact used to skip research entirely,
+  which left the script with one fact and nothing to say around it. The fact is now part of
+  the research brief and the stage still searches.
+
 ### Added
+- **A better narrator**: Kokoro, a local neural voice (82M, ONNX, quantised), is the default
+  narrator. Its model and voice files are baked into the image, the build proves it speaks
+  before the image ships, and Piper stands behind it as a fallback so a missing file cannot
+  end a render. `KOKORO_VOICE` picks the voice.
+- **Wikimedia Commons as a stock library**: free-licensed, keyless, and deep in motorsport
+  photography and public-domain film. It joins Pexels and Pixabay, and every asset it
+  supplies carries its licence and author.
+- **Wikipedia as a research source**: with no Tavily key the research stage searches
+  Wikipedia, so the facts in a script are citable instead of remembered.
+- **Broadcast voice mastering**: every TTS engine now runs through the same mix. The script is rewritten for the ear first (`%` to "percent", `km/h` to "kilometres per hour", `e.g.` to "for example", dashes to commas, sentences over 28 words broken at a pause the writer wrote), then the audio is high-passed at 70 Hz, de-essed, and normalised in two passes to `-14 LUFS` with a `-1.5 dBTP` ceiling at 192 kbps. Mastering is gain and tone only, so word timestamps and captions stay exact, and a missing ffmpeg leaves the original audio untouched instead of failing the render. Targets are configurable with `OPENREELS_VOICEOVER_LUFS` / `OPENREELS_VOICEOVER_TRUE_PEAK_DB`.
+- **Better default voices**: Piper now defaults to the high-quality `en_US-ryan-high` model with a slightly slower delivery and a 0.35 s sentence pause; OpenAI defaults to `onyx` with documentary delivery instructions; Gemini defaults to `Charon`; ElevenLabs gets steadier, more expressive voice settings. Each can be overridden by environment variable.
 - **Piper narration**: a new local TTS provider with a fast native ONNX runtime. It synthesises at roughly twenty times faster than real time, which takes the voiceover stage from minutes to seconds on a CPU-only host, and it is a documentary narrator rather than an assistant voice. The binary and two voices are baked into the container image.
 - **Sound design**: the music now ducks under the narrator instead of sitting at one level, a short whoosh marks each cut and an impact lands on each title card. Both cues are synthesised with ffmpeg at build time, so there are no extra downloads.
 - **A sign-in gate**: the web app checks the server on boot and, when a key is required, asks for one and verifies it before the rest of the app renders. The key is kept in the browser and never leaves it.

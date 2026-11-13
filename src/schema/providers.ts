@@ -2,7 +2,7 @@ import type { z } from "zod";
 import type { MusicMood } from "./director-score.js";
 
 export type LLMProviderKey = "anthropic" | "openai" | "gemini" | "openrouter" | "openai-compatible";
-export type SearchProviderKey = "native" | "tavily" | "none";
+export type SearchProviderKey = "native" | "tavily" | "wikipedia" | "none";
 /**
  * Authentication mode for OpenAI-compatible endpoints.
  * - auto: send a Bearer token when a key is available (default, backward-compatible)
@@ -20,7 +20,13 @@ export type TTSProviderKey =
   | "gemini-tts"
   | "openai-tts";
 export type ImageProviderKey = "gemini" | "openai";
-export type StockProviderKey = "pexels" | "pixabay";
+/**
+ * Stock libraries.
+ *
+ * `all` uses every available library: Pexels and Pixabay when their keys are
+ * set, plus Wikimedia Commons, which needs no key at all.
+ */
+export type StockProviderKey = "pexels" | "pixabay" | "wikimedia" | "all";
 export type VideoProviderKey = "gemini" | "fal";
 export type MusicProviderKey = "bundled" | "lyria";
 
@@ -69,6 +75,14 @@ export interface StockCandidate {
   height: number;
   duration?: number; // seconds, for video
   id: string; // provider-specific ID for dedup
+  /** Human label for the asset, e.g. the file title on Commons. */
+  label?: string;
+  /** Licence and author, when the source requires attribution. */
+  credit?: {
+    license: string;
+    author: string;
+    sourceUrl: string;
+  };
 }
 
 export interface StockAsset {

@@ -59,7 +59,7 @@ describe("KokoroTTS", () => {
     const { writeFile } = await import("node:fs/promises");
     const call = vi.mocked(writeFile).mock.calls[0]!;
     const config = JSON.parse(call[1] as string);
-    expect(config.voice).toBe("af_heart");
+    expect(config.voice).toBe("am_michael");
   });
 
   it("wraps subprocess errors with descriptive message", async () => {

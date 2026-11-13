@@ -57,3 +57,17 @@ Your script_lines are spoken as voiceover at ~150 words per minute. Word count d
 - **Self-check**: After drafting, count total words. If over budget, remove a scene or trim — never cram.
 
 Never use em dashes (—) in `script_line` or `visual_prompt`. Use a comma, period, or plain hyphen (-) instead.
+
+## Writing for the Ear
+
+Every `script_line` is spoken by a narrator, not read off a page. Write it the way it is said:
+
+- **One idea per sentence.** Aim for 8-18 words, never more than two clauses. A sentence that runs out of breath sounds rushed no matter which voice reads it.
+- **Spell out units and symbols** in words: "kilometres per hour", "horsepower", "percent", "and". Never `%`, `&`, `km/h`, `hp`, `bhp` or `cc` inside a script line.
+- **Write numbers the way they are spoken**: "nineteen sixty-nine", "four point five litres", "three hundred and twenty". A model or chassis name stays as written ("917", "GTB").
+- **No abbreviations**: write "for example", "that is", "versus", "approximately". Never "e.g.", "i.e.", "vs." or "etc.".
+- **No parentheses, brackets, slashes or bullet symbols.** They are read as pauses or as their names.
+- **No em dashes.** A comma is the pause you want.
+- **No stage directions, speaker labels or markdown.**
+- **End every line with punctuation** so the narrator pauses before the next scene instead of running the two together.
+

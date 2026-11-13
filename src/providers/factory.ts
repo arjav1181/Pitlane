@@ -31,14 +31,18 @@ import { OpenRouterLLM } from "./llm/openrouter.js";
 import { BundledMusic } from "./music/bundled-adapter.js";
 import { LyriaMusic } from "./music/lyria.js";
 import { createTavilySearchTools } from "./search/tavily.js";
+import { createWikipediaSearchTools } from "./search/wikipedia.js";
 import { PexelsStock } from "./stock/pexels.js";
 import { PixabayStock } from "./stock/pixabay.js";
+import { WikimediaStock } from "./stock/wikimedia.js";
 import { AlignedTTSProvider } from "./tts/aligned-tts-provider.js";
 import { ElevenLabsTTS } from "./tts/elevenlabs.js";
 import { GeminiTTS } from "./tts/gemini.js";
 import { InworldTTS } from "./tts/inworld.js";
 import { KokoroTTS } from "./tts/kokoro.js";
 import { PiperTTS } from "./tts/piper.js";
+import { BroadcastTTSProvider } from "./tts/broadcast-tts-provider.js";
+import { FallbackTTSProvider } from "./tts/fallback-tts-provider.js";
 import { OpenAITTS } from "./tts/openai.js";
 import { WhisperAligner } from "./tts/whisper-aligner.js";
 import { FalVideo } from "./video/fal.js";
@@ -90,6 +94,9 @@ function resolveSearchTools(
   if (searchProvider === "tavily") {
     return createTavilySearchTools(keys["TAVILY_API_KEY"]);
   }
+  if (searchProvider === "wikipedia") {
+    return createWikipediaSearchTools();
+  }
   if (searchProvider === "none") {
     return {};
   }
@@ -110,6 +117,10 @@ function resolveSearchTools(
   if (tavilyKey) {
     return createTavilySearchTools(tavilyKey);
   }
+
+  // No Tavily key: Wikipedia still gives the research stage real, citable
+  // facts instead of the model's memory.
+  return createWikipediaSearchTools();
   console.warn(
     "\nWarning: No search provider configured. TAVILY_API_KEY not set.\n" +
       "Research agent will use parametric knowledge only (no web search).\n" +
@@ -242,25 +253,43 @@ export function createProviders(config: ProviderConfig): Providers {
   // The aligner is shared (lazy singleton) so the Whisper model loads only once.
   const aligner = new WhisperAligner();
 
+  // Every engine gets the same script preparation and the same mastering, so
+  // the channel sounds like one channel regardless of which voice made it.
+  const broadcast = (provider: TTSProvider) => new BroadcastTTSProvider(provider);
+
+  // The two local voices back each other up. If one cannot speak, the other
+  // does, and the render is not lost to a missing binary or voice file.
+  const kokoro = new KokoroTTS(config.kokoroVoice);
+  const piper = new PiperTTS();
+  const localVoices = (preferred: "kokoro" | "piper") =>
+    broadcast(
+      new FallbackTTSProvider(
+        preferred === "kokoro" ? [kokoro, piper] : [piper, kokoro],
+        preferred === "kokoro" ? ["kokoro", "piper"] : ["piper", "kokoro"],
+      ),
+    );
+
   let tts: TTSProvider;
   switch (config.tts) {
     case "kokoro":
-      tts = new AlignedTTSProvider(new KokoroTTS(config.kokoroVoice), aligner);
+      tts = new AlignedTTSProvider(localVoices("kokoro"), aligner);
       break;
     case "piper":
-      tts = new AlignedTTSProvider(new PiperTTS(), aligner);
+      tts = new AlignedTTSProvider(localVoices("piper"), aligner);
       break;
     case "gemini-tts":
-      tts = new AlignedTTSProvider(new GeminiTTS(undefined, k["GOOGLE_API_KEY"]), aligner);
+      tts = new AlignedTTSProvider(broadcast(new GeminiTTS(undefined, k["GOOGLE_API_KEY"])), aligner);
       break;
     case "openai-tts":
-      tts = new AlignedTTSProvider(new OpenAITTS(undefined, k["OPENAI_API_KEY"]), aligner);
+      tts = new AlignedTTSProvider(broadcast(new OpenAITTS(undefined, k["OPENAI_API_KEY"])), aligner);
       break;
     case "inworld":
-      tts = new InworldTTS(undefined, undefined, k["INWORLD_TTS_API_KEY"]);
+      // Inworld returns word timestamps of its own; mastering is gain-only, so
+      // they stay valid without a second alignment pass.
+      tts = broadcast(new InworldTTS(undefined, undefined, k["INWORLD_TTS_API_KEY"]));
       break;
     default:
-      tts = new ElevenLabsTTS(undefined, k["ELEVENLABS_API_KEY"]);
+      tts = broadcast(new ElevenLabsTTS(undefined, k["ELEVENLABS_API_KEY"]));
       break;
   }
 
@@ -270,19 +299,28 @@ export function createProviders(config: ProviderConfig): Providers {
       ? new OpenAIImage(undefined, k["OPENAI_API_KEY"])
       : new GeminiImage(undefined, k["GOOGLE_API_KEY"]);
 
-  // Build stock provider array: construct both if both keys are available
+  // Build stock provider array. Wikimedia Commons needs no key and is always
+  // available, so it is part of the default set.
   const stock: StockProvider[] = [];
   const pexelsKey = k["PEXELS_API_KEY"] ?? process.env["PEXELS_API_KEY"];
   const pixabayKey = k["PIXABAY_API_KEY"] ?? process.env["PIXABAY_API_KEY"];
 
-  // Primary provider first (from config or default to pexels)
-  const primary = config.stock ?? "pexels";
-  if (primary === "pixabay") {
-    if (pixabayKey) stock.push(new PixabayStock(pixabayKey));
+  // The primary library goes first, the rest follow, and Commons is always
+  // available as the keyless last word.
+  const primary = config.stock ?? "all";
+
+  if (primary === "wikimedia") {
+    stock.push(new WikimediaStock());
+  } else if (primary === "pexels") {
     if (pexelsKey) stock.push(new PexelsStock(pexelsKey));
+    stock.push(new WikimediaStock());
+  } else if (primary === "pixabay") {
+    if (pixabayKey) stock.push(new PixabayStock(pixabayKey));
+    stock.push(new WikimediaStock());
   } else {
     if (pexelsKey) stock.push(new PexelsStock(pexelsKey));
     if (pixabayKey) stock.push(new PixabayStock(pixabayKey));
+    stock.push(new WikimediaStock());
   }
 
   // Build video provider array: construct available providers, primary first.

@@ -59,12 +59,15 @@ describe("OpenAITTS", () => {
       const tts = new OpenAITTS();
       await tts.generate("Hello world");
 
-      expect(mockSpeechCreate).toHaveBeenCalledWith({
-        model: "gpt-4o-mini-tts",
-        voice: "alloy",
-        input: "Hello world",
-        response_format: "wav",
-      });
+      expect(mockSpeechCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: "gpt-4o-mini-tts",
+          voice: "onyx",
+          input: "Hello world",
+          response_format: "wav",
+          instructions: expect.stringContaining("documentary narrator"),
+        }),
+      );
     });
 
     it("wraps rate limit errors", async () => {
@@ -103,6 +106,16 @@ describe("OpenAITTS", () => {
       await tts.generate("Hello");
 
       expect(mockSpeechCreate).toHaveBeenCalledWith(expect.objectContaining({ model: "tts-1-hd" }));
+    });
+
+    it("does not send delivery instructions to a model that rejects them", async () => {
+      mockSpeechCreate.mockResolvedValue(VALID_RESPONSE);
+      const tts = new OpenAITTS("tts-1-hd");
+      await tts.generate("Hello");
+
+      expect(mockSpeechCreate).toHaveBeenCalledWith(
+        expect.not.objectContaining({ instructions: expect.anything() }),
+      );
     });
   });
 });

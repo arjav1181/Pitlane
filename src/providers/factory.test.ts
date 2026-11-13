@@ -13,6 +13,7 @@ import { BundledMusic } from "./music/bundled-adapter.js";
 import { LyriaMusic } from "./music/lyria.js";
 import { PexelsStock } from "./stock/pexels.js";
 import { PixabayStock } from "./stock/pixabay.js";
+import { WikimediaStock } from "./stock/wikimedia.js";
 import { AlignedTTSProvider } from "./tts/aligned-tts-provider.js";
 import { ElevenLabsTTS } from "./tts/elevenlabs.js";
 import { GeminiTTS } from "./tts/gemini.js";
@@ -68,6 +69,11 @@ vi.mock("./stock/pixabay.js", () => ({
     .fn()
     .mockImplementation(() => ({ searchVideo: vi.fn(), searchImage: vi.fn(), download: vi.fn() })),
 }));
+vi.mock("./stock/wikimedia.js", () => ({
+  WikimediaStock: vi
+    .fn()
+    .mockImplementation(() => ({ searchVideo: vi.fn(), searchImage: vi.fn(), download: vi.fn() })),
+}));
 vi.mock("./music/bundled-adapter.js", () => ({
   BundledMusic: vi.fn().mockImplementation(() => ({ generate: vi.fn() })),
 }));
@@ -119,7 +125,8 @@ describe("createProviders", () => {
     expect(providers.tts).toBeDefined();
     expect(providers.imageGen).toBeDefined();
     expect(providers.stock).toBeInstanceOf(Array);
-    expect(providers.stock.length).toBe(1);
+    // Pexels plus Commons, which needs no key.
+    expect(providers.stock.length).toBe(2);
     expect(AnthropicLLM).toHaveBeenCalled();
     expect(ElevenLabsTTS).toHaveBeenCalled();
     expect(GeminiImage).toHaveBeenCalled();
@@ -144,7 +151,7 @@ describe("createProviders", () => {
     expect(FalVideo).not.toHaveBeenCalled();
   });
 
-  it("creates both stock providers when both keys available", () => {
+  it("creates every stock provider when both keys are available", () => {
     const providers = createProviders({
       llm: "anthropic",
       tts: "elevenlabs",
@@ -152,9 +159,10 @@ describe("createProviders", () => {
       keys: { PEXELS_API_KEY: "test-pex", PIXABAY_API_KEY: "test-pix" },
     });
 
-    expect(providers.stock.length).toBe(2);
+    expect(providers.stock.length).toBe(3);
     expect(PexelsStock).toHaveBeenCalledWith("test-pex");
     expect(PixabayStock).toHaveBeenCalledWith("test-pix");
+    expect(WikimediaStock).toHaveBeenCalled();
   });
 
   it("orders pixabay first when stock config is pixabay", () => {
@@ -172,10 +180,14 @@ describe("createProviders", () => {
     // Pixabay should be first since stock config is "pixabay"
     expect(providers.stock.length).toBe(2);
     expect(PixabayStock).toHaveBeenCalled();
-    expect(PexelsStock).toHaveBeenCalled();
+    expect(PexelsStock).not.toHaveBeenCalled();
+    expect(WikimediaStock).toHaveBeenCalled();
+    const pixabayOrder = vi.mocked(PixabayStock).mock.invocationCallOrder[0]!;
+    const wikimediaOrder = vi.mocked(WikimediaStock).mock.invocationCallOrder[0]!;
+    expect(pixabayOrder).toBeLessThan(wikimediaOrder);
   });
 
-  it("returns empty stock array when no stock keys available", () => {
+  it("falls back to Commons when no stock keys are available", () => {
     // Clear env vars that might be set
     const origPexels = process.env["PEXELS_API_KEY"];
     const origPixabay = process.env["PIXABAY_API_KEY"];
@@ -189,7 +201,8 @@ describe("createProviders", () => {
     });
 
     expect(providers.stock).toBeInstanceOf(Array);
-    expect(providers.stock.length).toBe(0);
+    expect(providers.stock.length).toBe(1);
+    expect(WikimediaStock).toHaveBeenCalled();
 
     // Restore
     if (origPexels) process.env["PEXELS_API_KEY"] = origPexels;

@@ -106,6 +106,17 @@ describe("createJobFromBody", () => {
     expect(meta?.request?.noAiAssets).toBe(true);
   });
 
+  it("uses the configured gateway when the request names no LLM", async () => {
+    vi.stubEnv("OPENREELS_LLM_BASE_URL", "https://gateway.example/v1");
+    const ctx = makeContext();
+    const result = await createJobFromBody({ topic: "Default route" }, undefined, ctx);
+    const job = bodyOf(result);
+    const meta = readJobMeta(jobsDir, job["id"] as string);
+
+    expect(meta?.request?.providers.llm).toBe("openai-compatible");
+    vi.unstubAllEnvs();
+  });
+
   it("applies the OPENREELS_NO_AI_ASSETS server policy", async () => {
     vi.stubEnv("OPENREELS_NO_AI_ASSETS", "true");
     const ctx = makeContext();

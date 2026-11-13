@@ -24,15 +24,29 @@ export class PiperTTS implements TTSProvider {
   private readonly model: string;
   /** Phoneme length. Higher is slower speech. */
   private readonly lengthScale: number;
+  /** Silence inserted between sentences, in seconds. */
+  private readonly sentenceSilence: number;
 
   constructor(options?: {
     binary?: string;
     model?: string;
     lengthScale?: number;
+    sentenceSilence?: number;
   }) {
     this.binary = options?.binary ?? process.env["PIPER_BINARY"] ?? "/opt/piper/piper";
-    this.model = options?.model ?? process.env["PIPER_MODEL"] ?? "/opt/piper-voices/en_GB-alan-medium.onnx";
-    this.lengthScale = options?.lengthScale ?? 1;
+    // ryan-high is the highest-quality male English voice Piper ships and is
+    // baked into the image. A high model is noticeably cleaner than a medium
+    // one, which is what the channel was using before.
+    this.model =
+      options?.model ??
+      process.env["PIPER_MODEL"] ??
+      "/opt/piper-voices/en_US-ryan-high.onnx";
+    // A hair slower than default reads as deliberate rather than rushed, which
+    // is what a documentary narrator wants. A longer sentence pause lets each
+    // scene land instead of running into the next.
+    this.lengthScale = options?.lengthScale ?? envNumber("PIPER_LENGTH_SCALE", 1.02);
+    this.sentenceSilence =
+      options?.sentenceSilence ?? envNumber("PIPER_SENTENCE_SILENCE", 0.35);
   }
 
   async generate(text: string): Promise<TTSResult> {
@@ -59,6 +73,8 @@ export class PiperTTS implements TTSProvider {
           outputPath,
           "--length_scale",
           String(this.lengthScale),
+          "--sentence_silence",
+          String(this.sentenceSilence),
           "--quiet",
         ],
         { stdio: ["pipe", "ignore", "pipe"] },
@@ -97,4 +113,9 @@ export class PiperTTS implements TTSProvider {
       child.stdin?.end(text.replace(/\n+/g, "\n"));
     });
   }
+}
+
+function envNumber(name: string, fallback: number): number {
+  const raw = Number(process.env[name]);
+  return Number.isFinite(raw) && raw > 0 ? raw : fallback;
 }

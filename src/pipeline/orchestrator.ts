@@ -11,6 +11,7 @@ import { generateDirectorScore, reviseDirectorScore } from "../agents/creative-d
 import { evaluate } from "../agents/critic.js";
 import { optimizeImagePrompt } from "../agents/image-prompter.js";
 import { research } from "../agents/research.js";
+import { joinScriptLines } from "../providers/tts/narration.js";
 import type { CostBreakdown } from "../cli/cost-estimator.js";
 import {
   computeActualLLMCost,
@@ -299,7 +300,7 @@ async function resolveVisualAsset(
           stocks: opts.stock,
           verifyModel: stockVerify ? (opts.verifyModel ?? null) : null,
           confidenceThreshold: opts.stockConfidence ?? 0.6,
-          maxAttempts: opts.stockMaxAttempts ?? 4,
+          maxAttempts: opts.stockMaxAttempts ?? 6,
           callbacks: cb,
           archetype,
           noAiFallback: opts.noAiAssets === true,
@@ -465,26 +466,10 @@ function buildPipelineWorkflow(
         };
       }
 
-      // The caller supplied a direction: the topic, the fact and its source
-      // were already researched and verified upstream (that is what the
-      // direction contains), and the director reads the direction directly.
-      // Running our own web research here would be a redundant LLM call that
-      // can stall the whole job on a rate limit without changing the result.
-      if (opts.direction?.trim()) {
-        cb.onStageSkip?.("research", "Topic supplied directly — nothing to research");
-        log.stages.push({ name: "research", duration: 0, status: "skipped" });
-        return {
-          summary: `Topic: ${inputData.topic}`,
-          key_facts: [] as string[],
-          mood: "informative",
-          sources: [] as string[],
-        };
-      }
-
       cb.onStageStart?.("research");
       const start = Date.now();
       try {
-        const output = await research(opts.llm, inputData.topic);
+        const output = await research(opts.llm, inputData.topic, opts.direction);
         llmUsages.push(output.usage);
         const dur = (Date.now() - start) / 1000;
         cb.onStageComplete?.("research", `${output.data.key_facts.length} facts`, dur);
@@ -753,7 +738,7 @@ function buildPipelineWorkflow(
       const score = directorResult.score!;
       cb.onStageStart?.("tts");
       const start = Date.now();
-      const fullScript = score.scenes.map((s) => s.script_line).join(" ");
+      const fullScript = joinScriptLines(score.scenes.map((s) => s.script_line));
       const result = await opts.tts.generate(fullScript);
       const dur = (Date.now() - start) / 1000;
 

@@ -171,7 +171,14 @@ GOLDEN RULE: Never use the same visual_type more than 2 times consecutively. Mix
 
 Think like a YouTube Shorts producer. The hook must grab in 1-2 seconds. Every scene should move the story forward. The FINAL scene MUST be a call-to-action (e.g. "What would you have done? Comment below."), not a story conclusion.
 
-Keep total script under 140 words — verbose scripts create rushed, unwatchable videos.`;
+Keep total script under 140 words — verbose scripts create rushed, unwatchable videos.
+
+Write every script_line for the ear, not the page:
+- One idea per sentence, 8-18 words, never more than two clauses.
+- Spell out units and symbols in words ("kilometres per hour", "horsepower", "percent", "and").
+- Write numbers the way they are spoken ("nineteen sixty-nine", "four point five litres").
+- No abbreviations ("e.g.", "i.e.", "vs.", "etc."), parentheses, brackets, slashes or em dashes.
+- End every line with punctuation so the narrator pauses before the next scene.`;
 }
 
 // --- Pacing tier configuration ---

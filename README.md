@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.4.0-green.svg)](CHANGELOG.md)
-[![Tests](https://img.shields.io/badge/tests-623%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-672%20passing-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6.svg)]()
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg)]()
 
@@ -35,6 +35,10 @@ publishing system:
   model when the primary fails, with a bounded retry window per model.
 - **One research pass** — the render skips its own web research when the caller supplies a
   verified direction, so one job makes the calls it needs and no more.
+- **A voice that sounds like one channel** — every engine gets the same ear-ready script
+  (units, symbols and abbreviations written out, long sentences broken at a comma) and the same
+  broadcast mastering (`-14 LUFS`, `-1.5 dBTP`, de-essed, 192 kbps). Piper is the default
+  narrator on the high-quality `en_US-ryan-high` voice.
 
 Publishing is owned by the calling automation, so YouTube support has been removed from the
 engine itself.
@@ -84,6 +88,35 @@ Give it a topic. It handles everything:
 | **Critique** | AI critic scores the output. If quality is below threshold, the pipeline re-runs |
 
 Every stage streams live progress to the web UI. You watch the AI research, write, paint, compose, and render in real time.
+
+### The voice
+
+The narrator is Kokoro, a local neural voice that runs on the CPU and costs nothing per short.
+It is baked into the image, the build proves it can speak before the image ships, and Piper
+stands behind it as a fallback.
+
+The voiceover is treated as a mix, not as an API response. Before synthesis the script is
+rewritten for the ear: `40%` becomes "40 percent", `km/h` becomes "kilometres per hour", `e.g.`
+becomes "for example", a dash becomes a comma, and a sentence that runs past 28 words is broken
+at a pause the writer already asked for. After synthesis the audio is mastered once, whatever
+engine made it: 70 Hz high pass, a gentle de-esser, two-pass loudness towards `-14 LUFS` with
+a `-1.5 dBTP` ceiling, 44.1 kHz mono at 192 kbps.
+
+Mastering is gain and tone only, never a timing change, so word timestamps and captions stay
+exact. If ffmpeg is unavailable the original audio is kept, because a render is never lost to a
+mix.
+
+### The footage
+
+Scenes are cut from stock, never generated. Three libraries are searched: Pexels and Pixabay
+when their keys are set, and Wikimedia Commons, which needs no key, is free-licensed, and is
+deep in motorsport photography and public-domain film. Every Commons asset carries its licence
+and author into the job's credits.
+
+A visual judge checks each candidate against the scene. It judges the subject, not the staging:
+a parked racing car is a usable frame for a scene about a racing car, because the frame is
+cropped to vertical and given a slow camera move. A scene is only dropped to a text card when
+there is nothing usable at all.
 
 ## Provider flexibility
 
@@ -280,9 +313,15 @@ cards, so the style is carried by grade, type and motion rather than by generate
 
 ## Background
 
-OpenReels is a full rewrite of [ReelMistri](https://github.com/tsensei/ReelMistri/), a CLI pipeline originally built for Bangla-language YouTube Shorts automation. ReelMistri proved the concept: one command, fully produced video, language-aware scripts, culturally coherent visuals, proper Bengali text rendering.
+Pitlane began as a fork of [tsensei/OpenReels](https://github.com/tsensei/OpenReels), a
+TypeScript pipeline that writes, voices and renders short-form video with Remotion. The fork
+turns it into an unattended publishing system: a keyed REST API, a stock-only render mode, a
+research pass that can be replaced by a verified fact, and a local narrator that sounds like one
+channel.
 
-The rewrite moves from Python to TypeScript for native [Remotion](https://www.remotion.dev/) integration. Cleaner video rendering, better developer experience, no Python-to-TypeScript bridge.
+The original project was itself a rewrite of ReelMistri, a Python CLI built for Bangla-language
+Shorts automation. It proved the concept; this project keeps the idea and drops the Python
+bridge.
 
 ## Status
 

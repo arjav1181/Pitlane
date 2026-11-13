@@ -20,7 +20,12 @@ const WORKER_PATH = fileURLToPath(new URL("./kokoro-worker.ts", import.meta.url)
 export class KokoroTTS implements TTSProvider {
   private voice: string;
 
-  constructor(voice: string = "af_heart") {
+  /**
+   * `am_michael` is the narrator voice: warm, even and unhurried. The
+   * British and female voices are baked into the image too, so a channel can
+   * switch with one environment variable.
+   */
+  constructor(voice: string = process.env["KOKORO_VOICE"] ?? "am_michael") {
     this.voice = voice;
   }
 
@@ -44,8 +49,8 @@ export class KokoroTTS implements TTSProvider {
               reject(
                 new Error(
                   `Kokoro TTS failed: ${msg}. ` +
-                    "Ensure kokoro-js is installed (pnpm install). " +
-                    "The Kokoro model (~86MB) downloads from HuggingFace on first run.",
+                    "Check that espeak-ng is installed (it does the phonemisation) " +
+                    "and that the model and voice files are in the image.",
                 ),
               );
             } else {

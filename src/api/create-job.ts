@@ -31,6 +31,20 @@ function noAiAssetsDefault(): boolean {
   return (process.env["OPENREELS_NO_AI_ASSETS"] ?? "").toLowerCase() === "true";
 }
 
+/**
+ * The LLM provider a request gets when it names none.
+ *
+ * A server configured with a base URL is pointing at an OpenAI-compatible
+ * gateway, so that is what it should use. Defaulting to Anthropic there makes
+ * every caller that omits the provider fail on a missing key, which is exactly
+ * how a schedule breaks at 3am.
+ */
+function defaultLLMProvider(): string {
+  return (process.env["OPENREELS_LLM_BASE_URL"] ?? "").trim()
+    ? "openai-compatible"
+    : "anthropic";
+}
+
 export interface CreateJobContext {
   queue: Queue;
   jobsDir: string;
@@ -365,10 +379,10 @@ export async function createJobFromBody(
     ...(metadataResult.metadata ? { metadata: metadataResult.metadata } : {}),
     ...(callbackResult.callbacks ? { callbacks: callbackResult.callbacks } : {}),
     providers: {
-      llm: (providers["llm"] as string | undefined) ?? "anthropic",
-      tts: (providers["tts"] as string | undefined) ?? "elevenlabs",
+      llm: (providers["llm"] as string | undefined) ?? defaultLLMProvider(),
+      tts: (providers["tts"] as string | undefined) ?? "kokoro",
       image: (providers["image"] as string | undefined) ?? "gemini",
-      stock: (providers["stock"] as string | undefined) ?? "pexels",
+      stock: (providers["stock"] as string | undefined) ?? "all",
       video: providers["video"] as string | undefined,
       videoModel: providers["videoModel"] as string | undefined,
       music: (providers["music"] as string | undefined) ?? "bundled",
@@ -440,10 +454,10 @@ export async function retryJob(
         ...(meta.score ? { score: meta.score as Record<string, unknown> } : {}),
         ...(meta.metadata ? { metadata: meta.metadata } : {}),
         providers: request?.providers ?? {
-          llm: "anthropic",
-          tts: "elevenlabs",
+          llm: defaultLLMProvider(),
+          tts: "kokoro",
           image: "gemini",
-          stock: "pexels",
+          stock: "all",
           music: "bundled",
         },
         keys: {},

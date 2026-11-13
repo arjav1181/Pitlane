@@ -24,7 +24,12 @@ export interface StockResolutionAttempt {
 }
 
 export interface StockResolution {
-  method: "stock_verified" | "stock_unverified" | "procedural_fallback" | "ai_fallback";
+  method:
+    | "stock_verified"
+    | "stock_unverified"
+    | "stock_best_effort"
+    | "procedural_fallback"
+    | "ai_fallback";
   attempts: StockResolutionAttempt[];
   originalQuery: string;
 }
@@ -34,6 +39,8 @@ export interface AdaptiveResolverResult {
   usage: LLMUsage | null;
   durationSeconds: number | null;
   resolution: StockResolution;
+  /** Attribution for the asset that was used, when the source needs it. */
+  credit?: { license: string; author: string; sourceUrl: string };
 }
 
 interface ResolverConfig {
@@ -73,11 +80,22 @@ export async function resolveStockAdaptive(
   const seenAssetIds = new Set<string>();
   const llmUsages: LLMUsage[] = [];
   let totalApiCalls = 0;
+  let verifyCalls = 0;
+  // How close a rejected candidate has to be to be used anyway.
+  const bestEffortFloor = 0.45;
 
   const isVideo = visualType === "stock_video";
   const searchFn = isVideo ? "searchVideo" : "searchImage";
   const ext = isVideo ? "mp4" : "jpg";
-  const maxCandidatesPerQuery = isVideo ? 1 : 3; // videos are expensive to download
+  // More candidates per query: a rejected candidate is not the end of the
+  // road, and with three libraries in the loop there is usually a better one.
+  const maxCandidatesPerQuery = isVideo ? 2 : 4;
+
+  // The best candidate the judge turned down. Stock is the point of the
+  // no-AI mode, so a near miss is used rather than thrown away.
+  let bestRejected:
+    | { candidate: StockCandidate; confidence: number; asset: { filePath: string } }
+    | null = null;
 
   // Build the query list: original first, reformulated on demand
   const queries: string[] = [visualPrompt];
@@ -113,6 +131,8 @@ export async function resolveStockAdaptive(
       for (const candidate of toVerify) {
         if (seenAssetIds.has(candidate.id)) continue;
         seenAssetIds.add(candidate.id);
+        if (verifyCalls >= config.maxAttempts * 3) break;
+        verifyCalls++;
 
         // Lazy download: only download the candidate we're about to verify
         let asset: { filePath: string };
@@ -147,6 +167,7 @@ export async function resolveStockAdaptive(
             path: dest,
             usage: null,
             durationSeconds,
+            credit: candidate.credit,
             resolution: {
               method: "stock_unverified",
               attempts,
@@ -189,6 +210,11 @@ export async function resolveStockAdaptive(
             reason: verification.reason,
             asset,
           });
+        } else if (
+          verification.confidence >= bestEffortFloor &&
+          (!bestRejected || verification.confidence > bestRejected.confidence)
+        ) {
+          bestRejected = { candidate, confidence: verification.confidence, asset };
         }
       }
 
@@ -204,6 +230,7 @@ export async function resolveStockAdaptive(
           path: dest,
           usage: totalUsage,
           durationSeconds,
+          credit: best.candidate.credit,
           resolution: {
             method: "stock_verified",
             attempts,
@@ -232,6 +259,35 @@ export async function resolveStockAdaptive(
         queries: reform.queries,
       });
     }
+  }
+
+  // Nothing passed the judge, but a near miss is still a usable frame: a
+  // parked car with the right bodywork beats a text card. Use the best of
+  // what was turned down rather than throwing the scene away.
+  if (bestRejected) {
+    const dest = path.join(assetsDir, `scene-${sceneIndex}-stock.${ext}`);
+    fs.copyFileSync(bestRejected.asset.filePath, dest);
+    const durationSeconds = isVideo ? (bestRejected.candidate.duration ?? null) : null;
+
+    config.callbacks?.onProgress?.("visuals", {
+      type: "stock_rejected",
+      scene: sceneIndex,
+      query: visualPrompt,
+      confidence: bestRejected.confidence,
+      reason: "Best available match used",
+    });
+
+    return {
+      path: dest,
+      usage: sumUsages(llmUsages),
+      durationSeconds,
+      credit: bestRejected.candidate.credit,
+      resolution: {
+        method: "stock_best_effort",
+        attempts,
+        originalQuery: visualPrompt,
+      },
+    };
   }
 
   // All attempts exhausted — no AI assets mode renders a procedural text card.

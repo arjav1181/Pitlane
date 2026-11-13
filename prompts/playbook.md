@@ -1,4 +1,4 @@
-# OpenReels Content Playbook
+# Pitlane Content Playbook
 
 ## Hook Patterns
 

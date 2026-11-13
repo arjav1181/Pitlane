@@ -18,7 +18,19 @@ export interface ResearchOutput {
   usage: LLMUsage;
 }
 
-export async function research(llm: LLMProvider, topic: string): Promise<ResearchOutput> {
+/**
+ * Research a topic.
+ *
+ * `direction` is a fact that was already verified upstream. It is not the
+ * whole brief: the stage still searches, so the script can be grounded in
+ * more than the one fact the caller handed over, and the caller keeps the
+ * benefit of a checked fact.
+ */
+export async function research(
+  llm: LLMProvider,
+  topic: string,
+  direction?: string,
+): Promise<ResearchOutput> {
   let systemPrompt =
     "You are a research assistant. Given a topic, search the web for current information and produce a structured research summary with key facts, mood/tone, and sources.";
 
@@ -28,9 +40,14 @@ export async function research(llm: LLMProvider, topic: string): Promise<Researc
     // Use default prompt if file doesn't exist
   }
 
+  const brief = direction?.trim()
+    ? `Research this topic for a short-form video script: ${topic}\n\n` +
+      `A fact that has already been verified for this video - include it and keep its source:\n${direction.trim()}`
+    : `Research this topic for a short-form video script: ${topic}`;
+
   const result = await llm.generate({
     systemPrompt,
-    userMessage: `Research this topic for a short-form video script: ${topic}`,
+    userMessage: brief,
     schema: ResearchResult,
     enableWebSearch: true,
   });

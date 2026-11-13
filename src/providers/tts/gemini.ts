@@ -14,12 +14,23 @@ import type { TTSProvider, TTSResult } from "../../schema/providers.js";
 export class GeminiTTS implements TTSProvider {
   private client: GoogleGenAI;
   private model: string;
+  private voice: string;
+  private style: string;
 
-  constructor(model: string = "gemini-2.5-flash-preview-tts", apiKey?: string) {
+  constructor(
+    model: string = "gemini-2.5-flash-preview-tts",
+    apiKey?: string,
+    options?: { voice?: string; style?: string },
+  ) {
     const key = apiKey ?? process.env["GOOGLE_API_KEY"];
     if (!key) throw new Error("GOOGLE_API_KEY environment variable is required for Gemini TTS");
     this.client = new GoogleGenAI({ apiKey: key });
     this.model = model;
+    // Charon is the low, informative voice; Kore reads younger and brighter.
+    this.voice = options?.voice ?? process.env["GEMINI_TTS_VOICE"] ?? "Charon";
+    // Gemini follows a spoken style direction. It is opt-in because the model
+    // can occasionally read the direction aloud.
+    this.style = options?.style ?? process.env["GEMINI_TTS_STYLE"] ?? "";
   }
 
   async generate(text: string): Promise<TTSResult> {
@@ -27,11 +38,18 @@ export class GeminiTTS implements TTSProvider {
     try {
       response = await this.client.models.generateContent({
         model: this.model,
-        contents: [{ role: "user", parts: [{ text }] }],
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: this.style ? `${this.style}: ${text}` : text },
+            ],
+          },
+        ],
         config: {
           responseModalities: ["AUDIO"],
           speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } },
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: this.voice } },
           },
         },
       });

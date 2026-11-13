@@ -85,7 +85,7 @@ export function showUsageReport(outputDir: string): void {
 
   // Header
   console.log();
-  console.log(`${BOLD}OpenReels Usage Report${RESET}`);
+  console.log(`${BOLD}Pitlane Usage Report${RESET}`);
   console.log(`${DIM}${"─".repeat(60)}${RESET}`);
   console.log(`${DIM}Source: ${resolved}${RESET}`);
   console.log(

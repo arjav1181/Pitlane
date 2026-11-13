@@ -20,27 +20,25 @@ export interface VerificationResult {
   usage: LLMUsage;
 }
 
-const SYSTEM_PROMPT = `You are a visual content judge. Given an image and a description of what was requested, determine if the image matches the request.
+const SYSTEM_PROMPT = `You are a visual content judge for a short documentary video. Given an image and a description of what was requested, decide whether the frame is usable in that video.
 
-Be strict:
-- A toy rocket does NOT match "rocket launch"
-- A generic sunset does NOT match "Mars surface"
-- A cartoon illustration does NOT match a request for real footage
-- A loosely related image is NOT a match (e.g., "laboratory" for "DNA helix")
+Judge the SUBJECT, not the staging. Stock footage is cut into a vertical frame and given a slow camera move, so it does not have to match the requested action exactly. A parked vintage racing car is a usable frame for a scene about a vintage racing car; a modern sedan is not.
 
-Judge the SEMANTIC match between what was requested and what the image actually shows. Ignore aesthetic quality.
+Answer relevant: true when the frame shows the requested subject and is usable:
+- The subject matches the requested subject, model, era, type or place. Judge on the subject, not the exact action.
+- A looser framing of the right subject (a detail shot, a wider shot, a different angle) is still a match.
+- The subject is recognisable and readable in the frame.
 
-Also reject images that are technically on-topic but unusable as a video frame:
-- Mostly empty sky, haze or blown-out white (the subject is barely visible)
-- Heavily blurred, low-contrast or underexposed - no readable subject
-- A frame that is almost entirely one flat colour
-
-If the subject occupies only a small sliver of the frame or cannot be made out at all, answer relevant: false.
+Answer relevant: false when:
+- The subject is a different thing entirely (a toy rocket for "rocket launch", a generic sunset for "Mars surface", a sedan for "vintage racing car")
+- The frame is an illustration, a drawing or a render when real footage was requested
+- The frame is technically unusable: mostly empty sky or haze, heavily blurred, underexposed, or one flat colour
+- The subject occupies a sliver of the frame and cannot be made out
 
 Output your confidence as a number between 0 and 1:
-- 0.0-0.3: Clearly wrong (different subject entirely)
-- 0.3-0.6: Loosely related but not what was requested
-- 0.6-0.8: Reasonable match, captures the right subject
+- 0.0-0.3: Wrong subject entirely
+- 0.3-0.6: Related subject, but a weak match for what was requested
+- 0.6-0.8: The requested subject is clearly in frame
 - 0.8-1.0: Strong match, exactly what was described`;
 
 /** Extract a single frame from a video file for verification */
