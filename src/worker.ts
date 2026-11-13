@@ -297,6 +297,12 @@ const worker = new Worker<JobData>(
             fallback: data.fallback as boolean,
           };
           writeMeta(jobDir, meta);
+        } else if (data.type === "credits") {
+          meta.metadata = {
+            ...(meta.metadata ?? {}),
+            credits: data.credits as unknown[],
+          };
+          writeMeta(jobDir, meta);
         } else if (data.type === "revision") {
           if (!meta.revisionHistory) meta.revisionHistory = [];
           meta.revisionHistory.push({

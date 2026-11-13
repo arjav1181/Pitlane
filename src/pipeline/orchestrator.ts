@@ -121,6 +121,8 @@ interface RunLog {
   stages: { name: string; duration: number; status: string; error?: string }[];
   totalCost?: { estimated: number; actual?: number };
   stockResolutions?: StockResolution[];
+  /** Attribution for the assets that needed it, for the video description. */
+  credits?: Array<{ license: string; author: string; sourceUrl: string }>;
   videoResolutions?: VideoResolution[];
   musicResolution?: {
     provider: string;
@@ -874,6 +876,13 @@ function buildPipelineWorkflow(
           metadata: musicResult.metadata,
           fallback: musicResult.fallback,
         });
+      }
+
+      if (visualsResult.credits.length > 0) {
+        log.credits = visualsResult.credits;
+        // The credits travel with the job so the video description can name
+        // them: a Commons clip is free to use, not free to use uncredited.
+        cb.onProgress?.("visuals", { type: "credits", credits: visualsResult.credits });
       }
 
       // Collect stock resolution metadata for log.json
