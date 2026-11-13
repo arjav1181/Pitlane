@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.4.0-green.svg)](CHANGELOG.md)
-[![Tests](https://img.shields.io/badge/tests-672%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-679%20passing-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6.svg)]()
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg)]()
 
@@ -26,19 +26,21 @@ publishing system:
 - **Automation REST API** — versioned endpoints with an OpenAPI 3.1 schema and interactive docs,
   optional authentication, idempotent job creation, batch creation, filtered listing, retry,
   cancel, delete, artifact listing, and server-sent events for progress.
-- **Stock-only mode** — `noAiAssets` disables AI image and video generation, leaving stock
-  footage and procedural text cards. No image or video API key is required.
+- **Stock-only mode** — `noAiAssets` disables AI image and video generation, leaving real
+  footage from Pexels, Pixabay and Wikimedia Commons, with procedural text cards for the rest.
+  No image or video API key is required.
 - **Render resilience** — the Remotion delayRender timeout is now passed to the renderer
   correctly, LLM rate limits are retried with backoff, and a job orphaned by a server restart
   fails instead of blocking the queue.
 - **Model fallback chain** — a job can list backup models; the render falls back to the next
   model when the primary fails, with a bounded retry window per model.
-- **One research pass** — the render skips its own web research when the caller supplies a
-  verified direction, so one job makes the calls it needs and no more.
+- **Research that runs** — the stage searches the web (Tavily when a key is set, Wikipedia when
+  it is not) and turns what it read into a brief with sources. A fact the caller already
+  verified is part of the brief, not a reason to skip the research.
 - **A voice that sounds like one channel** — every engine gets the same ear-ready script
   (units, symbols and abbreviations written out, long sentences broken at a comma) and the same
-  broadcast mastering (`-14 LUFS`, `-1.5 dBTP`, de-essed, 192 kbps). Kokoro is the default
-  narrator on the high-quality `en_US-ryan-high` voice.
+  broadcast mastering (`-14 LUFS`, `-1.5 dBTP`, de-essed, 192 kbps). Kokoro, a local neural
+  narrator, is the default; Piper stands behind it as a fallback.
 
 Publishing is owned by the calling automation, so YouTube support has been removed from the
 engine itself.
