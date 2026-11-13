@@ -96,6 +96,12 @@ export async function resolveStockAdaptive(
   let bestRejected:
     | { candidate: StockCandidate; confidence: number; asset: { filePath: string } }
     | null = null;
+  // A candidate the judge could not look at. It is kept, but it is the last
+  // resort: a properly judged clip is always better, so the search keeps
+  // going instead of stopping at the first frame it cannot check.
+  let bestUnverified:
+    | { candidate: StockCandidate; confidence: number; asset: { filePath: string } }
+    | null = null;
 
   // Build the query list: original first, reformulated on demand
   const queries: string[] = [visualPrompt];
@@ -203,13 +209,15 @@ export async function resolveStockAdaptive(
           reason: verification.reason,
         });
 
-        if (verification.relevant) {
+        if (verification.relevant && verification.confidence >= 0) {
           verifiedCandidates.push({
             candidate,
             confidence: verification.confidence,
             reason: verification.reason,
             asset,
           });
+        } else if (verification.confidence < 0 && !bestUnverified) {
+          bestUnverified = { candidate, confidence: verification.confidence, asset };
         } else if (
           verification.confidence >= bestEffortFloor &&
           (!bestRejected || verification.confidence > bestRejected.confidence)
@@ -259,6 +267,34 @@ export async function resolveStockAdaptive(
         queries: reform.queries,
       });
     }
+  }
+
+  // The judge could not look at this frame. It is still a frame, and it is
+  // better than a text card, but only once nothing else has been found.
+  if (!bestRejected && bestUnverified) {
+    const dest = path.join(assetsDir, `scene-${sceneIndex}-stock.${ext}`);
+    fs.copyFileSync(bestUnverified.asset.filePath, dest);
+    const durationSeconds = isVideo ? (bestUnverified.candidate.duration ?? null) : null;
+
+    config.callbacks?.onProgress?.("visuals", {
+      type: "stock_rejected",
+      scene: sceneIndex,
+      query: visualPrompt,
+      confidence: bestUnverified.confidence,
+      reason: "Used a frame the judge could not check",
+    });
+
+    return {
+      path: dest,
+      usage: sumUsages(llmUsages),
+      durationSeconds,
+      credit: bestUnverified.candidate.credit,
+      resolution: {
+        method: "stock_unverified",
+        attempts,
+        originalQuery: visualPrompt,
+      },
+    };
   }
 
   // Nothing passed the judge, but a near miss is still a usable frame: a

@@ -3,15 +3,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { LanguageModel } from "ai";
-import { generateText, Output } from "ai";
-import { z } from "zod";
+import { generateText } from "ai";
 import type { LLMUsage } from "../../schema/providers.js";
-
-const VerificationSchema = z.object({
-  relevant: z.boolean(),
-  confidence: z.number(),
-  reason: z.string(),
-});
 
 export interface VerificationResult {
   relevant: boolean;
@@ -40,6 +33,38 @@ Output your confidence as a number between 0 and 1:
 - 0.3-0.6: Related subject, but a weak match for what was requested
 - 0.6-0.8: The requested subject is clearly in frame
 - 0.8-1.0: Strong match, exactly what was described`;
+
+/**
+ * Read the judge's answer.
+ *
+ * Models wrap JSON in prose, in code fences, or in nothing at all, so the
+ * first object in the answer is taken and its fields are read defensively.
+ */
+export function parseVerdict(text: string): VerificationResult | null {
+  if (!text) return null;
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end <= start) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null) return null;
+
+  const record = parsed as Record<string, unknown>;
+  const confidence = Number(record["confidence"]);
+  if (!Number.isFinite(confidence)) return null;
+
+  return {
+    relevant: record["relevant"] === true,
+    confidence: Math.max(0, Math.min(1, confidence)),
+    reason: String(record["reason"] ?? "").slice(0, 400),
+    usage: { inputTokens: 0, outputTokens: 0 },
+  };
+}
 
 /** Extract a single frame from a video file for verification */
 function extractVideoFrame(videoPath: string): Buffer {
@@ -83,6 +108,10 @@ export async function verifyStockResult(
     const isVideo = assetPath.endsWith(".mp4");
     const imageBuffer = isVideo ? extractVideoFrame(assetPath) : fs.readFileSync(assetPath);
 
+    // The answer is asked for as plain JSON and parsed here, rather than
+    // through the provider's structured-output mode. A gateway that cannot
+    // emit a schema object fails the whole check and every frame is taken on
+    // trust, which is how a wrong subject ends up in the finished video.
     const result = await generateText({
       model,
       messages: [
@@ -91,7 +120,11 @@ export async function verifyStockResult(
           content: [
             {
               type: "text",
-              text: `${SYSTEM_PROMPT}\n\nRequested visual: ${visualPrompt}\nNarration context: ${scriptLine}\n\nDoes this image match what was requested?`,
+              text:
+                `${SYSTEM_PROMPT}\n\nRequested visual: ${visualPrompt}\n` +
+                `Narration context: ${scriptLine}\n\n` +
+                `Does this image match what was requested?\n` +
+                `Answer with JSON only: {"relevant": true or false, "confidence": 0 to 1, "reason": "one sentence"}`,
             },
             {
               type: "image",
@@ -101,7 +134,6 @@ export async function verifyStockResult(
           ],
         },
       ],
-      output: Output.object({ schema: VerificationSchema }),
     });
 
     const usage: LLMUsage = {
@@ -109,14 +141,15 @@ export async function verifyStockResult(
       outputTokens: result.usage.outputTokens ?? 0,
     };
 
-    if (result.output == null) {
-      return { relevant: false, confidence: 0, reason: "VLM returned no output", usage };
+    const parsed = parseVerdict(result.text);
+    if (!parsed) {
+      return { relevant: false, confidence: 0, reason: "The judge did not answer", usage };
     }
 
     return {
-      relevant: result.output.relevant && result.output.confidence >= confidenceThreshold,
-      confidence: result.output.confidence,
-      reason: result.output.reason,
+      relevant: parsed.relevant && parsed.confidence >= confidenceThreshold,
+      confidence: parsed.confidence,
+      reason: parsed.reason,
       usage,
     };
   } catch (err) {

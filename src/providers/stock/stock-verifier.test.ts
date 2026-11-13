@@ -33,7 +33,7 @@ const mockModel = {} as LanguageModel;
 describe("verifyStockResult", () => {
   it("returns relevant=true when VLM confirms match", async () => {
     mockGenerateText.mockResolvedValueOnce({
-      output: { relevant: true, confidence: 0.85, reason: "Real rocket launch" },
+      text: `{"relevant": true, "confidence": 0.85, "reason": "Real rocket launch"}`,
       usage: { inputTokens: 200, outputTokens: 30 },
     } as any);
 
@@ -52,7 +52,7 @@ describe("verifyStockResult", () => {
 
   it("returns relevant=false when VLM rejects", async () => {
     mockGenerateText.mockResolvedValueOnce({
-      output: { relevant: false, confidence: 0.12, reason: "Toy rocket on lawn" },
+      text: `{"relevant": false, "confidence": 0.12, "reason": "Toy rocket on lawn"}`,
       usage: { inputTokens: 200, outputTokens: 30 },
     } as any);
 
@@ -71,7 +71,7 @@ describe("verifyStockResult", () => {
 
   it("rejects when confidence is below threshold", async () => {
     mockGenerateText.mockResolvedValueOnce({
-      output: { relevant: true, confidence: 0.5, reason: "Loosely related" },
+      text: `{"relevant": true, "confidence": 0.5, "reason": "Loosely related"}`,
       usage: { inputTokens: 200, outputTokens: 30 },
     } as any);
 
@@ -89,7 +89,7 @@ describe("verifyStockResult", () => {
 
   it("accepts when confidence is exactly at threshold", async () => {
     mockGenerateText.mockResolvedValueOnce({
-      output: { relevant: true, confidence: 0.6, reason: "Matches" },
+      text: `{"relevant": true, "confidence": 0.6, "reason": "Matches"}`,
       usage: { inputTokens: 200, outputTokens: 30 },
     } as any);
 
@@ -104,9 +104,9 @@ describe("verifyStockResult", () => {
     expect(result.relevant).toBe(true);
   });
 
-  it("returns not relevant when VLM returns null output", async () => {
+  it("returns not relevant when the judge answers with nothing usable", async () => {
     mockGenerateText.mockResolvedValueOnce({
-      output: null,
+      text: "I cannot say.",
       usage: { inputTokens: 100, outputTokens: 10 },
     } as any);
 
@@ -120,7 +120,25 @@ describe("verifyStockResult", () => {
 
     expect(result.relevant).toBe(false);
     expect(result.confidence).toBe(0);
-    expect(result.reason).toContain("no output");
+    expect(result.reason).toContain("did not answer");
+  });
+
+  it("reads a verdict wrapped in prose", async () => {
+    mockGenerateText.mockResolvedValueOnce({
+      text: 'Here is my answer: {"relevant": true, "confidence": 0.9, "reason": "It is a rocket"}',
+      usage: { inputTokens: 100, outputTokens: 10 },
+    } as any);
+
+    const result = await verifyStockResult(
+      mockModel,
+      "/tmp/test.jpg",
+      "rocket launch",
+      "A rocket launches",
+      0.6,
+    );
+
+    expect(result.relevant).toBe(true);
+    expect(result.confidence).toBe(0.9);
   });
 
   it("returns stock_unverified on VLM error", async () => {
@@ -141,7 +159,7 @@ describe("verifyStockResult", () => {
 
   it("extracts frame from video files", async () => {
     mockGenerateText.mockResolvedValueOnce({
-      output: { relevant: true, confidence: 0.9, reason: "Good match" },
+      text: `{"relevant": true, "confidence": 0.9, "reason": "Good match"}`,
       usage: { inputTokens: 200, outputTokens: 30 },
     } as any);
 
