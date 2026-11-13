@@ -106,6 +106,7 @@ const Main: React.FC<CompositionProps> = ({
   captionAccentColor,
   captionChunkSize,
   captionLingerS,
+  sfxAvailable,
 }) => {
   const style = CAPTION_STYLES[captionStyle] ?? CAPTION_STYLES.clean!;
 
@@ -120,11 +121,12 @@ const Main: React.FC<CompositionProps> = ({
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       {/* Transition whooshes — a short sweep under each cut */}
-      {scenes.slice(1).map((_, i) => (
-        <Sequence key={`whoosh-${i}`} from={Math.max(0, sceneStarts[i + 1]! - 6)}>
-          <Audio src={staticFile("sfx/whoosh.mp3")} volume={0.28} />
-        </Sequence>
-      ))}
+      {sfxAvailable &&
+        scenes.slice(1).map((_, i) => (
+          <Sequence key={`whoosh-${i}`} from={Math.max(0, sceneStarts[i + 1]! - 6)}>
+            <Audio src={staticFile("sfx/whoosh.mp3")} volume={0.28} />
+          </Sequence>
+        ))}
 
       {/* Scene beats with transitions */}
       <TransitionSeries>

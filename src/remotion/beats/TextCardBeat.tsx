@@ -25,6 +25,7 @@ export const TextCardBeat: React.FC<SceneProps> = ({
   textCardFont,
   sceneIndex,
   sceneCount,
+  sfxAvailable,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -53,7 +54,7 @@ export const TextCardBeat: React.FC<SceneProps> = ({
       }}
     >
       {/* The cut lands on the card */}
-      <Audio src={staticFile("sfx/impact.mp3")} volume={0.4} />
+      {sfxAvailable && <Audio src={staticFile("sfx/impact.mp3")} volume={0.4} />}
 
       {/* Rule */}
       <div

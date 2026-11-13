@@ -931,10 +931,15 @@ function buildPipelineWorkflow(
       // Sound cues: a whoosh under each cut and an impact on each title card.
       const sfxDir = path.join(publicDir, "sfx");
       fs.mkdirSync(sfxDir, { recursive: true });
+      let sfxAvailable = true;
       for (const cue of SFX_CUES) {
         const source = path.resolve(process.cwd(), "assets", "sfx", cue);
         if (fs.existsSync(source)) {
           fs.copyFileSync(source, path.join(sfxDir, cue));
+        } else {
+          // The composition only mounts an <Audio> for a cue that exists, so a
+          // missing asset silences the effect instead of failing the render.
+          sfxAvailable = false;
         }
       }
 
@@ -973,6 +978,8 @@ function buildPipelineWorkflow(
         },
         platformConfig.fps,
       );
+      compositionProps.sfxAvailable = sfxAvailable;
+      for (const scene of compositionProps.scenes) scene.sfxAvailable = sfxAvailable;
 
       const totalFrames = getTotalDurationInFrames(compositionProps, platformConfig.fps);
 

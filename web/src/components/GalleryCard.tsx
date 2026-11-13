@@ -21,6 +21,10 @@ export function GalleryCard({ job, bulkMode, selected, onToggleSelect, timeAgo }
   const sceneCount = score?.scenes?.length;
   const criticScore = job.criticReview?.score;
   const cost = job.actualCost?.totalCost ?? job.costEstimate?.totalCost;
+  // Where a failed short stopped, so the card says something actionable.
+  const failedStage = job.stages
+    ? ((Object.entries(job.stages).find(([, s]) => s?.status === "error") ?? [])[0] ?? "pipeline")
+    : "pipeline";
 
   // The pipeline's poster, or the first scene that has a still. Video scenes
   // have no still of their own.
@@ -93,7 +97,8 @@ export function GalleryCard({ job, bulkMode, selected, onToggleSelect, timeAgo }
             {job.archetype && <span>{formatArchetypeName(job.archetype)}</span>}
             {sceneCount != null && <span>{sceneCount} scenes</span>}
             {criticScore != null && <span>{criticScore}/10</span>}
-            {cost != null && <span>${cost.toFixed(2)}</span>}
+            {cost != null && cost > 0 && <span>${cost.toFixed(2)}</span>}
+            {isFailed && <span>stopped at {failedStage}</span>}
             <span className="ml-auto">{timeAgo}</span>
           </div>
         </div>

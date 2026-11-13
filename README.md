@@ -130,7 +130,7 @@ Mix and match providers or go all-in on one ecosystem:
 
 ```bash
 git clone https://github.com/arjav1181/Pitlane.git
-cd OpenReels
+cd Pitlane
 cp .env.example .env   # fill in your API keys
 docker compose up      # starts Redis + API + Worker
 # Open http://localhost:3000
@@ -138,7 +138,9 @@ docker compose up      # starts Redis + API + Worker
 
 Type a topic, pick your providers, and watch the pipeline run. Research, script, voiceover, visuals, music, and assembly stages stream live to the browser. Download the final video when it's done.
 
-The web UI can also take an API key for a custom OpenAI-compatible endpoint (choose the auth mode: Bearer, custom header, or none) and remember your credentials in the browser so you only enter them once. See the [Web UI guide](https://openreels.tsensei.dev/docs/getting-started/web-ui) for details.
+The web UI can also take an API key for a custom OpenAI-compatible endpoint (choose the auth mode: Bearer, custom header, or none) and remember your credentials in the browser so you only enter them once.
+
+If the server was started with `OPENREELS_API_KEY`, the UI opens on a sign-in screen and will not render anything until the key is entered. Set `OPENREELS_AUTH_REQUIRED=true` and a missing key is a 503 instead of an open door. See the [Web UI guide](https://openreels.tsensei.dev/docs/getting-started/web-ui) for details.
 
 ### Automation API
 
@@ -188,7 +190,7 @@ docker compose run worker npx tsx src/index.ts --yes "5 stoic lessons that chang
 
 ```bash
 git clone https://github.com/arjav1181/Pitlane.git
-cd OpenReels
+cd Pitlane
 pnpm install
 cp .env.example .env   # fill in your API keys
 ```

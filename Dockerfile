@@ -68,6 +68,10 @@ COPY . .
 # Build frontend
 RUN cd web && npx vite build
 
+# Word-alignment model, baked in. The aligner caches to ./.cache, so this both
+# warms the cache and proves the model downloads cleanly at build time.
+RUN node scripts/prefetch-aligner.mjs && du -sh .cache
+
 # Create directories
 RUN mkdir -p /output /app/jobs
 

@@ -149,7 +149,7 @@ export function SettingsPage() {
               <Input
                 id="server-api-key"
                 type="password"
-                autoComplete="off"
+                autoComplete="new-password"
                 placeholder={loadApiKey() ? "Saved key" : "Not set"}
                 value={serverApiKey}
                 onChange={(event) => {

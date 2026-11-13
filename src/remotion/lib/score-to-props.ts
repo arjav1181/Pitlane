@@ -21,6 +21,8 @@ export interface SceneProps {
   /** Position of this scene in the short, for the chapter marker. */
   sceneIndex?: number;
   sceneCount?: number;
+  /** Whether the sound cues were copied next to the render. */
+  sfxAvailable?: boolean;
 }
 
 export interface CompositionProps {
@@ -33,6 +35,8 @@ export interface CompositionProps {
   // Caption theming from archetype
   captionAccentColor: string;
   captionChunkSize: number;
+  /** Whether the sound cues were copied next to the render. */
+  sfxAvailable?: boolean;
   captionLingerS: number;
 }
 
