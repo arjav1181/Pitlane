@@ -25,6 +25,17 @@ All notable changes to Pitlane will be documented in this file.
   which left the script with one fact and nothing to say around it. The fact is now part of
   the research brief and the stage still searches.
 
+### Fixed
+- **Captions you can read on a light card**: one archetype is printed on cream, and white
+  captions on cream cannot be read. The caption layer now knows what it is writing on.
+- **A run that makes no video is a lost slot**: the fact check refused every candidate when the
+  web search had only weak sources, and the workflow threw. It now judges the fact rather than
+  the site's reputation, replaces the source where a better one is known, and falls back to the
+  best candidate with the doubt written down.
+- **The search reads better sources**: the web search is now restricted to reference works,
+  official manufacturer and museum pages, and established publications.
+- **A card headline reads as a title**: capitals, and a little air between the letters.
+
 ### Added
 - **The sources behind the script**: the research stage keeps the pages it read, the job page
   lists them, and the video description names one. A fact can be checked by anyone who watches.
