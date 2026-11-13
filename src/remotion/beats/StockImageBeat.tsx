@@ -1,11 +1,13 @@
 import type React from "react";
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { SceneProps } from "../lib/score-to-props";
+import { SceneGrade } from "./SceneGrade";
 
 export const StockImageBeat: React.FC<SceneProps> = ({
   assetSrc,
   motion,
   motionIntensity = 1.2,
+  colorPalette,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
@@ -39,7 +41,7 @@ export const StockImageBeat: React.FC<SceneProps> = ({
   })();
 
   return (
-    <AbsoluteFill>
+    <SceneGrade colorPalette={colorPalette}>
       {assetSrc && (
         <Img
           src={assetSrc}
@@ -51,6 +53,6 @@ export const StockImageBeat: React.FC<SceneProps> = ({
           }}
         />
       )}
-    </AbsoluteFill>
+    </SceneGrade>
   );
 };
