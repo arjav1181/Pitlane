@@ -136,7 +136,7 @@ export function parseArgs(): CLIOptions {
     )
     .addOption(
       new Option("--tts-provider <provider>", "TTS provider")
-        .choices(["elevenlabs", "inworld", "kokoro", "gemini-tts", "openai-tts"])
+        .choices(["elevenlabs", "inworld", "piper", "kokoro", "gemini-tts", "openai-tts"])
         .default("elevenlabs"),
     )
     .option(

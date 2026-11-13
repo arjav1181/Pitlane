@@ -87,6 +87,7 @@ const DISPLAY_NAMES: Record<string, string> = {
   elevenlabs: "ElevenLabs",
   inworld: "Inworld",
   kokoro: "Kokoro (Local)",
+  piper: "Piper (Local)",
   "gemini-tts": "Gemini TTS",
   "openai-tts": "OpenAI TTS",
   // Image

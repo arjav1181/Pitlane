@@ -149,6 +149,7 @@ const PROVIDERS = {
     { key: "elevenlabs", label: "ElevenLabs" },
     { key: "inworld", label: "Inworld" },
     { key: "kokoro", label: "Kokoro (Local)" },
+    { key: "piper", label: "Piper (Local)" },
     { key: "gemini-tts", label: "Gemini TTS" },
     { key: "openai-tts", label: "OpenAI TTS" },
   ],

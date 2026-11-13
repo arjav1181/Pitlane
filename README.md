@@ -112,7 +112,7 @@ Mix and match providers or go all-in on one ecosystem:
 |-----------|-----------|
 | **LLM** | Anthropic Claude, OpenAI GPT, Google Gemini, OpenRouter (300+ models), any OpenAI-compatible endpoint |
 | **Search** | Native (provider built-in), Tavily, or parametric knowledge |
-| **TTS** | ElevenLabs, Inworld, OpenAI TTS, Gemini TTS, Kokoro (free, local) |
+| **TTS** | ElevenLabs, Inworld, OpenAI TTS, Gemini TTS, Piper (free, local, ~20× real time), Kokoro (free, local) |
 | **Images** | Gemini Imagen, OpenAI DALL-E |
 | **Video** | Google Veo 3.1, fal.ai Kling 2.6 Pro (with cross-provider fallback, negative prompts, structured cinematography prompts) |
 | **Music** | Google Lyria 3 Pro (AI-generated, $0.08/track), Bundled library (free) |
@@ -120,7 +120,7 @@ Mix and match providers or go all-in on one ecosystem:
 
 **One key, everything Google:** `--provider google` sets LLM, images, TTS, video, and music to Google APIs with a single `GOOGLE_API_KEY`.
 
-**Zero-cost voiceover:** `--provider local` uses Kokoro for free local TTS. No API key needed.
+**Zero-cost voiceover:** `--provider local` uses Kokoro for free local TTS. `--tts-provider piper` uses Piper, which synthesises at roughly twenty times faster than real time and is the better narrator of the two. No API key needed for either.
 
 **No AI assets:** add `--no-ai-assets` to skip AI image and video generation entirely. Scenes use vision-verified stock media and procedural text cards, so no image or video API key is required.
 
@@ -217,7 +217,7 @@ pnpm start "your topic" --score output/2026-04-10-111939-.../score.json
 
 **Minimum to run** (pick one LLM + one TTS):
 - `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` or `GOOGLE_API_KEY` — [Anthropic](https://console.anthropic.com/) / [OpenAI](https://platform.openai.com/api-keys) / [Google AI Studio](https://aistudio.google.com/apikey)
-- `ELEVENLABS_API_KEY` or `INWORLD_TTS_API_KEY` — [ElevenLabs](https://elevenlabs.io/) / [Inworld](https://inworld.ai/). Or use `--tts-provider kokoro` (free, no key), `--tts-provider openai-tts`, or `--tts-provider gemini-tts`
+- `ELEVENLABS_API_KEY` or `INWORLD_TTS_API_KEY` — [ElevenLabs](https://elevenlabs.io/) / [Inworld](https://inworld.ai/). Or use `--tts-provider piper` (free, no key, recommended), `--tts-provider kokoro` (free, no key), `--tts-provider openai-tts`, or `--tts-provider gemini-tts`
 - `GOOGLE_API_KEY` — also needed for Gemini image generation, AI video (Veo), AI music (Lyria), and Gemini TTS
 
 **Optional:** `PEXELS_API_KEY` ([Pexels](https://www.pexels.com/api/)), `PIXABAY_API_KEY` ([Pixabay](https://pixabay.com/api/docs/)) for stock footage, `FAL_API_KEY` ([fal.ai](https://fal.ai/)) for Kling video generation
@@ -235,7 +235,7 @@ pnpm start "your topic" --score output/2026-04-10-111939-.../score.json
 | `--llm-auth-header <name>` | Header name for `--llm-auth custom-header` (e.g. `x-api-key`) | — |
 | `--search-provider <name>` | Search provider (`native`, `tavily`, `none`) | auto-detect |
 | `--image-provider <name>` | Image provider (`gemini`, `openai`) | `gemini` |
-| `--tts-provider <name>` | TTS provider (`elevenlabs`, `inworld`, `kokoro`, `gemini-tts`, `openai-tts`) | `elevenlabs` |
+| `--tts-provider <name>` | TTS provider (`elevenlabs`, `inworld`, `piper`, `kokoro`, `gemini-tts`, `openai-tts`) | `elevenlabs` |
 | `--music-provider <name>` | Music provider (`bundled`, `lyria`) | `bundled` |
 | `--video-provider <name>` | Video provider (`gemini`, `fal`) | auto-detect |
 | `--archetype <name>` | Override visual archetype | LLM chooses |
