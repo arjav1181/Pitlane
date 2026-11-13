@@ -41,6 +41,7 @@ export interface JobSummary {
   metadata?: Record<string, unknown>;
   links?: Record<string, string | null>;
   videoPath?: string;
+  posterPath?: string;
   stages?: Record<string, { status: string; detail?: string; durationSec?: number }>;
   costEstimate?: CostBreakdown;
   actualCost?: ActualCostBreakdown;

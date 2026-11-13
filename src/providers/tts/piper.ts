@@ -74,7 +74,9 @@ export class PiperTTS implements TTSProvider {
         reject(
           new Error(
             `Piper could not start: ${err.message}. ` +
-              "Check PIPER_BINARY and that the voice model exists at PIPER_MODEL.",
+              "Check that PIPER_BINARY points at the piper executable (permission " +
+              "denied means it was extracted without the executable bit) and that " +
+              "PIPER_MODEL points at a voice model.",
           ),
         );
       });

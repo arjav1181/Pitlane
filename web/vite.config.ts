@@ -14,7 +14,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        // Point at a deployed server with OPENREELS_DEV_API=https://…/api/v1
+        target: (process.env.OPENREELS_DEV_API ?? "http://localhost:3000").replace(/\/api\/v1\/?$/, ""),
         changeOrigin: true,
       },
     },

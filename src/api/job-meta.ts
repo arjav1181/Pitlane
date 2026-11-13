@@ -45,6 +45,8 @@ export interface JobMeta {
   costEstimate?: unknown;
   actualCost?: unknown;
   videoPath?: string;
+  /** Still frame of the finished short, for cards and anything that cannot play video. */
+  posterPath?: string;
   runDir?: string;
   researchData?: { summary: string; key_facts: string[]; mood: string };
   score?: unknown;

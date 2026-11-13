@@ -440,7 +440,7 @@ function buildPipelineWorkflow(
     musicResolution?: MusicResolution | null;
   } = { sceneAssets: [], sceneSourceDurations: [] };
 
-  const assemblyResult: { videoPath?: string | null } = {};
+  const assemblyResult: { videoPath?: string | null; thumbnailPath?: string | null } = {};
 
   // ── Step 1: Research ────────────────────────────────────────────────────
   const researchStep = createStep({
@@ -471,7 +471,7 @@ function buildPipelineWorkflow(
       // Running our own web research here would be a redundant LLM call that
       // can stall the whole job on a rate limit without changing the result.
       if (opts.direction?.trim()) {
-        cb.onStageSkip?.("research", "Direction supplied by the caller");
+        cb.onStageSkip?.("research", "Topic supplied directly — nothing to research");
         log.stages.push({ name: "research", duration: 0, status: "skipped" });
         return {
           summary: `Topic: ${inputData.topic}`,
@@ -1025,6 +1025,24 @@ function buildPipelineWorkflow(
         offthreadVideoCacheSizeInBytes: renderOptions.offthreadVideoCacheSizeInBytes,
       });
 
+      // A still of the finished short. Video scenes have no still of their
+      // own, so without this a card for a video has nothing to show and falls
+      // back to an empty frame.
+      const posterPath = path.join(runDir, "poster.jpg");
+      for (const seek of ["1", "0"]) {
+        try {
+          execFileSync(
+            "ffmpeg",
+            ["-ss", seek, "-i", assemblyResult.videoPath, "-frames:v", "1", "-update", "1", "-y", posterPath],
+            { stdio: "pipe", timeout: 20_000 },
+          );
+          assemblyResult.thumbnailPath = posterPath;
+          break;
+        } catch {
+          // A very short or unusual file may not take the first seek; try the cut.
+        }
+      }
+
       const dur = (Date.now() - start) / 1000;
       cb.onStageComplete?.(
         "assembly",
@@ -1232,7 +1250,13 @@ export async function runPipeline(
     cb.onLog?.(`  Score:     ${scorePath}`);
     cb.onLog?.(`  Log:       ${logPath}`);
 
-    return { outputDir: runDir, videoPath, thumbnailPath: null, scorePath, logPath };
+    return {
+      outputDir: runDir,
+      videoPath,
+      thumbnailPath: assemblyResult.thumbnailPath ?? null,
+      scorePath,
+      logPath,
+    };
   } finally {
     fs.writeFileSync(logPath, JSON.stringify(log, null, 2));
   }

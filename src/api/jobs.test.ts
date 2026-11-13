@@ -2,7 +2,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { listArtifacts, resolveArtifact, writeJobMeta } from "./jobs.js";
+import { buildJobLinks, listArtifacts, resolveArtifact, writeJobMeta } from "./jobs.js";
+import type { JobMeta } from "./job-meta.js";
 
 let jobsDir: string;
 
@@ -93,5 +94,32 @@ describe("writeJobMeta", () => {
     const paths = listArtifacts(jobsDir, "job-1").map((entry) => entry.path);
     expect(paths).toContain("meta.json");
     expect(paths.some((p) => p.endsWith(".tmp"))).toBe(false);
+  });
+});
+
+describe("buildJobLinks", () => {
+  it("links the poster when the job has one", () => {
+    const links = buildJobLinks({
+      id: "abc",
+      topic: "t",
+      status: "completed",
+      videoPath: "run/final.mp4",
+      posterPath: "run/poster.jpg",
+      stages: {},
+    } as JobMeta);
+
+    expect(links.video).toBe("/api/v1/jobs/abc/artifacts/run/final.mp4");
+    expect(links.poster).toBe("/api/v1/jobs/abc/artifacts/run/poster.jpg");
+  });
+
+  it("leaves the poster null when the job has none", () => {
+    const links = buildJobLinks({
+      id: "abc",
+      topic: "t",
+      status: "failed",
+      stages: {},
+    } as JobMeta);
+
+    expect(links.poster).toBeNull();
   });
 });

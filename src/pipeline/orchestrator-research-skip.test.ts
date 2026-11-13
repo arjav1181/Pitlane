@@ -29,7 +29,7 @@ describe("research stage", () => {
 
   it("does not skip research in replay mode before the direction check", () => {
     const replay = orchestratorSource.indexOf("Replaying from saved score");
-    const direction = orchestratorSource.indexOf("Direction supplied by the caller");
+    const direction = orchestratorSource.indexOf("Topic supplied directly");
     expect(replay).toBeGreaterThan(-1);
     expect(direction).toBeGreaterThan(replay);
   });

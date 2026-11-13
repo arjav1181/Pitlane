@@ -81,3 +81,14 @@ export function firstPosterUrl(
   }
   return null;
 }
+
+/**
+ * The still the pipeline extracted from the finished short.
+ *
+ * Video scenes have no still of their own, so this is the only image a
+ * card for a stock-footage short can show.
+ */
+export function jobPosterUrl(job: { id: string; posterPath?: string }): string | null {
+  if (!job.posterPath) return null;
+  return withApiKey(`/api/v1/jobs/${job.id}/artifacts/${job.posterPath}`);
+}

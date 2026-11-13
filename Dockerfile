@@ -32,14 +32,19 @@ ARG PIPER_VERSION=2023.11.14-2
 ARG PIPER_VOICES_BASE=https://huggingface.co/rhasspy/piper-voices/resolve/main
 RUN mkdir -p /opt/piper /opt/piper-voices \
  && curl -fsSL "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_linux_x86_64.tar.gz" \
-      | tar xz -C /opt/piper \
- && chmod +x /opt/piper/piper \
+      | tar xz -C /opt/piper --strip-components=1 \
+ && chmod 0755 /opt/piper/piper \
  && for voice in "en/en_GB/alan/medium/en_GB-alan-medium" "en/en_US/ryan/high/en_US-ryan-high"; do \
       name="$(basename "$voice")"; \
       curl -fsSL "${PIPER_VOICES_BASE}/${voice}.onnx"      -o "/opt/piper-voices/${name}.onnx"; \
       curl -fsSL "${PIPER_VOICES_BASE}/${voice}.onnx.json" -o "/opt/piper-voices/${name}.onnx.json"; \
     done \
- && rm -f /opt/piper/*.tar.gz
+ # Prove the engine works here, at build time. A schedule that runs at 00:00
+ # cannot tell anyone that the narrator is misconfigured, so the build does.
+ && (echo "Piper is ready." | /opt/piper/piper --model /opt/piper-voices/en_GB-alan-medium.onnx \
+      --output_file /tmp/piper-check.wav) \
+ && test -s /tmp/piper-check.wav \
+ && rm -f /tmp/piper-check.wav /opt/piper/*.tar.gz
 
 ENV PIPER_BINARY=/opt/piper/piper \
     PIPER_MODEL=/opt/piper-voices/en_GB-alan-medium.onnx

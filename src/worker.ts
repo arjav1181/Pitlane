@@ -74,6 +74,7 @@ function callbackPayload(meta: JobMeta, event: CallbackEvent): CallbackPayload {
     ...(meta.createdAt ? { createdAt: meta.createdAt } : {}),
     ...(meta.completedAt ? { completedAt: meta.completedAt } : {}),
     ...(meta.videoPath ? { videoPath: meta.videoPath } : {}),
+    ...(meta.posterPath ? { posterPath: meta.posterPath } : {}),
     ...(meta.runDir ? { runDir: meta.runDir } : {}),
     ...(meta.error ? { error: meta.error } : {}),
     ...(meta.metadata ? { metadata: meta.metadata } : {}),
@@ -410,6 +411,9 @@ const worker = new Worker<JobData>(
     meta.completedAt = new Date().toISOString();
     if (result.videoPath) {
       meta.videoPath = path.relative(jobDir, result.videoPath);
+      if (result.thumbnailPath) {
+        meta.posterPath = path.relative(jobDir, result.thumbnailPath);
+      }
       // Store runDir explicitly for frontend artifact fetching
       meta.runDir = path.relative(jobDir, result.outputDir);
     }

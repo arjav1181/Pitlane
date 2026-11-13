@@ -6,6 +6,8 @@ interface ArchetypeCardProps {
   archetype: Archetype | null; // null = "Auto"
   selected: boolean;
   onClick: () => void;
+  /** Layout override, for grids where the card fills its column. */
+  className?: string;
 }
 
 const SWATCH_WIDTHS = ["flex-[3]", "flex-[2]", "flex-[1]"] as const;
@@ -15,7 +17,7 @@ const SWATCH_WIDTHS = ["flex-[3]", "flex-[2]", "flex-[1]"] as const;
  * the video will actually be rendered in — so it belongs here, once, instead
  * of a gradient panel behind the label and loose dots on top of it.
  */
-export function ArchetypeCard({ archetype, selected, onClick }: ArchetypeCardProps) {
+export function ArchetypeCard({ archetype, selected, onClick, className }: ArchetypeCardProps) {
   const isAuto = archetype === null;
   const palette = archetype?.colorPalette;
   const pacing = archetype?.scenePacing;
@@ -27,6 +29,7 @@ export function ArchetypeCard({ archetype, selected, onClick }: ArchetypeCardPro
       onClick={onClick}
       className={cn(
         "group relative flex w-[168px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border text-left transition-colors",
+        className,
         selected
           ? "border-tally/70 bg-surface-inset"
           : "border-border bg-card hover:border-text-faint",

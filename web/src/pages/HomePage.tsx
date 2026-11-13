@@ -11,9 +11,9 @@ import {
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArchetypeCard } from "@/components/ArchetypeCard";
+import { withApiKey } from "@/lib/apiKey";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -39,7 +39,7 @@ import {
   saveCredentials,
   saveRememberPreference,
 } from "@/lib/credentials";
-import { firstPosterUrl } from "@/lib/scene-assets";
+import { firstPosterUrl, jobPosterUrl } from "@/lib/scene-assets";
 import { cn } from "@/lib/utils";
 
 /** Topics the channel actually runs, grouped the way a motoring channel thinks. */
@@ -625,31 +625,23 @@ export function HomePage() {
           {archetypes.length > 0 && (
             <div className="w-full">
               <h3 className="mb-3 text-[13px] font-medium text-text-subtle">Visual style</h3>
-              <div className="relative">
-                <ScrollArea className="w-full">
-                  <div className="flex gap-2 pb-3">
-                  {/* Auto Style card */}
-                  <ArchetypeCard
-                    archetype={null}
-                    selected={archetype === ""}
-                    onClick={() => setArchetype("")}
-                  />
-                    {archetypes.map((a) => (
-                      <ArchetypeCard
-                        key={a.name}
-                        archetype={a}
-                        selected={archetype === a.name}
-                        onClick={() => setArchetype(a.name)}
-                      />
-                    ))}
-                  </div>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
-                {/* The strip continues past the edge, so fade it out */}
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-background to-transparent"
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {/* Auto Style card */}
+                <ArchetypeCard
+                  archetype={null}
+                  selected={archetype === ""}
+                  onClick={() => setArchetype("")}
+                  className="w-full"
                 />
+                {archetypes.map((a) => (
+                  <ArchetypeCard
+                    key={a.name}
+                    archetype={a}
+                    selected={archetype === a.name}
+                    onClick={() => setArchetype(a.name)}
+                    className="w-full"
+                  />
+                ))}
               </div>
             </div>
           )}
@@ -712,6 +704,14 @@ function LastRendered({ job }: { job: JobSummary | null }) {
   const [broken, setBroken] = useState(false);
   const showFrame = frame && !broken;
 
+  // Video scenes have no still, so the last short is its own poster: the
+  // browser loads metadata only and paints the frame a hair past the cut.
+  const videoUrl =
+    job?.videoPath && !broken
+      ? withApiKey(`/api/v1/jobs/${job.id}/artifacts/${job.videoPath}`)
+      : null;
+  const showVideo = !showFrame && videoUrl;
+
   return (
     <aside className="w-full shrink-0 lg:sticky lg:top-10 lg:w-[320px]">
       <div className="rounded-xl border border-border bg-surface-sunken p-3">
@@ -724,9 +724,18 @@ function LastRendered({ job }: { job: JobSummary | null }) {
               loading="lazy"
               onError={() => setBroken(true)}
             />
+          ) : showVideo ? (
+            <video
+              src={`${videoUrl}#t=0.1`}
+              muted
+              playsInline
+              preload="metadata"
+              className="h-full w-full object-cover"
+              onError={() => setBroken(true)}
+            />
           ) : (
             <div className="flex h-full w-full items-center justify-center px-4 text-center text-[13px] leading-relaxed text-text-faint">
-              Your first short will appear here
+              {job ? "Preview unavailable" : "Your first short will appear here"}
             </div>
           )}
         </div>
@@ -743,8 +752,10 @@ function LastRendered({ job }: { job: JobSummary | null }) {
   );
 }
 
-/** First still frame of a finished short. Video scenes have no poster. */
+/** First still frame of a finished short, from the pipeline's own poster. */
 function firstFrame(job: JobSummary): string | null {
+  const poster = jobPosterUrl(job);
+  if (poster) return poster;
   if (!job.runDir) return null;
   return firstPosterUrl(job.id, job.runDir, job.score?.scenes);
 }

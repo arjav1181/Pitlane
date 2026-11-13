@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { JobSummary, DirectorScore } from "@/hooks/useApi";
-import { firstPosterUrl } from "@/lib/scene-assets";
+import { firstPosterUrl, jobPosterUrl } from "@/lib/scene-assets";
 import { cn, formatArchetypeName } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertTriangle, LoaderCircle } from "lucide-react";
@@ -22,8 +22,10 @@ export function GalleryCard({ job, bulkMode, selected, onToggleSelect, timeAgo }
   const criticScore = job.criticReview?.score;
   const cost = job.actualCost?.totalCost ?? job.costEstimate?.totalCost;
 
-  // The first scene that has a still frame. Video scenes have no poster.
-  const thumbnailUrl = job.runDir ? firstPosterUrl(job.id, job.runDir, score?.scenes) : null;
+  // The pipeline's poster, or the first scene that has a still. Video scenes
+  // have no still of their own.
+  const thumbnailUrl =
+    jobPosterUrl(job) ?? (job.runDir ? firstPosterUrl(job.id, job.runDir, score?.scenes) : null);
   const [imgError, setImgError] = useState(false);
 
   return (

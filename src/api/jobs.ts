@@ -107,6 +107,7 @@ export interface JobLinks {
   events: string;
   artifacts: string;
   video: string | null;
+  poster: string | null;
   score: string;
   log: string;
   cancel: string | null;
@@ -122,6 +123,7 @@ export function buildJobLinks(meta: JobMeta): JobLinks {
     events: `${base}/events`,
     artifacts: `${base}/artifacts`,
     video: meta.videoPath ? `${base}/artifacts/${encodeArtifactPath(meta.videoPath)}` : null,
+    poster: meta.posterPath ? `${base}/artifacts/${encodeArtifactPath(meta.posterPath)}` : null,
     score: `${base}/score`,
     log: `${base}/log`,
     cancel: terminal || cancelled ? null : `${base}/cancel`,

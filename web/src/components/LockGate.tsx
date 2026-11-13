@@ -21,9 +21,9 @@ export function LockGate({ children }: { children: React.ReactNode }) {
       const res = await fetch("/api/v1/stats", {
         headers: candidate ? { "X-API-Key": candidate } : {},
       });
-      if (res.status === 401 || res.status === 403) return false;
-      // Anything else means the server let the request through.
-      return true;
+      // Only a clean 200 counts. A proxy error or an unknown route must not
+      // read as "unlocked" and leave the app showing empty screens.
+      return res.ok;
     } catch {
       return false;
     }
@@ -64,7 +64,7 @@ export function LockGate({ children }: { children: React.ReactNode }) {
     if (!candidate) return;
     setError("");
     if (!(await check(candidate))) {
-      setError("That key was not accepted");
+      setError("That key was not accepted.");
       return;
     }
     saveApiKey(candidate);
@@ -83,39 +83,54 @@ export function LockGate({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
-      <form
-        onSubmit={unlock}
-        className="w-full max-w-[360px] rounded-xl border border-border bg-card p-6"
-      >
-        <div className="flex items-center gap-2.5">
-          <Clapperboard className="size-5 text-tally" strokeWidth={1.75} />
-          <span className="text-[15px] font-medium tracking-tight text-foreground">Pitlane</span>
-        </div>
+      <div className="w-full max-w-[368px] overflow-hidden rounded-xl border border-border bg-card">
+        {/* The tally light is on: this bay is live and it is private. */}
+        <div className="h-[2px] w-full bg-tally" />
 
-        <p className="mt-5 text-[13px] leading-relaxed text-text-subtle">
-          This render bay is private. Enter the server key to continue.
-        </p>
+        <form onSubmit={unlock} className="p-6">
+          <div className="flex items-center gap-2.5">
+            <Clapperboard className="size-[18px] text-tally" strokeWidth={1.75} />
+            <span className="text-[15px] font-medium tracking-tight text-foreground">Pitlane</span>
+          </div>
 
-        <label htmlFor="server-key" className="mt-5 block text-xs font-medium text-text-subtle">
-          Server key
-        </label>
-        <Input
-          id="server-key"
-          type="password"
-          autoComplete="current-password"
-          autoFocus
-          className="mt-1.5 h-9 w-full rounded-md text-sm"
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-          placeholder="Paste the key"
-        />
+          <h1 className="mt-5 text-[15px] font-medium text-foreground">Private render bay</h1>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-text-subtle">
+            Enter the server key to continue.
+          </p>
 
-        {error && <p className="mt-3 text-[13px] text-destructive">{error}</p>}
+          <label htmlFor="server-key" className="mt-5 mb-1.5 block text-xs text-text-subtle">
+            Server key
+          </label>
+          <Input
+            id="server-key"
+            type="password"
+            autoComplete="current-password"
+            autoFocus
+            className="h-9 w-full rounded-md text-sm"
+            value={key}
+            onChange={(e) => {
+              setKey(e.target.value);
+              if (error) setError("");
+            }}
+            placeholder="Paste the key"
+            aria-invalid={error ? true : undefined}
+          />
 
-        <Button type="submit" className="mt-5 w-full" disabled={!key.trim()}>
-          Unlock
-        </Button>
-      </form>
+          {error && <p className="mt-2 text-[12px] text-destructive">{error}</p>}
+
+          <Button
+            type="submit"
+            className="mt-5 h-9 w-full disabled:bg-muted disabled:text-text-faint disabled:opacity-100"
+            disabled={!key.trim()}
+          >
+            Unlock
+          </Button>
+
+          <p className="mt-4 text-[11px] leading-relaxed text-text-faint">
+            The key stays in this browser and is sent only to this server.
+          </p>
+        </form>
+      </div>
     </div>
   );
 }
