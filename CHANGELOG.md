@@ -11,6 +11,12 @@ All notable changes to Pitlane will be documented in this file.
   name their own provider are unaffected.
 
 ### Fixed
+- **The research stage searches in code, not through the model**: an OpenAI-compatible gateway
+  cannot be trusted to call a tool, so the search is now made by the pipeline and the model
+  turns what came back into a brief. A search that fails no longer ends the stage: the model
+  answers from its own knowledge and the brief says which sources it is confident about.
+- **Wikimedia assets carry their credit**: every Commons clip writes its licence, author and
+  source URL into `credits.json` beside the finished short.
 - **The footage stage stops throwing scenes away**: the visual judge asked whether a frame
   matched the request exactly, so a parked vintage racing car was rejected for a scene about
   a vintage racing car and the scene fell back to a text card. The judge now judges the

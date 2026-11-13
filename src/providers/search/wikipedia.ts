@@ -95,15 +95,22 @@ export function createWikipediaSearchTools(): Record<string, unknown> {
         query: z.string().describe("Search terms, e.g. 'Porsche 917 1969 Le Mans'"),
       }),
       execute: async ({ query }) => {
-        const hits = await searchWikipedia(query);
-        if (hits.length === 0) return { results: [] };
-        return {
-          results: hits.map((hit) => ({
-            title: hit.title,
-            url: hit.url,
-            extract: hit.extract.slice(0, 1200),
-          })),
-        };
+        // A tool that throws ends the whole search pass, so the failure is
+        // turned into an empty result instead. The model then answers with
+        // what it has rather than the job dying.
+        try {
+          const hits = await searchWikipedia(query);
+          return {
+            results: hits.map((hit) => ({
+              title: hit.title,
+              url: hit.url,
+              extract: hit.extract.slice(0, 1200),
+            })),
+          };
+        } catch (error) {
+          console.warn(`[wikipedia] search failed for "${query}": ${String(error)}`);
+          return { results: [], error: "Wikipedia is not reachable right now" };
+        }
       },
     }),
   };

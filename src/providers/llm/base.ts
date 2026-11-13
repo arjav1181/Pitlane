@@ -217,7 +217,12 @@ export abstract class BaseLLM implements LLMProvider {
         lowerMsg.includes("tool calls") ||
         lowerMsg.includes("function_call") ||
         lowerMsg.includes("does not support tools") ||
-        lowerMsg.includes("tooling is not supported");
+        lowerMsg.includes("tooling is not supported") ||
+        lowerMsg.includes("tool execution failed") ||
+        lowerMsg.includes("invalid_tool") ||
+        lowerMsg.includes("unknown tool") ||
+        lowerMsg.includes("tool not found") ||
+        lowerMsg.includes("failed to execute tool");
       if (isToolError) {
         console.warn(
           `[${this.id}] Model does not support tool calling. Falling back to parametric knowledge.\n  Original error: ${msg}`,

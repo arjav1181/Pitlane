@@ -149,6 +149,8 @@ interface VisualAssetResult {
   stockResolution?: StockResolution;
   videoResolution?: VideoResolution;
   prompterUsage?: LLMUsage | null;
+  /** Attribution for the asset, when the source requires it. */
+  credit?: { license: string; author: string; sourceUrl: string };
 }
 
 /** Generate an AI image with optional rejection context from failed stock searches */
@@ -311,6 +313,7 @@ async function resolveVisualAsset(
         usage: result.usage,
         durationSeconds: result.durationSeconds,
         stockResolution: result.resolution,
+        credit: result.credit,
       };
     }
 
@@ -439,7 +442,9 @@ function buildPipelineWorkflow(
       fallback: boolean;
     } | null;
     musicResolution?: MusicResolution | null;
-  } = { sceneAssets: [], sceneSourceDurations: [] };
+    /** Attribution for every asset that needed it. */
+    credits: Array<{ license: string; author: string; sourceUrl: string }>;
+  } = { sceneAssets: [], sceneSourceDurations: [], credits: [] };
 
   const assemblyResult: { videoPath?: string | null; thumbnailPath?: string | null } = {};
 
@@ -812,6 +817,9 @@ function buildPipelineWorkflow(
 
       visualsResult.sceneAssets = sceneResults.map((r) => r.path);
       visualsResult.sceneSourceDurations = sceneResults.map((r) => r.durationSeconds);
+      visualsResult.credits = sceneResults
+        .map((r) => r.credit)
+        .filter((c): c is { license: string; author: string; sourceUrl: string } => Boolean(c));
       for (const r of sceneResults) {
         if (r.usage) llmUsages.push(r.usage);
         if (r.prompterUsage) llmUsages.push(r.prompterUsage);
@@ -1020,6 +1028,15 @@ function buildPipelineWorkflow(
       // A still of the finished short. Video scenes have no still of their
       // own, so without this a card for a video has nothing to show and falls
       // back to an empty frame.
+      // Attribution for the assets that required it. A Commons clip is free
+      // to use but it is not free to use without a credit.
+      if (visualsResult.credits.length > 0) {
+        fs.writeFileSync(
+          path.join(runDir, "credits.json"),
+          JSON.stringify({ assets: visualsResult.credits }, null, 2),
+        );
+      }
+
       const posterPath = path.join(runDir, "poster.jpg");
       for (const seek of ["1", "0"]) {
         try {
