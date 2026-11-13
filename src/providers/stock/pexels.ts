@@ -9,6 +9,8 @@ const PEXELS_BASE = "https://api.pexels.com";
 
 /** Largest stock video we are willing to download (40 MB). */
 const MAX_STOCK_VIDEO_BYTES = 40 * 1024 * 1024;
+/** Above this, the clip is downloaded but immediately replaced by a smaller one. */
+const LIGHT_VIDEO_BYTES = 12 * 1024 * 1024;
 
 export class PexelsStock implements StockProvider {
   private apiKey: string | null;
@@ -95,12 +97,30 @@ export class PexelsStock implements StockProvider {
    * few seconds of it, so files above the size cap are skipped in favour of a
    * smaller variant of the same clip.
    */
+  /**
+   * Pick the file to download.
+   *
+   * The short is 1080 wide, so a bigger file buys nothing that the picture
+   * can show, but it costs a long download and a slow frame extraction later.
+   * The smallest file that still fills the frame is the right one.
+   */
   private pickVideoFile(files: PexelsVideoResponse["videos"][number]["video_files"]) {
     const withinSize = (f: { file_size?: number }) =>
       f.file_size == null || f.file_size <= MAX_STOCK_VIDEO_BYTES;
     const candidates = files.filter(withinSize);
 
-    return (
+    // The short side is what fills the vertical frame.
+    const shortSide = (f: { width?: number; height?: number }) =>
+      Math.min(f.width ?? 0, f.height ?? 0);
+
+    const light =
+      candidates
+        .filter((f) => (f.file_size ?? 0) > 0 && (f.file_size ?? 0) <= LIGHT_VIDEO_BYTES)
+        .filter((f) => shortSide(f) >= 720)
+        .sort((a, b) => (a.file_size ?? 0) - (b.file_size ?? 0))[0] ??
+      candidates
+        .filter((f) => shortSide(f) >= 720)
+        .sort((a, b) => (a.file_size ?? 0) - (b.file_size ?? 0))[0] ??
       candidates
         .filter((f) => (f.width ?? 0) >= 720 && (f.width ?? 0) <= 1920)
         .sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0] ??
@@ -109,8 +129,9 @@ export class PexelsStock implements StockProvider {
         .sort((a, b) => (a.width ?? 0) - (b.width ?? 0))[0] ??
       candidates
         .filter((f) => (f.file_size ?? 0) <= MAX_STOCK_VIDEO_BYTES)
-        .sort((a, b) => (a.file_size ?? 0) - (b.file_size ?? 0))[0]
-    );
+        .sort((a, b) => (a.file_size ?? 0) - (b.file_size ?? 0))[0];
+
+    return light;
   }
 
   async searchImage(query: string): Promise<StockCandidate[]> {
