@@ -80,6 +80,9 @@ describe("mapScoreToProps", () => {
       "text_card",
     ]);
     expect(props.scenes.every((scene) => scene.assetSrc === null)).toBe(true);
+    // The card must not print the search query it was going to film. A viewer
+    // should see the spoken line, not the machinery behind the scene.
+    expect(props.scenes.every((scene) => scene.visualPrompt === "")).toBe(true);
   });
 
   it("passes scriptLine from score to scene props", () => {

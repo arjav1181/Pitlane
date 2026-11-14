@@ -40,6 +40,9 @@ All notable changes to Pitlane will be documented in this file.
 - **The music is audible under the narrator**: the duck took the bed to 3% of its level, and
   since the narration is nearly continuous the video had no music at all. It now ducks to 7.5%
   under speech and sits at 20% in the gaps.
+- **A missing shot no longer prints its search query**: when stock had nothing for a scene, the
+  fallback card showed the query itself ("MODERN LUXURY MERCEDES BENZ FACTORY"), which reads as
+  a leaked prompt. It now shows the spoken line, which is what the viewer was hearing anyway.
 - **The closing card asks the real question**: a card headed "JOIN THE CONVERSATION" could close
   any video on the platform. When the director writes one of those empty headlines, the card
   shows the question the narration actually asks instead, which is the thing a comment can answer.

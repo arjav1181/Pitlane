@@ -86,15 +86,20 @@ export function mapScoreToProps(
 
     // No asset (stock miss with AI fallback disabled, generation failure, etc.)
     // renders as a procedural text card instead of a blank frame.
+    let visualPrompt = scene.visual_prompt;
     if (visualType !== "text_card" && !assetSrc) {
       visualType = "text_card";
+      // A stock scene's prompt is a search query ("modern luxury mercedes benz
+      // factory"). Printing it on the fallback card leaks the machinery and
+      // reads as a caption nobody wrote, so the card shows the line instead.
+      visualPrompt = "";
     }
 
     return {
       visualType,
       assetSrc,
       motion,
-      visualPrompt: scene.visual_prompt,
+      visualPrompt,
       scriptLine: scene.script_line,
       durationInFrames,
       words, // per-scene words kept for scene duration calc, not used for captions
