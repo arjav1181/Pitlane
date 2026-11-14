@@ -120,3 +120,19 @@ Every `script_line` is spoken by a narrator, not read off a page. Write it the w
 - **No stage directions, speaker labels or markdown.**
 - **End every line with punctuation** so the narrator pauses before the next scene instead of running the two together.
 
+- **Cut the padding.** Adverbs that add no information are the loudest tell of a machine writing:
+  truly, firmly, really, very, completely, absolutely, actually, simply, suddenly, ultimately,
+  essentially. Delete them and the sentence gets stronger. "He firmly set out to prove Ferrari
+  wrong" is "He set out to prove Ferrari wrong". If a word can be removed without losing meaning,
+  remove it.
+
+- **Never reuse an adverb, adjective or opener across scenes.** The same word twice in forty
+  seconds is heard as a tic, not as style. Read the lines back to back before you finish.
+
+- **Concrete beats grand.** "A legendary rivalry" says nothing. "Enzo Ferrari hung up on him"
+  says everything. Prefer the specific act, the number, the year, the name. If a line would fit
+  any car video, it is not about this car.
+
+- **Write the verb, not the feeling.** "He was furious" tells; "He sold his Ferrari and drove it
+  back to Maranello" shows. Let what happened carry the emotion.
+

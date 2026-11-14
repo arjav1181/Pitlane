@@ -26,6 +26,10 @@ All notable changes to Pitlane will be documented in this file.
   the research brief and the stage still searches.
 
 ### Fixed
+- **A still is played as a still**: a stock-video scene can resolve a photograph, and the
+  renderer was feeding the JPEG to the video player, where ffmpeg waited for a frame that never
+  came until the render timed out. Two scheduled runs were lost to it. The composition now
+  reconciles the scene type with the file it was given.
 - **Captions you can read on a light card**: one archetype is printed on cream, and white
   captions on cream cannot be read. The caption layer now knows what it is writing on.
 - **A run that makes no video is a lost slot**: the fact check refused every candidate when the
