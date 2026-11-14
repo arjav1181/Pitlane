@@ -160,8 +160,55 @@ export function cardHeadline(visualPrompt: string | undefined, scriptLine: strin
   if (headline && !GENERIC_HEADLINES.has(headline.toLowerCase())) {
     return headline.toUpperCase();
   }
-  return firstSentence(scriptLine).toUpperCase();
+  return headlineFromLine(scriptLine);
 }
+
+/**
+ * A short heading taken from a spoken line.
+ *
+ * A whole sentence does not fit a card: the renderer stacks at most three
+ * lines of 24 characters, so a long sentence gets sliced mid-thought. The
+ * first clause is the part that carries the point, and it is short enough to
+ * read in one glance.
+ */
+export function headlineFromLine(scriptLine: string, maxWords = 6): string {
+  const source = scriptLine.trim();
+  // firstSentence strips the terminator, so the question mark is read from
+  // the original line: a "?" before any other terminator ends the first
+  // sentence and makes it a question.
+  const isQuestion = /^[^.!?]*\?/.test(source);
+  const sentence = firstSentence(source).trim();
+  if (!sentence) return "";
+  const clause = sentence.split(/[,;:]/)[0]!.trim();
+  // A question is short and complete and worth showing whole ("Would you
+  // drive the very first car?"); a statement is cut to its first clause.
+  const limit = isQuestion ? maxWords + 3 : maxWords;
+  const words = clause.split(/\s+/).filter(Boolean).slice(0, limit);
+  // A heading that ends on "on the" reads as a cut-off sentence. Trailing
+  // function words are dropped so the last word is one worth ending on.
+  while (words.length > 1 && TRAILING_WORDS.has(words[words.length - 1]!.toLowerCase())) {
+    words.pop();
+  }
+  return words.join(" ").toUpperCase();
+}
+
+const TRAILING_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "as",
+  "at",
+  "by",
+  "for",
+  "from",
+  "in",
+  "of",
+  "on",
+  "or",
+  "the",
+  "to",
+  "with",
+]);
 
 /**
  * Headlines that say nothing about the video they are in.

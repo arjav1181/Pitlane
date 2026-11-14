@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardHeadline, firstSentence, splitLines } from "./TextCardBeat.js";
+import { cardHeadline, firstSentence, headlineFromLine, splitLines } from "./TextCardBeat.js";
 
 describe("firstSentence", () => {
   it("takes the first sentence as the heading", () => {
@@ -59,6 +59,15 @@ describe("cardHeadline", () => {
 
   it("falls back to the first sentence of the narration", () => {
     expect(cardHeadline("", "The 917 was a monster. It won twice.")).toBe("THE 917 WAS A MONSTER");
+  });
+
+  it("takes a short clause from the line when there is no headline", () => {
+    expect(
+      headlineFromLine("Bertha Benz took the car on the first long-distance drive without telling anyone."),
+    ).toBe("BERTHA BENZ TOOK THE CAR");
+    expect(headlineFromLine("It was the first car, and it had three wheels.")).toBe(
+      "IT WAS THE FIRST CAR",
+    );
   });
 
   it("replaces an empty call to action with the question that was asked", () => {

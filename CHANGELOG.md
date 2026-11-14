@@ -42,7 +42,8 @@ All notable changes to Pitlane will be documented in this file.
   under speech and sits at 20% in the gaps.
 - **A missing shot no longer prints its search query**: when stock had nothing for a scene, the
   fallback card showed the query itself ("MODERN LUXURY MERCEDES BENZ FACTORY"), which reads as
-  a leaked prompt. It now shows the spoken line, which is what the viewer was hearing anyway.
+  a leaked prompt. It now shows the first clause of the spoken line, short enough to read in one
+  glance and complete enough not to end on "on the".
 - **The closing card asks the real question**: a card headed "JOIN THE CONVERSATION" could close
   any video on the platform. When the director writes one of those empty headlines, the card
   shows the question the narration actually asks instead, which is the thing a comment can answer.
