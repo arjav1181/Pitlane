@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ArchetypeConfig } from "../../schema/archetype.js";
 import type { DirectorScore } from "../../schema/director-score.js";
 import type { ResolvedAssets } from "./score-to-props.js";
-import { getTotalDurationInFrames, mapScoreToProps } from "./score-to-props.js";
+import { getTotalDurationInFrames, mapScoreToProps, reconcileVisualType } from "./score-to-props.js";
 
 const makeWords = (start: number, end: number) => [
   { word: "hello", start, end: start + (end - start) / 2 },
@@ -309,5 +309,56 @@ describe("getTotalDurationInFrames", () => {
     const second = getTotalDurationInFrames(props, 30);
     expect(second).toBe(first);
     expect(props.scenes[2]!.durationInFrames).toBe(lastSceneAfterFirst);
+  });
+});
+
+describe("reconcileVisualType", () => {
+  it("plays a still as a still when a video scene fell back to an image", () => {
+    // This is the bug that killed a render: a stock_video scene resolved a
+    // Commons photograph, the renderer fed the JPEG to OffthreadVideo, and
+    // ffmpeg waited for a frame that never came.
+    expect(reconcileVisualType("stock_video", "assets/scene-1-stock.jpg", "static")).toEqual({
+      visualType: "stock_image",
+      motion: "zoom_in",
+    });
+    expect(reconcileVisualType("stock_video", "assets/scene-2-stock.png", "zoom_out")).toEqual({
+      visualType: "stock_image",
+      motion: "zoom_out",
+    });
+  });
+
+  it("plays a clip as a clip when an image scene resolved footage", () => {
+    expect(reconcileVisualType("stock_image", "assets/scene-3-stock.mp4", "zoom_in")).toEqual({
+      visualType: "stock_video",
+      motion: "zoom_in",
+    });
+  });
+
+  it("leaves a matching asset alone", () => {
+    expect(reconcileVisualType("stock_video", "assets/scene-4-stock.mp4", "static")).toEqual({
+      visualType: "stock_video",
+      motion: "static",
+    });
+    expect(reconcileVisualType("stock_image", "assets/scene-5-stock.jpeg", "pan_left")).toEqual({
+      visualType: "stock_image",
+      motion: "pan_left",
+    });
+    expect(reconcileVisualType("text_card", null, "static")).toEqual({
+      visualType: "text_card",
+      motion: "static",
+    });
+    expect(reconcileVisualType("ai_image", "assets/scene-6-ai.png", "zoom_in")).toEqual({
+      visualType: "ai_image",
+      motion: "zoom_in",
+    });
+  });
+
+  it("keeps the AI fallback as an AI image", () => {
+    // The -ai.png branch runs first and keeps its own type; reconciliation must
+    // not turn it back into a stock still.
+    expect(reconcileVisualType("ai_image", "assets/scene-7-ai.png", "zoom_in")).toEqual({
+      visualType: "ai_image",
+      motion: "zoom_in",
+    });
   });
 });

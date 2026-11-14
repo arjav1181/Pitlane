@@ -1,6 +1,6 @@
 import { getArchetype } from "../../config/archetype-registry.js";
 import type { ArchetypeConfig } from "../../schema/archetype";
-import type { DirectorScore, TransitionType } from "../../schema/director-score";
+import type { DirectorScore, Scene, TransitionType } from "../../schema/director-score";
 import type { WordTimestamp } from "../../schema/providers";
 
 export interface SceneProps {
@@ -82,6 +82,8 @@ export function mapScoreToProps(
       }
     }
 
+    ({ visualType, motion } = reconcileVisualType(visualType, assetSrc, motion));
+
     // No asset (stock miss with AI fallback disabled, generation failure, etc.)
     // renders as a procedural text card instead of a blank frame.
     if (visualType !== "text_card" && !assetSrc) {
@@ -118,6 +120,43 @@ export function mapScoreToProps(
     captionChunkSize: archetype.captionChunkSize ?? 5,
     captionLingerS: archetype.captionLingerS ?? 0.3,
   };
+}
+
+
+/** File extensions that are a picture rather than a moving picture. */
+const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"];
+const VIDEO_EXTENSIONS = [".mp4", ".webm", ".mov", ".m4v"];
+
+/**
+ * Make the scene type tell the truth about the asset it was given.
+ *
+ * A `stock_video` scene can end up with a still: the resolver tries an image
+ * when no clip can be found, and a Wikimedia result can be a photograph rather
+ * than footage. The renderer picks its player from the type, so a JPEG handed
+ * to the video player waits on a frame that never arrives and the whole render
+ * times out at the delayRender budget. The asset decides, not the plan.
+ */
+export function reconcileVisualType(
+  visualType: Scene["visual_type"],
+  assetSrc: string | null,
+  motion: Scene["motion"],
+): { visualType: Scene["visual_type"]; motion: Scene["motion"] } {
+  if (!assetSrc) return { visualType, motion };
+  const lower = assetSrc.toLowerCase();
+  const isImage = IMAGE_EXTENSIONS.some((extension) => lower.endsWith(extension));
+  const isVideo = VIDEO_EXTENSIONS.some((extension) => lower.endsWith(extension));
+
+  if (visualType === "stock_video" && isImage) {
+    return {
+      visualType: "stock_image",
+      // A still needs a move, or the scene reads as a frozen frame.
+      motion: motion === "static" ? "zoom_in" : motion,
+    };
+  }
+  if (visualType === "stock_image" && isVideo) {
+    return { visualType: "stock_video", motion };
+  }
+  return { visualType, motion };
 }
 
 export function getTotalDurationInFrames(props: CompositionProps, fps: number = 30): number {
