@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { joinScriptLines, normalizeNarration, splitLongSentences } from "./narration.js";
+import { cutFiller, joinScriptLines, normalizeNarration, splitLongSentences } from "./narration.js";
 
 describe("normalizeNarration", () => {
   it("spells out percent", () => {
@@ -95,5 +95,33 @@ describe("joinScriptLines", () => {
 
   it("drops empty lines", () => {
     expect(joinScriptLines(["One.", "  ", "Two."])).toBe("One. Two.");
+  });
+});
+
+describe("cutFiller", () => {
+  it("deletes the adverbs that add nothing", () => {
+    expect(cutFiller("He firmly set out to prove Ferrari wrong.")).toBe(
+      "He set out to prove Ferrari wrong.",
+    );
+    expect(cutFiller("A truly legendary automotive rivalry.")).toBe("A legendary automotive rivalry.");
+    expect(cutFiller("The car was completely destroyed in the crash.")).toBe(
+      "The car was destroyed in the crash.",
+    );
+  });
+
+  it("keeps the word when removing it would change the meaning", () => {
+    expect(cutFiller("It is not really a car.")).toBe("It is not really a car.");
+    expect(cutFiller("He never actually drove it.")).toBe("He never actually drove it.");
+  });
+
+  it("leaves a short line alone", () => {
+    expect(cutFiller("Very fast.")).toBe("Very fast.");
+    expect(cutFiller("Truly.")).toBe("Truly.");
+  });
+
+  it("runs before the narrator sees the script", () => {
+    expect(normalizeNarration("He firmly set out to prove Ferrari completely wrong.")).toBe(
+      "He set out to prove Ferrari wrong.",
+    );
   });
 });

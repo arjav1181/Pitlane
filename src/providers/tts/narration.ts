@@ -38,8 +38,60 @@ const ABBREVIATIONS: Array<[RegExp, string]> = [
   [/\bNo\.\s*(?=\d)/g, "number "],
 ];
 
+/**
+ * Adverbs that add emphasis and no information.
+ *
+ * A model writes them to sound emphatic and they are the clearest tell of a
+ * machine: "he firmly set out", "a truly legendary rivalry". The sentence is
+ * stronger without them, and the narrator has less to chew through.
+ */
+const FILLER_ADVERBS = new Set([
+  "truly",
+  "firmly",
+  "really",
+  "very",
+  "completely",
+  "absolutely",
+  "actually",
+  "simply",
+  "suddenly",
+  "ultimately",
+  "essentially",
+  "literally",
+  "basically",
+  "extremely",
+  "incredibly",
+  "remarkably",
+]);
+
 /** How many words a sentence may run before it is broken at a comma. */
 export const MAX_SENTENCE_WORDS = 28;
+
+/**
+ * Delete the adverbs that carry no meaning.
+ *
+ * The word is kept after "not" or "never", because removing it there changes
+ * what the sentence says ("not very fast" is not "not fast"). A line too short
+ * to spare a word is left alone.
+ */
+export function cutFiller(input: string): string {
+  const words = input.split(/\s+/).filter(Boolean);
+  if (words.length < 4) return input;
+
+  const kept: string[] = [];
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i]!;
+    const bare = word.toLowerCase().replace(/[^a-z']/g, "");
+    const previous = kept[kept.length - 1]?.toLowerCase().replace(/[^a-z']/g, "");
+    const isLast = i === words.length - 1;
+    const protectedByNegation = previous === "not" || previous === "never";
+
+    if (FILLER_ADVERBS.has(bare) && !isLast && !protectedByNegation) continue;
+    kept.push(word);
+  }
+
+  return kept.join(" ");
+}
 
 /**
  * Join scene lines into one narration script without losing the sentence
@@ -58,7 +110,7 @@ export function joinScriptLines(lines: readonly string[]): string {
 export function normalizeNarration(input: string): string {
   if (!input.trim()) return "";
 
-  let text = input;
+  let text = cutFiller(input);
 
   // Quotes and dashes: a dash is a pause, not a word.
   text = text.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");

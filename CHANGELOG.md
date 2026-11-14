@@ -26,6 +26,12 @@ All notable changes to Pitlane will be documented in this file.
   the research brief and the stage still searches.
 
 ### Fixed
+- **The padding is cut**: the script rules and a deterministic pass remove the adverbs a model uses
+  to sound emphatic ("he firmly set out", "a truly legendary rivalry"), so the narrator reads the
+  sentence and not the tic.
+- **A short clip stretches instead of restarting**: clips are cut to six seconds, so a
+  seven-second scene used to loop with a visible jump. A clip that is only a little short is now
+  stretched to fit, which reads as slow motion.
 - **A still is played as a still**: a stock-video scene can resolve a photograph, and the
   renderer was feeding the JPEG to the video player, where ffmpeg waited for a frame that never
   came until the render timed out. Two scheduled runs were lost to it. The composition now
