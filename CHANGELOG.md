@@ -40,6 +40,9 @@ All notable changes to Pitlane will be documented in this file.
 - **The music is audible under the narrator**: the duck took the bed to 3% of its level, and
   since the narration is nearly continuous the video had no music at all. It now ducks to 7.5%
   under speech and sits at 20% in the gaps.
+- **The closing card asks the real question**: a card headed "JOIN THE CONVERSATION" could close
+  any video on the platform. When the director writes one of those empty headlines, the card
+  shows the question the narration actually asks instead, which is the thing a comment can answer.
 - **A card is never a frozen slide**: the procedural cards hold a slow 2.5% push-in, matching
   the drift the stock scenes get, so the frame keeps moving while the narration runs.
 - **The padding is cut**: the script rules and a deterministic pass remove the adverbs a model uses

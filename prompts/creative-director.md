@@ -39,8 +39,11 @@ Mixing visual types makes the video feel produced rather than generated - but do
 watching; a wall of cards looks like a slideshow someone made in a hurry. Use at most two text
 cards in a whole video, and only where a card genuinely beats a picture:
 
-- the opening title card, carrying the promise of the video
-- the closing call to action
+- the opening title card: its `visual_prompt` is the promise in 3 to 6 words ("THE FIRST CAR EVER
+  BUILT"), never "INTRODUCTION" or the topic typed out again
+- the closing card: its `visual_prompt` is the question the viewer can answer, in 4 to 8 words
+  ("WOULD YOU DRIVE IT?"), never a generic call to action such as "JOIN THE CONVERSATION" - that
+  could close any video on the platform and gives nobody a reason to type
 - a number that cannot be shown (a price, a production count, a lap record)
 
 Everything else is a real scene: a car on a road, a factory floor, a drawing board, a crowd,

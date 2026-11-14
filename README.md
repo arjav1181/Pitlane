@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.4.0-green.svg)](CHANGELOG.md)
-[![Tests](https://img.shields.io/badge/tests-697%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-708%20passing-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6.svg)]()
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg)]()
 

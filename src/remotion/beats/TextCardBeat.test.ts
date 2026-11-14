@@ -59,6 +59,14 @@ describe("cardHeadline", () => {
 
   it("falls back to the first sentence of the narration", () => {
     expect(cardHeadline("", "The 917 was a monster. It won twice.")).toBe("THE 917 WAS A MONSTER");
+  });
+
+  it("replaces an empty call to action with the question that was asked", () => {
+    // A card that says "JOIN THE CONVERSATION" belongs to no video in
+    // particular. The spoken question is the thing a viewer can answer.
+    expect(
+      cardHeadline("JOIN THE CONVERSATION", "Would you drive the very first car? Probably not."),
+    ).toBe("WOULD YOU DRIVE THE VERY FIRST CAR");
     expect(cardHeadline(undefined, "The 917 was a monster.")).toBe("THE 917 WAS A MONSTER");
   });
 

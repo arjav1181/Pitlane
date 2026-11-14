@@ -157,9 +157,33 @@ export const TextCardBeat: React.FC<SceneProps> = ({
  */
 export function cardHeadline(visualPrompt: string | undefined, scriptLine: string): string {
   const headline = (visualPrompt ?? "").trim();
-  if (headline) return headline.toUpperCase();
+  if (headline && !GENERIC_HEADLINES.has(headline.toLowerCase())) {
+    return headline.toUpperCase();
+  }
   return firstSentence(scriptLine).toUpperCase();
 }
+
+/**
+ * Headlines that say nothing about the video they are in.
+ *
+ * A closing card that reads "JOIN THE CONVERSATION" could close any video on
+ * the platform; it asks the viewer to do something without giving them a
+ * reason. The spoken line usually ends in a real question, and that question
+ * is what makes a comment section move, so the card shows it instead.
+ */
+const GENERIC_HEADLINES = new Set([
+  "join the conversation",
+  "join the discussion",
+  "what do you think",
+  "what do you think?",
+  "let us know",
+  "let us know!",
+  "comment below",
+  "subscribe",
+  "follow for more",
+  "thanks for watching",
+  "the end",
+]);
 
 /** The part of a line that works as a heading. */
 export function firstSentence(text: string): string {
