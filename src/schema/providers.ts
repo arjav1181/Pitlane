@@ -69,6 +69,23 @@ export interface ImageProvider {
   generate(prompt: string, style?: string): Promise<Buffer>;
 }
 
+/**
+ * What a licence asks you to say when you use a work.
+ *
+ * Public domain needs nothing; CC BY and CC BY-SA need the author, the licence
+ * and a link to both the work and the licence. Keeping the whole record rather
+ * than just the author means the description can satisfy the licence exactly,
+ * which is the difference between using Commons and misusing it.
+ */
+export interface Attribution {
+  /** Title of the work, so the credit names what was shown. */
+  label?: string;
+  license: string;
+  licenseUrl?: string;
+  author: string;
+  sourceUrl: string;
+}
+
 export interface StockCandidate {
   url: string;
   width: number;
@@ -78,11 +95,7 @@ export interface StockCandidate {
   /** Human label for the asset, e.g. the file title on Commons. */
   label?: string;
   /** Licence and author, when the source requires attribution. */
-  credit?: {
-    license: string;
-    author: string;
-    sourceUrl: string;
-  };
+  credit?: Attribution;
 }
 
 export interface StockAsset {

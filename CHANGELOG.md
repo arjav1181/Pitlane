@@ -26,6 +26,9 @@ All notable changes to Pitlane will be documented in this file.
   the research brief and the stage still searches.
 
 ### Fixed
+- **Commons images are credited the way the licence asks**: the credit carries the work's title
+  and the licence link, not just an author name, and the job exposes a ready-made `creditsLine`
+  so the description can append it verbatim instead of asking a model to retype a URL.
 - **The padding is cut**: the script rules and a deterministic pass remove the adverbs a model uses
   to sound emphatic ("he firmly set out", "a truly legendary rivalry"), so the narrator reads the
   sentence and not the tic.

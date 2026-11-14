@@ -2,7 +2,12 @@ import { execFile } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { StockAsset, StockCandidate, StockProvider } from "../../schema/providers.js";
+import type {
+  Attribution,
+  StockAsset,
+  StockCandidate,
+  StockProvider,
+} from "../../schema/providers.js";
 import { prepareStockVideo } from "./prepare.js";
 
 /**
@@ -22,11 +27,7 @@ import { prepareStockVideo } from "./prepare.js";
 const API = "https://commons.wikimedia.org/w/api.php";
 const USER_AGENT = "Pitlane/0.4 (vertical video pipeline)";
 
-export interface WikimediaCredit {
-  license: string;
-  author: string;
-  sourceUrl: string;
-}
+export type WikimediaCredit = Attribution;
 
 interface CommonsPage {
   pageid?: number;
@@ -71,6 +72,7 @@ function creditOf(page: CommonsPage): WikimediaCredit {
   const meta = page.imageinfo?.[0]?.extmetadata ?? {};
   return {
     license: stripHtml(meta.LicenseShortName?.value ?? "see source"),
+    licenseUrl: meta.LicenseUrl?.value,
     author: stripHtml(meta.Artist?.value ?? meta.Credit?.value ?? "Unknown author"),
     sourceUrl: page.imageinfo?.[0]?.descriptionurl ?? `https://commons.wikimedia.org/wiki/${page.pageid}`,
   };
@@ -114,7 +116,7 @@ async function search(query: string, kind: "image" | "video", limit: number): Pr
       width: info.thumbwidth ?? info.width ?? 0,
       height: info.thumbheight ?? info.height ?? 0,
       duration: info.duration,
-      credit: creditOf(page),
+      credit: { ...creditOf(page), label: title.replace(/^File:/, "") },
       label: title.replace(/^File:/, ""),
     });
   }

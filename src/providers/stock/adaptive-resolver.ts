@@ -5,6 +5,7 @@ import { optimizeImagePrompt } from "../../agents/image-prompter.js";
 import type { PipelineCallbacks } from "../../pipeline/utils.js";
 import type { ArchetypeConfig } from "../../schema/archetype.js";
 import type {
+  Attribution,
   ImageProvider,
   LLMProvider,
   LLMUsage,
@@ -40,7 +41,7 @@ export interface AdaptiveResolverResult {
   durationSeconds: number | null;
   resolution: StockResolution;
   /** Attribution for the asset that was used, when the source needs it. */
-  credit?: { license: string; author: string; sourceUrl: string };
+  credit?: Attribution;
 }
 
 interface ResolverConfig {

@@ -6,6 +6,8 @@ import { type CallbackEvent, type CallbackPayload, deliverCallback } from "./api
 import { createIdempotencyStore } from "./api/idempotency.js";
 import type { JobData } from "./api/job-data.js";
 import type { JobMeta } from "./api/job-meta.js";
+import { formatCreditLine } from "./pipeline/credits.js";
+import type { Attribution } from "./schema/providers.js";
 import {
   buildJobLinks,
   buildPlaceholderMeta,
@@ -298,9 +300,14 @@ const worker = new Worker<JobData>(
           };
           writeMeta(jobDir, meta);
         } else if (data.type === "credits") {
+          const credits = data.credits as Attribution[];
           meta.metadata = {
             ...(meta.metadata ?? {}),
-            credits: data.credits as unknown[],
+            credits,
+            // The description needs a licence line it can paste, not a data
+            // structure it has to format. Building it here keeps every job
+            // credited the same way and keeps the formatting testable.
+            creditsLine: formatCreditLine(credits),
           };
           writeMeta(jobDir, meta);
         } else if (data.type === "revision") {

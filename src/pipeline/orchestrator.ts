@@ -32,7 +32,7 @@ import { resolveRenderOptions } from "./render-options.js";
 import type { ArchetypeConfig } from "../schema/archetype.js";
 import type { DirectorScore } from "../schema/director-score.js";
 import { sanitizeScoreForNoAiAssets } from "../schema/no-ai-assets.js";
-import type { LLMUsage, WordTimestamp } from "../schema/providers.js";
+import type { Attribution, LLMUsage, WordTimestamp } from "../schema/providers.js";
 import { type MusicResolution, resolveMusic } from "./music-resolver.js";
 
 // Re-export types and utilities from utils.ts for backward compatibility
@@ -122,7 +122,7 @@ interface RunLog {
   totalCost?: { estimated: number; actual?: number };
   stockResolutions?: StockResolution[];
   /** Attribution for the assets that needed it, for the video description. */
-  credits?: Array<{ license: string; author: string; sourceUrl: string }>;
+  credits?: Attribution[];
   videoResolutions?: VideoResolution[];
   musicResolution?: {
     provider: string;
@@ -152,7 +152,7 @@ interface VisualAssetResult {
   videoResolution?: VideoResolution;
   prompterUsage?: LLMUsage | null;
   /** Attribution for the asset, when the source requires it. */
-  credit?: { license: string; author: string; sourceUrl: string };
+  credit?: Attribution;
 }
 
 /** Generate an AI image with optional rejection context from failed stock searches */
@@ -467,7 +467,7 @@ function buildPipelineWorkflow(
     } | null;
     musicResolution?: MusicResolution | null;
     /** Attribution for every asset that needed it. */
-    credits: Array<{ license: string; author: string; sourceUrl: string }>;
+    credits: Attribution[];
   } = { sceneAssets: [], sceneSourceDurations: [], credits: [] };
 
   const assemblyResult: { videoPath?: string | null; thumbnailPath?: string | null } = {};
@@ -846,7 +846,7 @@ function buildPipelineWorkflow(
       visualsResult.sceneSourceDurations = sceneResults.map((r) => r.durationSeconds);
       visualsResult.credits = sceneResults
         .map((r) => r.credit)
-        .filter((c): c is { license: string; author: string; sourceUrl: string } => Boolean(c));
+        .filter((c): c is Attribution => Boolean(c));
       for (const r of sceneResults) {
         if (r.usage) llmUsages.push(r.usage);
         if (r.prompterUsage) llmUsages.push(r.prompterUsage);
