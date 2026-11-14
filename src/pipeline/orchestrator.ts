@@ -32,6 +32,7 @@ import { resolveRenderOptions } from "./render-options.js";
 import type { ArchetypeConfig } from "../schema/archetype.js";
 import type { DirectorScore } from "../schema/director-score.js";
 import { sanitizeScoreForNoAiAssets } from "../schema/no-ai-assets.js";
+import { capTextCards } from "./score-guards.js";
 import type { Attribution, LLMUsage, WordTimestamp } from "../schema/providers.js";
 import { type MusicResolution, resolveMusic } from "./music-resolver.js";
 
@@ -247,9 +248,21 @@ function prepareScore(
   noAiAssets: boolean,
   cb: PipelineCallbacks,
 ): DirectorScore {
-  if (!noAiAssets) return score;
+  // A third card is a slideshow, whatever the mode. The cap runs before any
+  // asset work so the missing card never reaches the resolver.
+  const capped = capTextCards(score);
+  let prepared = score;
+  if (capped.merged.length > 0) {
+    cb.onLog?.(
+      `[director] Folded ${capped.merged.length} extra text card(s) into the scene before them`,
+    );
+    cb.onProgress?.("director", { type: "text_cards_capped", merged: capped.merged });
+    prepared = capped.score;
+  }
 
-  const { score: sanitized, adjustments } = sanitizeScoreForNoAiAssets(score);
+  if (!noAiAssets) return prepared;
+
+  const { score: sanitized, adjustments } = sanitizeScoreForNoAiAssets(prepared);
   if (adjustments.length > 0) {
     cb.onLog?.(
       `[director] No-AI-assets mode rewrote ${adjustments.length} scene(s): ${adjustments

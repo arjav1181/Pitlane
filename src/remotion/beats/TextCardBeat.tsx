@@ -32,7 +32,7 @@ export const TextCardBeat: React.FC<SceneProps> = ({
   sfxAvailable,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
 
   const bg = colorPalette?.background ?? "#141414";
   const accent = colorPalette?.accent ?? "#c8a96e";
@@ -49,6 +49,14 @@ export const TextCardBeat: React.FC<SceneProps> = ({
   // already on screen as a caption, so repeating it here wastes the card.
   const lines = splitLines(cardHeadline(visualPrompt, scriptLine), 24);
 
+  // A card that never moves looks like a slide that was left on screen: the
+  // eye reads it in two seconds and then has nothing to do for the rest of the
+  // scene. A push-in of 2.5% over the whole scene is enough to keep the frame
+  // alive and costs nothing, and it matches the drift the stock scenes get.
+  const drift = interpolate(frame, [0, Math.max(1, durationInFrames - 1)], [1, 1.025], {
+    extrapolateRight: "clamp",
+  });
+
   return (
     <AbsoluteFill
       style={{
@@ -59,6 +67,7 @@ export const TextCardBeat: React.FC<SceneProps> = ({
         flexDirection: "column",
         justifyContent: "center",
         padding: "0 96px",
+        transform: `scale(${drift})`,
       }}
     >
       {/* A hairline down the reading edge: the frame the words sit in. */}

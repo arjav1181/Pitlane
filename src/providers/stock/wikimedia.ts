@@ -78,7 +78,88 @@ function creditOf(page: CommonsPage): WikimediaCredit {
   };
 }
 
-async function search(query: string, kind: "image" | "video", limit: number): Promise<StockCandidate[]> {
+/**
+ * Words that describe how a shot was made, not what is in it.
+ *
+ * Commons ranks by keyword, and every extra word narrows the result set. A
+ * prompt like "vintage three wheeled motor car in a museum" asks for a file
+ * that mentions all of those words and often returns nothing, while "three
+ * wheeled motor car" returns the Patent-Motorwagen. The proper nouns - the
+ * ones that actually name the subject - are never in this list.
+ */
+const NOISE_WORDS = new Set([
+  "a",
+  "an",
+  "the",
+  "and",
+  "or",
+  "of",
+  "in",
+  "on",
+  "at",
+  "from",
+  "into",
+  "over",
+  "under",
+  "near",
+  "with",
+  "vintage",
+  "old",
+  "antique",
+  "historic",
+  "historical",
+  "cinematic",
+  "dramatic",
+  "moody",
+  "atmospheric",
+  "close",
+  "closeup",
+  "up",
+  "wide",
+  "shot",
+  "angle",
+  "footage",
+  "photo",
+  "photograph",
+  "image",
+  "black",
+  "white",
+  "sepia",
+  "grainy",
+  "blurry",
+  "background",
+  "foreground",
+  "style",
+  "styled",
+  "lighting",
+  "lit",
+  "4k",
+  "high",
+  "quality",
+  "detailed",
+  "realistic",
+  "scene",
+  "view",
+  "showing",
+  "shows",
+]);
+
+/** The part of a visual prompt Commons can actually match on. */
+export function distillCommonsQuery(prompt: string, maxWords = 5): string {
+  const words = prompt
+    .toLowerCase()
+    // "close-up" is two staging words wearing a hyphen; "Mercedes-Benz" does
+    // not mind being searched as two words either.
+    .replace(/-/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((word) => !NOISE_WORDS.has(word));
+
+  return words.slice(0, maxWords).join(" ");
+}
+
+async function searchOnce(query: string, kind: "image" | "video", limit: number): Promise<StockCandidate[]> {
   const params: Record<string, string> = {
     action: "query",
     generator: "search",
@@ -122,6 +203,29 @@ async function search(query: string, kind: "image" | "video", limit: number): Pr
   }
 
   return candidates;
+}
+
+/**
+ * Search the literal prompt, then the distilled one.
+ *
+ * One result is not a choice, and a Commons search that returns nothing is
+ * usually a prompt with three adjectives too many rather than a subject the
+ * archive does not have. The distilled query is tried before the resolver
+ * decides the scene has no footage at all.
+ */
+async function search(query: string, kind: "image" | "video", limit: number): Promise<StockCandidate[]> {
+  const results = await searchOnce(query, kind, limit);
+  if (results.length >= 2) return results;
+
+  const distilled = distillCommonsQuery(query);
+  if (!distilled || distilled === query.trim().toLowerCase()) return results;
+
+  const more = await searchOnce(distilled, kind, limit);
+  const byId = new Map(results.map((candidate) => [candidate.id, candidate]));
+  for (const candidate of more) {
+    if (!byId.has(candidate.id)) byId.set(candidate.id, candidate);
+  }
+  return [...byId.values()];
 }
 
 export class WikimediaStock implements StockProvider {

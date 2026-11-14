@@ -9,26 +9,49 @@ All notable changes to Pitlane will be documented in this file.
   LLM provider and the server has `OPENREELS_LLM_BASE_URL` configured, the job now uses the
   OpenAI-compatible gateway instead of failing with a missing Anthropic key. Callers that
   name their own provider are unaffected.
-
-### Fixed
 - **The research stage searches in code, not through the model**: an OpenAI-compatible gateway
   cannot be trusted to call a tool, so the search is now made by the pipeline and the model
   turns what came back into a brief. A search that fails no longer ends the stage: the model
   answers from its own knowledge and the brief says which sources it is confident about.
-- **Wikimedia assets carry their credit**: every Commons clip writes its licence, author and
-  source URL into `credits.json` beside the finished short.
+- **The research stage runs again**: a caller-supplied fact used to skip research entirely,
+  which left the script with one fact and nothing to say around it. The fact is now part of
+  the research brief and the stage still searches.
 - **The footage stage stops throwing scenes away**: the visual judge asked whether a frame
   matched the request exactly, so a parked vintage racing car was rejected for a scene about
   a vintage racing car and the scene fell back to a text card. The judge now judges the
   subject, a near miss is used rather than discarded, and more candidates are tried.
-- **The research stage runs again**: a caller-supplied fact used to skip research entirely,
-  which left the script with one fact and nothing to say around it. The fact is now part of
-  the research brief and the stage still searches.
-
-### Fixed
+- **Commons is searched twice before a scene gives up**: a prompt written for a generative
+  model ("vintage three wheeled motor car in a museum") asks Commons for every word at once
+  and often returns nothing. The staging words are stripped and the subject is searched again.
+- **Wikimedia assets carry their credit**: every Commons clip writes its licence, author and
+  source URL into `credits.json` beside the finished short.
 - **Commons images are credited the way the licence asks**: the credit carries the work's title
   and the licence link, not just an author name, and the job exposes a ready-made `creditsLine`
   so the description can append it verbatim instead of asking a model to retype a URL.
+- **A video has two cards, not four**: the director is told the limit, but a drifting model
+  wrote three cards into eight scenes and the short became a slideshow. A deterministic pass
+  folds the extras into the nearest picture scene so the words are still spoken.
+- **The captions clear the platform chrome**: the rail sat at 18%, under the title and buttons
+  YouTube and TikTok draw across the bottom of a vertical frame. It now sits at 24% and the
+  type is 58 pixels, with a scrim that reaches the words instead of stopping below them.
+- **Captions you can read on a light card**: one archetype is printed on cream, and white
+  captions on cream cannot be read. The caption layer now knows what it is writing on, and
+  the unread part of the line stays dark enough to read ahead.
+- **The music is audible under the narrator**: the duck took the bed to 3% of its level, and
+  since the narration is nearly continuous the video had no music at all. It now ducks to 7.5%
+  under speech and sits at 20% in the gaps.
+- **A card is never a frozen slide**: the procedural cards hold a slow 2.5% push-in, matching
+  the drift the stock scenes get, so the frame keeps moving while the narration runs.
+- **The padding is cut**: the script rules and a deterministic pass remove the adverbs a model uses
+  to sound emphatic ("he firmly set out", "a truly legendary rivalry"), so the narrator reads the
+  sentence and not the tic.
+- **A short clip stretches instead of restarting**: clips are cut to six seconds, so a
+  seven-second scene used to loop with a visible jump. A clip that is only a little short is now
+  stretched to fit, which reads as slow motion.
+- **A still is played as a still**: a stock-video scene can resolve a photograph, and the
+  renderer was feeding the JPEG to the video player, where ffmpeg waited for a frame that never
+  came until the render timed out. Two scheduled runs were lost to it. The composition now
+  reconciles the scene type with the file it was given.
 - **The padding is cut**: the script rules and a deterministic pass remove the adverbs a model uses
   to sound emphatic ("he firmly set out", "a truly legendary rivalry"), so the narrator reads the
   sentence and not the tic.

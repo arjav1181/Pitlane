@@ -85,7 +85,11 @@ export const CaptionWrapper: React.FC<CaptionWrapperProps> = ({
       style={{
         justifyContent: "flex-end",
         alignItems: "center",
-        paddingBottom: "18%",
+        // YouTube, TikTok and Instagram all draw their title, handle and
+        // buttons across the bottom fifth of a vertical frame. A caption rail
+        // at 18% sits underneath that overlay; at 24% it clears it and stays in
+        // the part of the picture a thumb never covers.
+        paddingBottom: "24%",
       }}
     >
       <div style={{ opacity: chunkEntryProgress }}>

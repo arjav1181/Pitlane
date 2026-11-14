@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { WikimediaStock } from "./wikimedia.js";
+import { distillCommonsQuery, WikimediaStock } from "./wikimedia.js";
 
 const SEARCH_RESPONSE = {
   query: {
@@ -105,5 +105,52 @@ describe("WikimediaStock", () => {
 
     expect(candidates).toHaveLength(1);
     expect(candidates[0]?.id).toBe("wikimedia-7");
+  });
+});
+
+describe("distillCommonsQuery", () => {
+  it("keeps the subject and drops the staging", () => {
+    expect(distillCommonsQuery("vintage three wheeled motor car in a museum")).toBe(
+      "three wheeled motor car museum",
+    );
+    expect(distillCommonsQuery("Cinematic close-up of a 1930s grand prix car")).toBe(
+      "1930s grand prix car",
+    );
+  });
+
+  it("never strips a name it does not know", () => {
+    expect(distillCommonsQuery("Benz Patent-Motorwagen replica")).toBe("benz patent motorwagen replica");
+  });
+
+  it("returns nothing when the prompt was only staging", () => {
+    expect(distillCommonsQuery("cinematic vintage footage")).toBe("");
+  });
+});
+
+describe("WikimediaStock fallback", () => {
+  it("tries the distilled query when the literal one finds nothing", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ query: { pages: [] } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => SEARCH_RESPONSE });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const candidates = await new WikimediaStock().searchImage(
+      "vintage three wheeled motor car in a museum",
+    );
+
+    expect(candidates).toHaveLength(1);
+    const second = new URL(String(fetchMock.mock.calls[1]?.[0]));
+    expect(second.searchParams.get("gsrsearch")).toBe("three wheeled motor car museum filetype:bitmap");
+  });
+
+  it("does not search twice when the literal query already worked", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => SEARCH_RESPONSE });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // One result is below the two that make a choice, so the fallback runs -
+    // but with the same literal query there is nothing to try.
+    await new WikimediaStock().searchImage("Porsche 917");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

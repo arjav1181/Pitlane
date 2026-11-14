@@ -15,9 +15,16 @@ interface MusicTrackProps {
 }
 
 /** Music level with nothing over it. */
-export const MUSIC_VOLUME = 0.16;
-/** Music level while the narrator is speaking. */
-export const DUCKED_VOLUME = 0.03;
+export const MUSIC_VOLUME = 0.2;
+/**
+ * Music level while the narrator is speaking.
+ *
+ * At 0.03 the bed all but vanished whenever a word was spoken, and since the
+ * narration is almost continuous the video had no music at all - the one
+ * thing that separates a produced short from a voice note. 0.075 keeps the
+ * words on top while the track is still audible under them.
+ */
+export const DUCKED_VOLUME = 0.075;
 /** Seconds over which the music eases into and out of the duck. */
 export const RAMP_S = 0.22;
 

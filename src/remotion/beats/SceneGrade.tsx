@@ -43,11 +43,14 @@ export const SceneGrade: React.FC<{
         }}
       />
 
-      {/* A scrim under the captions, so the words are always readable. */}
+      {/* A scrim under the captions, so the words are always readable.
+          It reaches up to the caption rail at 24%, because a gradient that
+          stops at 34% leaves the words on bare footage, and white text over a
+          grey road is the one place a caption disappears. */}
       <AbsoluteFill
         style={{
           backgroundImage:
-            "linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.18) 18%, rgba(0,0,0,0) 34%)",
+            "linear-gradient(to top, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.55) 15%, rgba(0,0,0,0.30) 26%, rgba(0,0,0,0) 40%)",
         }}
       />
     </AbsoluteFill>
