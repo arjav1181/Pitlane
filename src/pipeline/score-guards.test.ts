@@ -5,6 +5,7 @@ import {
   enforceFootageOpening,
   enforceMotionContinuity,
   enforceTransitionDiscipline,
+  moveClosingConclusionToFootage,
 } from "./score-guards.js";
 
 const card = (script: string, prompt = "A heading"): Scene => ({
@@ -169,6 +170,42 @@ describe("enforceTransitionDiscipline", () => {
     const result = enforceTransitionDiscipline(score);
     expect(result.score.scenes[0]!.transition).toBe("none");
     expect(result.reset).toEqual([]);
+  });
+});
+
+describe("moveClosingConclusionToFootage", () => {
+  it("puts the answer on the last shot and leaves only the question on the card", () => {
+    const score = scoreOf([
+      shot("The RS200 was built for domination."),
+      shot("At Rally Portugal it ploughed into the crowd."),
+      card("The Ford RS200 carried the highest death toll. Which car was the deadliest? Comment below."),
+    ]);
+
+    const result = moveClosingConclusionToFootage(score);
+    expect(result.moved).toEqual([1]);
+    expect(result.score.scenes[1]!.script_line).toContain("The Ford RS200 carried the highest death toll.");
+    expect(result.score.scenes[2]!.script_line).toBe(
+      "Which car was the deadliest? Comment below.",
+    );
+    // The caller's score must not be edited in place.
+    expect(score.scenes[2]!.script_line).toContain("The Ford RS200");
+  });
+
+  it("leaves a card that only asks alone", () => {
+    const score = scoreOf([shot("A car."), card("Which one would you pick? Comment below.")]);
+    expect(moveClosingConclusionToFootage(score).moved).toEqual([]);
+  });
+
+  it("never empties the card when every sentence is a statement", () => {
+    const score = scoreOf([shot("A car."), card("It was fast. It was also lethal.")]);
+    const result = moveClosingConclusionToFootage(score);
+    expect(result.score.scenes[1]!.script_line).toBe("It was also lethal.");
+    expect(result.score.scenes[0]!.script_line).toContain("It was fast.");
+  });
+
+  it("does nothing when the film does not end on a card", () => {
+    const score = scoreOf([card("A heading."), shot("The answer.")]);
+    expect(moveClosingConclusionToFootage(score).moved).toEqual([]);
   });
 });
 

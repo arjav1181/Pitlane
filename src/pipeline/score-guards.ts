@@ -100,6 +100,68 @@ export function capTextCards(score: DirectorScore, max = MAX_TEXT_CARDS): TextCa
   return { score: { ...score, scenes }, merged: [...removed] };
 }
 
+export interface ClosingCardResult {
+  score: DirectorScore;
+  /** Indices of footage scenes that gained the answer. */
+  moved: number[];
+}
+
+/**
+ * The closing card asks; the last shot answers.
+ *
+ * A model will happily put the payoff on the card because that is where the
+ * sentence naturally lands, leaving the final shot as filler and the card as a
+ * paragraph. The rule for the format is the other way round: the last piece
+ * of footage carries the name and the reason, and the card carries only the
+ * question that makes someone comment.
+ */
+export function moveClosingConclusionToFootage(score: DirectorScore): ClosingCardResult {
+  const scenes = score.scenes;
+  if (scenes.length < 2) return { score, moved: [] };
+
+  const lastIndex = scenes.length - 1;
+  if (scenes[lastIndex]!.visual_type !== "text_card") return { score, moved: [] };
+
+  let target = -1;
+  for (let i = lastIndex - 1; i >= 0; i--) {
+    if (scenes[i]!.visual_type !== "text_card") {
+      target = i;
+      break;
+    }
+  }
+  if (target < 0) return { score, moved: [] };
+
+  const parts = scenes[lastIndex]!.script_line
+    .split(/(?<=[.!?])\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length < 2) return { score, moved: [] };
+
+  const isQuestion = (part: string) => part.endsWith("?");
+  // A direct ask stays on the card even when it is an imperative rather than
+  // a question: "Comment below." is part of the call to action, not an answer.
+  const isCallToAction = (part: string) =>
+    /^(comment|drop|tell|share|subscribe|follow|post|vote|reply|let)\b/i.test(part);
+
+  const onCard = parts.filter((part) => isQuestion(part) || isCallToAction(part));
+  const answer = parts.filter((part) => !isQuestion(part) && !isCallToAction(part));
+  if (answer.length === 0) return { score, moved: [] };
+  // Never leave a card with no words on it.
+  if (onCard.length === 0) onCard.push(answer.pop()!);
+
+  const next = scenes.map((scene, index) => {
+    if (index === target) {
+      return { ...scene, script_line: `${scene.script_line} ${answer.join(" ")}`.trim() };
+    }
+    if (index === lastIndex) {
+      return { ...scene, script_line: onCard.join(" ") };
+    }
+    return scene;
+  });
+
+  return { score: { ...score, scenes: next }, moved: [target] };
+}
+
 /**
  * Keep the camera moving one way across a cut.
  *

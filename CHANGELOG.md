@@ -18,6 +18,10 @@ All notable changes to Pitlane will be documented in this file.
   the clip options, and the job page shows the four clip stages plus one playable vertical per
   clip with its hook, download and copyable title and caption.
 
+- **The last shot carries the answer**: a model kept putting the winner's name on the closing card,
+  turning the closing question into a paragraph and leaving the last shot as filler. A guard now
+  moves any closing statement onto the last footage scene and keeps only the question on the card.
+
 ### Fixed
 - **Scripts can no longer run to 56 seconds**: the director's system prompt set a 72-88 word
   budget, but the user message injected a competing 100-140 word budget from a stale pacing

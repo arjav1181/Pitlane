@@ -38,6 +38,7 @@ import {
   enforceFootageOpening,
   enforceMotionContinuity,
   enforceTransitionDiscipline,
+  moveClosingConclusionToFootage,
 } from "./score-guards.js";
 import type { Attribution, LLMUsage, WordTimestamp } from "../schema/providers.js";
 import { type MusicResolution, resolveMusic } from "./music-resolver.js";
@@ -273,6 +274,14 @@ function prepareScore(
     );
     cb.onProgress?.("director", { type: "text_cards_capped", merged: capped.merged });
     prepared = capped.score;
+  }
+
+  // The answer belongs to the last shot, not to the card that asks the question.
+  const closing = moveClosingConclusionToFootage(prepared);
+  if (closing.moved.length > 0) {
+    cb.onLog?.("[director] Moved the closing answer onto the last shot");
+    cb.onProgress?.("director", { type: "closing_answer_on_footage" });
+    prepared = closing.score;
   }
 
   if (noAiAssets) {
