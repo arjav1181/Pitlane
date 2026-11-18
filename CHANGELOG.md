@@ -4,6 +4,14 @@ All notable changes to Pitlane will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **The credits line keeps whole credits**: it used to be sliced at a character count, which could
+  cut a file URL in half and print a broken attribution. It now drops a whole entry when the line
+  is full and separates entries with a pipe, so the last thing on the line is always a working link.
+- **A film has one transition grammar**: the director was told to vary transitions, and a short
+  with a wipe, a slide, a crossfade and a flip reads as a template. Cuts are cuts; a crossfade is
+  kept only into a text card, and the archetype's 3D flip can no longer fire as a default.
+
 ### Fixed
 - **The description carries the credits it was always meant to carry**: the paste-ready licence
   line was written into nested job metadata while the publisher read a top-level field, so

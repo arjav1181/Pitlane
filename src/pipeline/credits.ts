@@ -7,7 +7,7 @@ import type { Attribution } from "../schema/providers.js";
  * of a description, so they get a generous but bounded slice and never push
  * the source or the hashtags out.
  */
-const MAX_CREDIT_LINE = 900;
+const MAX_CREDIT_LINE = 1800;
 
 /**
  * Turn the licence records into one line a description can carry.
@@ -33,15 +33,26 @@ export function formatCreditLine(credits: Attribution[] | null | undefined): str
     const author = (credit.author ?? "").trim() || "Unknown author";
     const license = (credit.license ?? "").trim() || "see source";
     const title = (credit.label ?? "").trim();
-    const work = title ? `"${title}"` : "Footage";
-    parts.push(`${work}, ${author} (${license}) ${sourceUrl}`);
+    // The link is the part that makes the credit checkable, so it goes last
+    // and is never shortened. A credit cut in the middle of its URL is worse
+    // than a credit that was left out.
+    parts.push(title ? `"${title}", ${author} (${license}) ${sourceUrl}` : `${author} (${license}) ${sourceUrl}`);
   }
 
   if (!parts.length) return "";
 
-  const line = `Credits: ${parts.join(" · ")}`;
-  if (line.length <= MAX_CREDIT_LINE) return line;
-  return `${line.slice(0, MAX_CREDIT_LINE - 1).trimEnd()}…`;
+  // Keep whole entries. Dropping one credit is honest; printing half a URL is
+  // a broken attribution, and YouTube would still count it against the limit.
+  const kept: string[] = [];
+  let length = "Credits: ".length;
+  for (const part of parts) {
+    const added = (kept.length > 0 ? " | ".length : 0) + part.length;
+    if (length + added > MAX_CREDIT_LINE) break;
+    kept.push(part);
+    length += added;
+  }
+
+  return kept.length > 0 ? `Credits: ${kept.join(" | ")}` : "";
 }
 
 /**

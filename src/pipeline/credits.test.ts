@@ -40,8 +40,10 @@ describe("formatCreditLine", () => {
       sourceUrl: `https://commons.wikimedia.org/wiki/File:Photo_${i}.jpg`,
     }));
     const line = formatCreditLine(many);
-    expect(line.length).toBeLessThanOrEqual(900);
-    expect(line.endsWith("…")).toBe(true);
+    expect(line.length).toBeLessThanOrEqual(1800);
+    // A line that ends mid-URL is broken attribution, so the last thing on
+    // the line is always a complete file page.
+    expect(line.endsWith(".jpg")).toBe(true);
   });
 });
 
@@ -100,5 +102,35 @@ describe("formatOnScreenCredit for footage", () => {
       sourceUrl: "https://www.pexels.com/video/123",
     });
     expect(line).toBe("Photo: Jane Doe / Pexels");
+  });
+});
+
+describe("formatCreditLine limits", () => {
+  const asset = (i: number) => ({
+    author: `Author ${i}`,
+    license: "CC BY-SA 4.0",
+    sourceUrl: `https://commons.wikimedia.org/wiki/File:Car_${i}.jpg`,
+    label: `Car ${i}`,
+  });
+
+  it("keeps whole credits instead of cutting a URL", () => {
+    const line = formatCreditLine(Array.from({ length: 40 }, (_, i) => asset(i)));
+    expect(line.length).toBeLessThanOrEqual(1800);
+    // Every URL that remains is complete.
+    for (const url of line.match(/https:\/\/\S+/g) ?? []) {
+      expect(url).toMatch(/^https:\/\/commons\.wikimedia\.org\/wiki\/File:Car_\d+\.jpg$/);
+    }
+  });
+
+  it("separates credits so two authors are not read as one", () => {
+    const line = formatCreditLine([asset(1), asset(2)]);
+    expect(line).toContain(" | ");
+  });
+
+  it("does not print a noun when the work has no title", () => {
+    const line = formatCreditLine([
+      { author: "Jane Doe", license: "Pexels License", sourceUrl: "https://www.pexels.com/video/1/" },
+    ]);
+    expect(line).toBe("Credits: Jane Doe (Pexels License) https://www.pexels.com/video/1/");
   });
 });
