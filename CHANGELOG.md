@@ -22,6 +22,10 @@ All notable changes to Pitlane will be documented in this file.
   turning the closing question into a paragraph and leaving the last shot as filler. A guard now
   moves any closing statement onto the last footage scene and keeps only the question on the card.
 
+- **A restart can no longer leave a job "running" forever**: jobs whose queue entry was dropped
+  but whose metadata still said `running` are failed on boot, so they stop blocking the single
+  worker slot.
+
 ### Fixed
 - **Scripts can no longer run to 56 seconds**: the director's system prompt set a 72-88 word
   budget, but the user message injected a competing 100-140 word budget from a stale pacing

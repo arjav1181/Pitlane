@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  findStaleLocalJobs,
   isOrphaned,
   planQueueSweep,
   selectOrphanedJobs,
@@ -80,6 +81,30 @@ describe("removeFromQueue", () => {
     await removeFromQueue(queue as never, redis as never, "job-1");
     expect(redis.lrem).toHaveBeenCalledWith("bull:openreels:active", 0, "job-1");
     expect(redis.del).toHaveBeenCalledWith("bull:openreels:job-1");
+  });
+});
+
+describe("findStaleLocalJobs", () => {
+  it("fails a running job that has no queue entry", () => {
+    const result = findStaleLocalJobs(
+      [
+        { id: "stuck", status: "running" },
+        { id: "waiting", status: "queued" },
+        { id: "done", status: "completed" },
+      ],
+      new Set(["waiting"]),
+    );
+    expect(result.map((job) => job.id)).toEqual(["stuck"]);
+    expect(result[0]!.reason).toContain("Retry it");
+  });
+
+  it("leaves every in-flight job alone when the queue still owns it", () => {
+    expect(
+      findStaleLocalJobs(
+        [{ id: "a", status: "running" }, { id: "b", status: "queued" }],
+        new Set(["a", "b"]),
+      ),
+    ).toEqual([]);
   });
 });
 

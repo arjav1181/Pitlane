@@ -117,9 +117,29 @@ export async function listActiveJobs(
   return candidates;
 }
 
+/**
+ * Local jobs that still claim to be in flight but have no queue entry at all.
+ *
+ * The queue sweep only sees jobs BullMQ still knows about. A restart can leave
+ * a job directory whose metadata says `running` after its queue entry was
+ * dropped, and that job then reports "running" forever while no worker owns
+ * it. With one worker slot this eventually blocks every new request.
+ */
+export function findStaleLocalJobs(
+  metas: Array<{ id: string; status: string }>,
+  queuedIds: Set<string>,
+): OrphanedJob[] {
+  return metas
+    .filter((meta) => meta && (meta.status === "running" || meta.status === "queued"))
+    .filter((meta) => !queuedIds.has(meta.id))
+    .map((meta) => ({
+      id: meta.id,
+      reason: "The Space restarted before this job finished. Retry it.",
+    }));
+}
+
 /** One entry in the queue, whatever list it is currently sitting in. */
-export interface QueueEntry {
-  id: string;
+export interface QueueEntry {  id: string;
   /**
    * `completed` and `failed` are only read at boot: they are the queue's own
    * verdict on a job whose metadata can still say `running` after a restart.

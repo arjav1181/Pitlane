@@ -11,6 +11,7 @@ import type { Attribution } from "./schema/providers.js";
 import {
   buildJobLinks,
   buildPlaceholderMeta,
+  listJobMetas,
   readJobMeta,
   STAGE_NAMES,
   writeJobMeta,
@@ -22,7 +23,9 @@ import { runClipPipeline } from "./clip/pipeline.js";
 import { normalizeClipSpec } from "./clip/spec.js";
 import { CLIP_STAGE_NAMES, type ClipStageName } from "./clip/stages.js";
 import {
+  findStaleLocalJobs,
   listQueueEntries,
+  type OrphanedJob,
   planQueueSweep,
   removeFromQueue,
 } from "./queue/orphan-recovery.js";
@@ -164,6 +167,22 @@ async function recoverOrphanedJobs(force = false): Promise<void> {
         : entries,
     );
 
+    // A restart can also leave a job directory whose metadata still says
+    // "running" after its queue entry was dropped. BullMQ has nothing to
+    // sweep in that case, and the job would report running forever.
+    const queuedIds = new Set(entries.map((entry) => entry.id));
+    const localCandidates = findStaleLocalJobs(
+      listJobMetas(JOBS_DIR).map(({ id, meta }) => ({ id, status: meta.status })),
+      queuedIds,
+    );
+    const staleLocals: OrphanedJob[] = [];
+    for (const candidate of localCandidates) {
+      // The queue listing is paged; a real entry past the first page must not
+      // be mistaken for a missing one.
+      if (!(await queue.getJob(candidate.id))) staleLocals.push(candidate);
+    }
+    const toFail = [...sweep.fail, ...staleLocals];
+
     for (const id of sweep.remove) {
       // The job already finished. A queue entry left over from the restart
       // would re-run it and overwrite the render that was published.
@@ -171,7 +190,7 @@ async function recoverOrphanedJobs(force = false): Promise<void> {
       await removeFromQueue(queue, redis, id);
     }
 
-    for (const orphan of sweep.fail) {
+    for (const orphan of toFail) {
       console.warn(`[worker] Failing orphaned job ${orphan.id}: ${orphan.reason}`);
       const meta = metaOf(orphan.id);
       if (meta) {
