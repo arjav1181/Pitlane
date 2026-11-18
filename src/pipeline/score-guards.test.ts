@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DirectorScore, Scene } from "../schema/director-score.js";
 import {
   capTextCards,
+  enforceFootageOpening,
   enforceMotionContinuity,
   enforceTransitionDiscipline,
 } from "./score-guards.js";
@@ -168,5 +169,35 @@ describe("enforceTransitionDiscipline", () => {
     const result = enforceTransitionDiscipline(score);
     expect(result.score.scenes[0]!.transition).toBe("none");
     expect(result.reset).toEqual([]);
+  });
+});
+
+describe("enforceFootageOpening", () => {
+  it("moves the opening card's line onto the first shot", () => {
+    const score = scoreOf([card("The car with no clutch."), shot("It had pedals.")]);
+    const result = enforceFootageOpening(score);
+    expect(result.merged).toBe(true);
+    expect(result.score.scenes).toHaveLength(1);
+    expect(result.score.scenes[0]!.visual_type).toBe("stock_image");
+    expect(result.score.scenes[0]!.script_line).toBe("The car with no clutch. It had pedals.");
+  });
+
+  it("leaves a film that already opens on a picture alone", () => {
+    const score = scoreOf([shot("A car."), card("The point.")]);
+    const result = enforceFootageOpening(score);
+    expect(result.merged).toBe(false);
+    expect(result.score).toBe(score);
+  });
+
+  it("does not reorder two cards in a row", () => {
+    const score = scoreOf([card("One."), card("Two."), shot("Three.")]);
+    const result = enforceFootageOpening(score);
+    expect(result.merged).toBe(false);
+    expect(result.score.scenes).toHaveLength(3);
+  });
+
+  it("handles a film that is only a card", () => {
+    const score = scoreOf([card("Only.")]);
+    expect(enforceFootageOpening(score).merged).toBe(false);
   });
 });

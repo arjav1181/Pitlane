@@ -5,6 +5,12 @@ All notable changes to Pitlane will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- **The video opens on the machine, not on a title card**: the first frame is what the feed shows
+  while a viewer decides whether to stop, and a card there is a rectangle where a car should be.
+  The opening card's line now plays over the first shot, and the only card left is the closing
+  question.
+
+### Changed
 - **The credits line keeps whole credits**: it used to be sliced at a character count, which could
   cut a file URL in half and print a broken attribution. It now drops a whole entry when the line
   is full and separates entries with a pipe, so the last thing on the line is always a working link.

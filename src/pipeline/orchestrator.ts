@@ -35,6 +35,7 @@ import { sanitizeScoreForNoAiAssets } from "../schema/no-ai-assets.js";
 import { formatCreditLine, formatOnScreenCredit } from "./credits.js";
 import {
   capTextCards,
+  enforceFootageOpening,
   enforceMotionContinuity,
   enforceTransitionDiscipline,
 } from "./score-guards.js";
@@ -253,10 +254,19 @@ function prepareScore(
   noAiAssets: boolean,
   cb: PipelineCallbacks,
 ): DirectorScore {
+  // The opening frame is the thumbnail of the feed, so it is a picture of the
+  // machine, never a slide. The card's line moves onto the shot instead.
+  const opening = enforceFootageOpening(score);
+  let prepared = score;
+  if (opening.merged) {
+    cb.onLog?.("[director] Opened on footage instead of a title card");
+    cb.onProgress?.("director", { type: "footage_opening" });
+    prepared = opening.score;
+  }
+
   // A third card is a slideshow, whatever the mode. The cap runs before any
   // asset work so the missing card never reaches the resolver.
-  const capped = capTextCards(score);
-  let prepared = score;
+  const capped = capTextCards(prepared);
   if (capped.merged.length > 0) {
     cb.onLog?.(
       `[director] Folded ${capped.merged.length} extra text card(s) into the scene before them`,

@@ -35,15 +35,18 @@ Choose the best visual_type for each scene based on what serves the content:
 Mixing visual types makes the video feel produced rather than generated - but don't force variety where it doesn't fit. If the topic is best served by mostly AI images (e.g., speculative sci-fi) or mostly stock (e.g., travel destinations), lean into that. Let the content drive the choice.
 
 **A text card is the exception, not the default.** Real footage is what makes a video worth
-watching; a wall of cards looks like a slideshow someone made in a hurry. Use at most two text
-cards in a whole video, and only where a card genuinely beats a picture:
+watching; a wall of cards looks like a slideshow someone made in a hurry. Use **one** text card
+in the whole video, and only where a card genuinely beats a picture:
 
-- the opening title card: its `visual_prompt` is the promise in 3 to 6 words ("THE FIRST CAR EVER
-  BUILT"), never "INTRODUCTION" or the topic typed out again
 - the closing card: its `visual_prompt` is the question the viewer can answer, in 4 to 8 words
   ("WOULD YOU DRIVE IT?"), never a generic call to action such as "JOIN THE CONVERSATION" - that
   could close any video on the platform and gives nobody a reason to type
 - a number that cannot be shown (a price, a production count, a lap record)
+
+**Never open on a card.** Scene 1 is the picture the feed shows while the viewer decides whether
+to stop scrolling, so it is the strongest shot of the video: the car itself, the machine, the
+crowd, the wreck. The hook is spoken over it. A title card belongs in the first two seconds only
+of a video that has no picture worth opening on, which for this channel is almost never.
 
 Everything else is a real scene: a car on a road, a factory floor, a drawing board, a crowd,
 an engine. If you cannot picture it, name the thing you would film and write that as the

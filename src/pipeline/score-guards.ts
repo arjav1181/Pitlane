@@ -176,3 +176,37 @@ export function enforceTransitionDiscipline(score: DirectorScore): TransitionDis
 
   return { score: changed ? { ...score, scenes } : score, reset };
 }
+
+/**
+ * Open on the film, not on a slide.
+ *
+ * The first frame is what the feed shows while the viewer decides whether to
+ * stop scrolling, and a title card there is a rectangle where a car should be.
+ * The card's narration is not lost: its line joins the first footage scene, so
+ * the hook is still spoken - now over a picture, which is the thing that makes
+ * someone stay.
+ */
+export interface FootageOpeningResult {
+  score: DirectorScore;
+  merged: boolean;
+}
+
+export function enforceFootageOpening(score: DirectorScore): FootageOpeningResult {
+  const [first, second, ...rest] = score.scenes;
+  if (!first || !second) return { score, merged: false };
+  if (first.visual_type !== "text_card") return { score, merged: false };
+  // Two cards in a row is the cap's problem, not this rule's.
+  if (second.visual_type === "text_card") return { score, merged: false };
+
+  const script = [first.script_line.trim(), second.script_line.trim()]
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    score: {
+      ...score,
+      scenes: [{ ...second, script_line: script }, ...rest],
+    },
+    merged: true,
+  };
+}
