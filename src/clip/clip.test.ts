@@ -20,7 +20,7 @@ import {
   escapeFilterPath,
 } from "./render.js";
 import type { SourceInfo } from "./source.js";
-import { downloadArgs, sourceWindow } from "./source.js";
+import { downloadArgs, sourceWindow, ytdlpBinary } from "./source.js";
 import { normalizeClipSpec } from "./spec.js";
 import type { TranscriptWord } from "./transcript.js";
 
@@ -49,6 +49,19 @@ function words(count: number, step = 0.4): TranscriptWord[] {
     end: index * step + step * 0.7,
   }));
 }
+
+describe("yt-dlp discovery", () => {
+  it("honours an explicit binary override", () => {
+    const previous = process.env["OPENREELS_YTDLP_BINARY"];
+    process.env["OPENREELS_YTDLP_BINARY"] = "/opt/bin/yt-dlp";
+    try {
+      expect(ytdlpBinary()).toBe("/opt/bin/yt-dlp");
+    } finally {
+      if (previous === undefined) delete process.env["OPENREELS_YTDLP_BINARY"];
+      else process.env["OPENREELS_YTDLP_BINARY"] = previous;
+    }
+  });
+});
 
 describe("clip spec", () => {
   it("fills in the defaults a caller should not have to send", () => {

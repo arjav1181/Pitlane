@@ -25,6 +25,9 @@ All notable changes to Pitlane will be documented in this file.
 - **A restart can no longer leave a job "running" forever**: jobs whose queue entry was dropped
   but whose metadata still said `running` are failed on boot, so they stop blocking the single
   worker slot.
+- **yt-dlp is found even when the host replaces PATH**: the standalone binary is baked into the
+  image, but a restricted PATH made `spawn("yt-dlp")` fail with ENOENT. The clipper now resolves
+  the absolute image path, with an environment override for a proxy wrapper.
 
 ### Fixed
 - **Scripts can no longer run to 56 seconds**: the director's system prompt set a 72-88 word

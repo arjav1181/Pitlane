@@ -106,6 +106,22 @@ function decodeFilename(value: string): string {
   }
 }
 
+/**
+ * Find yt-dlp without depending on the service's PATH.
+ *
+ * The standalone binary is baked into the image at /usr/local/bin. A hosting
+ * runtime can replace PATH with a much smaller one, and `spawn("yt-dlp")`
+ * then fails with ENOENT even though the binary is right there. An explicit
+ * environment override also lets an operator point at a wrapper that supplies
+ * a proxy or cookies.
+ */
+export function ytdlpBinary(): string {
+  const configured = process.env["OPENREELS_YTDLP_BINARY"]?.trim();
+  if (configured) return configured;
+  if (fs.existsSync("/usr/local/bin/yt-dlp")) return "/usr/local/bin/yt-dlp";
+  return "yt-dlp";
+}
+
 export class SourceUnavailableError extends Error {
   constructor(message: string) {
     super(message);
@@ -317,7 +333,7 @@ export async function downloadSource(
   workDir: string,
   options: SourceOptions = {},
 ): Promise<SourceInfo> {
-  const bin = options.bin ?? "yt-dlp";
+  const bin = options.bin ?? ytdlpBinary();
   const log = options.onLog ?? (() => undefined);
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
