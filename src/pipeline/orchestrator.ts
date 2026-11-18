@@ -878,7 +878,13 @@ function buildPipelineWorkflow(
       // A credit that only lives in the description is a credit most viewers
       // never see. The frame carries a short version, the description carries
       // the file page and the licence.
-      visualsResult.sceneCredits = sceneResults.map((r) => formatOnScreenCredit(r.credit) || null);
+      visualsResult.sceneCredits = sceneResults.map(
+        (r, i) =>
+          formatOnScreenCredit(
+            r.credit,
+            score.scenes[i]?.visual_type === "stock_video" ? "video" : "photo",
+          ) || null,
+      );
       for (const r of sceneResults) {
         if (r.usage) llmUsages.push(r.usage);
         if (r.prompterUsage) llmUsages.push(r.prompterUsage);

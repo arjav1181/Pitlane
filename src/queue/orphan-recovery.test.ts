@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   isOrphaned,
+  planQueueSweep,
   selectOrphanedJobs,
   removeFromQueue,
 } from "./orphan-recovery.js";
@@ -79,5 +80,48 @@ describe("removeFromQueue", () => {
     await removeFromQueue(queue as never, redis as never, "job-1");
     expect(redis.lrem).toHaveBeenCalledWith("bull:openreels:active", 0, "job-1");
     expect(redis.del).toHaveBeenCalledWith("bull:openreels:job-1");
+  });
+});
+
+describe("planQueueSweep", () => {
+  const entry = (over: Partial<Parameters<typeof planQueueSweep>[0][number]>) => ({
+    id: "job",
+    state: "waiting" as const,
+    locked: false,
+    finalised: false,
+    started: false,
+    ...over,
+  });
+
+  it("drops a finished job instead of letting the queue re-run it", () => {
+    const sweep = planQueueSweep([entry({ id: "done", state: "active", locked: true, finalised: true })]);
+    expect(sweep.remove).toEqual(["done"]);
+    expect(sweep.fail).toEqual([]);
+  });
+
+  it("fails a waiting job that had already begun a stage", () => {
+    const sweep = planQueueSweep([entry({ id: "half", started: true })]);
+    expect(sweep.fail.map((j) => j.id)).toEqual(["half"]);
+    expect(sweep.remove).toEqual([]);
+  });
+
+  it("leaves a queued request that never started alone", () => {
+    const sweep = planQueueSweep([entry({ id: "queued" })]);
+    expect(sweep.fail).toEqual([]);
+    expect(sweep.remove).toEqual([]);
+  });
+
+  it("leaves the job this worker is holding alone", () => {
+    const sweep = planQueueSweep([
+      entry({ id: "live", state: "active", locked: true, started: true }),
+    ]);
+    expect(sweep.fail).toEqual([]);
+  });
+
+  it("fails an active job whose worker is gone", () => {
+    const sweep = planQueueSweep([
+      entry({ id: "dead", state: "active", locked: false, started: true }),
+    ]);
+    expect(sweep.fail[0]?.reason).toContain("orphaned");
   });
 });

@@ -19,9 +19,9 @@ import type { PipelineCallbacks, StageName } from "./pipeline/orchestrator.js";
 import { runPipeline } from "./pipeline/orchestrator.js";
 import { createProviders, createVerificationModel } from "./providers/factory.js";
 import {
-  listActiveJobs,
+  listQueueEntries,
+  planQueueSweep,
   removeFromQueue,
-  selectOrphanedJobs,
 } from "./queue/orphan-recovery.js";
 import { validateManifest } from "./providers/music/bundled.js";
 import { DirectorScore } from "./schema/director-score.js";
@@ -133,19 +133,42 @@ async function deliverJobCallback(
 async function recoverOrphanedJobs(force = false): Promise<void> {
   const queue = new Queue<JobData>(QUEUE_NAME, { connection: redis });
   try {
-    const candidates = await listActiveJobs(queue, redis);
-    const orphans = selectOrphanedJobs(
-      candidates,
-      (id) => {
-        const meta = readJobMeta(JOBS_DIR, id);
-        return Boolean(meta && ["completed", "failed", "cancelled"].includes(meta.status));
-      },
-      force,
+    const metaOf = (id: string) => readJobMeta(JOBS_DIR, id);
+    const isFinalised = (id: string) => {
+      const meta = metaOf(id);
+      return Boolean(meta && ["completed", "failed", "cancelled"].includes(meta.status));
+    };
+    // A request that never started has nothing but pending stages. Anything
+    // else was already inside the pipeline when its worker disappeared.
+    const hasStarted = (id: string) => {
+      const meta = metaOf(id);
+      if (!meta) return false;
+      if (meta.status === "running") return true;
+      if (meta.runDir) return true;
+      return Object.values(meta.stages ?? {}).some(
+        (stage) => stage && stage.status !== "pending",
+      );
+    };
+
+    const entries = await listQueueEntries(queue, redis, hasStarted, isFinalised);
+    const sweep = planQueueSweep(
+      force
+        ? entries.map((entry) =>
+            entry.state === "active" ? { ...entry, locked: false } : entry,
+          )
+        : entries,
     );
 
-    for (const orphan of orphans) {
+    for (const id of sweep.remove) {
+      // The job already finished. A queue entry left over from the restart
+      // would re-run it and overwrite the render that was published.
+      console.warn(`[worker] Dropping finished job ${id} from the queue`);
+      await removeFromQueue(queue, redis, id);
+    }
+
+    for (const orphan of sweep.fail) {
       console.warn(`[worker] Failing orphaned job ${orphan.id}: ${orphan.reason}`);
-      const meta = readJobMeta(JOBS_DIR, orphan.id);
+      const meta = metaOf(orphan.id);
       if (meta) {
         meta.status = "failed";
         meta.error = orphan.reason;
@@ -309,6 +332,7 @@ const worker = new Worker<JobData>(
             // credited the same way and keeps the formatting testable.
             creditsLine: formatCreditLine(credits),
           };
+          meta.creditsLine = formatCreditLine(credits);
           writeMeta(jobDir, meta);
         } else if (data.type === "revision") {
           if (!meta.revisionHistory) meta.revisionHistory = [];

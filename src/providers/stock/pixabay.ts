@@ -36,6 +36,13 @@ export class PixabayStock implements StockProvider {
           height: videoSource?.height ?? 720,
           duration: hit.duration,
           id: `pixabay-video-${hit.id}`,
+          label: `Pixabay video ${hit.id}`,
+          credit: {
+            author: hit.user ?? "Pixabay contributor",
+            license: "Pixabay Content License",
+            licenseUrl: "https://pixabay.com/service/license-summary/",
+            sourceUrl: hit.pageURL ?? `https://pixabay.com/videos/${hit.id}/`,
+          },
         };
       })
       .filter((c) => c.url !== "");
@@ -54,6 +61,13 @@ export class PixabayStock implements StockProvider {
       width: hit.imageWidth,
       height: hit.imageHeight,
       id: `pixabay-image-${hit.id}`,
+      label: `Pixabay photo ${hit.id}`,
+      credit: {
+        author: hit.user ?? "Pixabay contributor",
+        license: "Pixabay Content License",
+        licenseUrl: "https://pixabay.com/service/license-summary/",
+        sourceUrl: hit.pageURL ?? `https://pixabay.com/photos/${hit.id}/`,
+      },
     }));
   }
 
@@ -101,6 +115,8 @@ interface PixabayVideoResponse {
   hits: {
     id: number;
     duration: number;
+    user?: string;
+    pageURL?: string;
     videos: {
       large?: { url: string; width: number; height: number };
       medium?: { url: string; width: number; height: number };
@@ -114,5 +130,7 @@ interface PixabayImageResponse {
     imageWidth: number;
     imageHeight: number;
     largeImageURL: string;
+    user?: string;
+    pageURL?: string;
   }[];
 }

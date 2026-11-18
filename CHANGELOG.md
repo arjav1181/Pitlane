@@ -4,6 +4,18 @@ All notable changes to Pitlane will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **The description carries the credits it was always meant to carry**: the paste-ready licence
+  line was written into nested job metadata while the publisher read a top-level field, so
+  published descriptions had no credits at all. It now sits where the publisher reads it.
+- **Every stock clip is credited, not just Commons**: Pexels and Pixabay results now return the
+  photographer, the page and the licence, so their scenes get the same on-frame chip and the
+  same description line as an archived photograph.
+- **A restart no longer leaves a job "running" forever**: BullMQ moves a stalled job back to the
+  wait list, where the old recovery never looked. The sweep now reads every queue list, fails a
+  job that had already begun a stage, and removes finished jobs so a leftover queue entry cannot
+  re-render over a video that was already published.
+
 ### Changed
 - **The channel rotates three story shapes**: a single turn, a what-went-wrong story and a
   three-car comparison, one per six-hour slot, so four uploads a day stop reading as the same

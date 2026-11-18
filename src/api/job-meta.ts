@@ -47,6 +47,14 @@ export interface JobMeta {
   videoPath?: string;
   /** Still frame of the finished short, for cards and anything that cannot play video. */
   posterPath?: string;
+  /**
+   * One paste-ready licence line for the description.
+   *
+   * It lives at the top level because that is where a client reads it: the
+   * publisher appends this string to the description without knowing how the
+   * credit record is shaped. The full record stays in `metadata.credits`.
+   */
+  creditsLine?: string;
   runDir?: string;
   researchData?: { summary: string; key_facts: string[]; mood: string; sources?: string[] };
   score?: unknown;

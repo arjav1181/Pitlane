@@ -79,3 +79,26 @@ describe("formatOnScreenCredit", () => {
     expect(formatOnScreenCredit(null)).toBe("");
   });
 });
+
+describe("formatOnScreenCredit for footage", () => {
+  it("calls a clip footage, not a photo", () => {
+    const line = formatOnScreenCredit(
+      {
+        author: "Jane Doe",
+        license: "Pexels License",
+        sourceUrl: "https://www.pexels.com/video/123",
+      },
+      "video",
+    );
+    expect(line).toBe("Footage: Jane Doe / Pexels");
+  });
+
+  it("does not name Commons for a library clip", () => {
+    const line = formatOnScreenCredit({
+      author: "Jane Doe",
+      license: "Pexels License",
+      sourceUrl: "https://www.pexels.com/video/123",
+    });
+    expect(line).toBe("Photo: Jane Doe / Pexels");
+  });
+});

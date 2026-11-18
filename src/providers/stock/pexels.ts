@@ -59,6 +59,13 @@ export class PexelsStock implements StockProvider {
         height: videoFile.height ?? 1920,
         duration: video.duration,
         id: `pexels-video-${video.id}`,
+        label: `Pexels video ${video.id}`,
+        credit: {
+          author: video.user?.name ?? "Pexels contributor",
+          license: "Pexels License",
+          licenseUrl: "https://www.pexels.com/license/",
+          sourceUrl: video.url ?? `https://www.pexels.com/video/${video.id}/`,
+        },
       });
     }
     return candidates;
@@ -86,6 +93,13 @@ export class PexelsStock implements StockProvider {
         height: videoFile.height ?? 1080,
         duration: video.duration,
         id: `pexels-video-${video.id}`,
+        label: `Pexels video ${video.id}`,
+        credit: {
+          author: video.user?.name ?? "Pexels contributor",
+          license: "Pexels License",
+          licenseUrl: "https://www.pexels.com/license/",
+          sourceUrl: video.url ?? `https://www.pexels.com/video/${video.id}/`,
+        },
       });
     }
     return candidates;
@@ -158,6 +172,13 @@ export class PexelsStock implements StockProvider {
       width: photo.width,
       height: photo.height,
       id: `pexels-image-${photo.id}`,
+      label: `Pexels photo ${photo.id}`,
+      credit: {
+        author: photo.photographer ?? "Pexels contributor",
+        license: "Pexels License",
+        licenseUrl: "https://www.pexels.com/license/",
+        sourceUrl: photo.url ?? `https://www.pexels.com/photo/${photo.id}/`,
+      },
     }));
   }
 
@@ -239,6 +260,9 @@ interface PexelsVideoResponse {
   videos: {
     id: number;
     duration: number;
+    /** Page for the clip, where the photographer is credited. */
+    url?: string;
+    user?: { name?: string };
     video_files: {
       link: string;
       width?: number;
@@ -255,6 +279,8 @@ interface PexelsImageResponse {
     id: number;
     width: number;
     height: number;
+    url?: string;
+    photographer?: string;
     src: {
       original: string;
       large2x: string;

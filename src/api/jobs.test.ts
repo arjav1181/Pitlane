@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildJobLinks, listArtifacts, resolveArtifact, writeJobMeta } from "./jobs.js";
+import { buildJobLinks, listArtifacts, resolveArtifact, toPublicJob, writeJobMeta } from "./jobs.js";
 import type { JobMeta } from "./job-meta.js";
 
 let jobsDir: string;
@@ -121,5 +121,22 @@ describe("buildJobLinks", () => {
     } as JobMeta);
 
     expect(links.poster).toBeNull();
+  });
+});
+
+describe("toPublicJob", () => {
+  it("puts the paste-ready credit line where the publisher reads it", () => {
+    const job = toPublicJob({
+      id: "abc",
+      topic: "t",
+      status: "completed",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      stages: {},
+      creditsLine: "Credits: Photo: Jane Doe / Wikimedia Commons (CC BY-SA 4.0) - https://x",
+      metadata: { credits: [{ author: "Jane Doe", license: "CC BY-SA 4.0", sourceUrl: "https://x" }] },
+    } as JobMeta);
+
+    expect(job.creditsLine).toContain("Jane Doe");
+    expect(job.links.self).toBe("/api/v1/jobs/abc");
   });
 });

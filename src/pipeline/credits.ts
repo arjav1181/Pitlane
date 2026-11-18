@@ -54,17 +54,30 @@ export function formatCreditLine(credits: Attribution[] | null | undefined): str
  * domain files keep their credit too, because a visible credit costs nothing
  * and a missing one is the thing that causes trouble.
  */
-export function formatOnScreenCredit(credit: Attribution | null | undefined): string {
+export function formatOnScreenCredit(
+  credit: Attribution | null | undefined,
+  kind: "photo" | "video" = "photo",
+): string {
   if (!credit) return "";
+  const label = kind === "video" ? "Footage:" : "Photo:";
   const author = (credit.author ?? "").trim();
   const license = (credit.license ?? "").trim();
-  const fromCommons = (credit.sourceUrl ?? "").includes("commons.wikimedia.org");
-  const library = fromCommons ? "Wikimedia Commons" : "";
+  const sourceUrl = credit.sourceUrl ?? "";
+  const library = sourceUrl.includes("commons.wikimedia.org")
+    ? "Wikimedia Commons"
+    : sourceUrl.includes("pexels.com")
+      ? "Pexels"
+      : sourceUrl.includes("pixabay.com")
+        ? "Pixabay"
+        : "";
 
   const named = author && author.toLowerCase() !== "unknown author" ? author : "";
   const shortened = named.length > 42 ? `${named.slice(0, 41).trimEnd()}…` : named;
   const who = [shortened, library].filter(Boolean).join(" / ");
 
-  const base = `Photo: ${who || "Wikimedia Commons"}`;
-  return license ? `${base} · ${license}` : base;
+  const base = `${label} ${who || "Wikimedia Commons"}`;
+  // "Pexels License" beside "/ Pexels" says the same thing twice. The exact
+  // licence and its URL stay in the description.
+  const redundant = library.length > 0 && license.toLowerCase().startsWith(library.toLowerCase());
+  return license && !redundant ? `${base} · ${license}` : base;
 }

@@ -116,3 +116,92 @@ export async function listActiveJobs(
   }
   return candidates;
 }
+
+/** One entry in the queue, whatever list it is currently sitting in. */
+export interface QueueEntry {
+  id: string;
+  state: "active" | "waiting" | "delayed";
+  /** Active and still held by a worker that is alive. */
+  locked: boolean;
+  /** The metadata says the job already finished, one way or another. */
+  finalised: boolean;
+  /** The metadata proves a stage ran, so this is not a request that never started. */
+  started: boolean;
+}
+
+/**
+ * What to do with the queue on a recovery tick.
+ *
+ * The subtle case is a restart in the middle of a render. BullMQ moves the
+ * stalled job out of `active` and back to `wait`, so a sweep that only reads
+ * the active list sees nothing to clean up and the job is re-run from the
+ * first stage - or, worse, its metadata sits at "assembly: running" forever
+ * while no worker owns it. So the sweep reads every list:
+ *
+ * - a finished job is removed from the queue, because re-running it would
+ *   overwrite a render that has already been published;
+ * - a waiting job that visibly began a stage was interrupted by a restart and
+ *   is failed, not re-run;
+ * - a waiting job with no stage progress is a real queued request and is left
+ *   alone;
+ * - an unlocked active job is already covered by the orphan rule.
+ */
+export function planQueueSweep(entries: QueueEntry[]): {
+  remove: string[];
+  fail: OrphanedJob[];
+} {
+  const remove: string[] = [];
+  const fail: OrphanedJob[] = [];
+
+  for (const entry of entries) {
+    if (!entry.id) continue;
+    if (entry.finalised) {
+      remove.push(entry.id);
+      continue;
+    }
+    if (entry.state === "active" && !entry.locked) {
+      fail.push({
+        id: entry.id,
+        reason: "Job was orphaned by a server restart and never finished.",
+      });
+      continue;
+    }
+    if (entry.state !== "active" && entry.started) {
+      fail.push({
+        id: entry.id,
+        reason: "Job was interrupted by a server restart and never finished.",
+      });
+    }
+  }
+
+  return { remove, fail };
+}
+
+/** Read every list the queue keeps, with the facts the sweep needs. */
+export async function listQueueEntries(
+  queue: Queue,
+  redis: { exists(...keys: string[]): Promise<number> },
+  hasStarted: (id: string) => boolean,
+  isFinalised: (id: string) => boolean,
+): Promise<QueueEntry[]> {
+  const entries: QueueEntry[] = [];
+  const states: QueueEntry["state"][] = ["active", "waiting", "delayed"];
+
+  for (const state of states) {
+    const jobs = await queue.getJobs([state], 0, 100);
+    for (const job of jobs) {
+      if (!job.id) continue;
+      const lockExists =
+        state === "active" ? await redis.exists(`${queue.toKey(job.id)}:lock`) : 0;
+      entries.push({
+        id: job.id,
+        state,
+        locked: lockExists > 0,
+        finalised: isFinalised(job.id),
+        started: hasStarted(job.id),
+      });
+    }
+  }
+
+  return entries;
+}
