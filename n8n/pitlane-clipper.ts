@@ -468,7 +468,11 @@ return clips.map((clip, index) => {
     .trim();
   const description = [];
   if (clip.suggestedDescription) description.push(String(clip.suggestedDescription).trim());
-  if (sourceUrl) description.push('Full video: ' + sourceUrl);
+  // The clipper already writes a "Clipped from:" line with the URL. Only add
+  // a second one when it did not, so a pasted description reads cleanly.
+  if (sourceUrl && !description.some((line) => line.includes(sourceUrl))) {
+    description.push('Full video: ' + sourceUrl);
+  }
   description.push('#' + String(cfg.tags || 'shorts').split(',')[0].replace(/[^a-zA-Z0-9]/g, ''));
 
   return {
