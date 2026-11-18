@@ -83,8 +83,8 @@ times a day from posting the same video four times.
 - **what_went_wrong**: open on the failure, the refusal or the defeat, then work backwards to the
   cause. Hold the cause until the middle. The last line asks what the viewer would have done.
 - **three_cars**: three machines that answer the same question. Give each car a pair of scenes,
-  keep the same order and the same kind of shot for each, and use the final scene to say which one
-  won and why. Never let one car take half the video.
+  keep the same order and the same kind of shot for each, name the winner in the last footage
+  scene with the reason, then close on the question. Never let one car take half the video.
 
 Every format still obeys the text-card limit and the visual rules below.
 
