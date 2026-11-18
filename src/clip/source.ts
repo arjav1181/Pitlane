@@ -257,10 +257,26 @@ async function probe(bin: string, url: string): Promise<ProbeMetadata> {
     // title is not worth failing the job over.
     const message = err instanceof Error ? (err as Error & { stderr?: string }).stderr ?? err.message : "";
     if (FATAL.some((pattern) => pattern.test(message))) {
-      throw new SourceUnavailableError(firstLine(message));
+      throw fatalError(message);
     }
     return {};
   }
+}
+
+/**
+ * A fatal yt-dlp error, translated into something an operator can act on.
+ *
+ * "Sign in to confirm you're not a bot" is a network identity problem, not a
+ * broken URL. Leaving the raw yt-dlp text in the job error sends people to
+ * debug the video when the fix is a cookies file or a proxy.
+ */
+export function fatalError(detail: string): SourceUnavailableError {
+  if (/sign in to confirm/i.test(detail)) {
+    return new SourceUnavailableError(
+      "YouTube blocks downloads from this server's IP. Set OPENREELS_YTDLP_COOKIES to a Netscape cookies file from a signed-in browser, or OPENREELS_YTDLP_PROXY to a residential proxy, then retry.",
+    );
+  }
+  return new SourceUnavailableError(firstLine(detail));
 }
 
 /** The line that explains the failure, not the warning above it. */
@@ -390,7 +406,7 @@ export async function downloadSource(
           : String(err);
       lastError = detail;
       const fatal = FATAL.find((pattern) => pattern.test(detail));
-      if (fatal) throw new SourceUnavailableError(firstLine(detail));
+      if (fatal) throw fatalError(detail);
       const retryable = RETRYABLE.some((pattern) => pattern.test(detail));
       const hasNext = index < clients.length - 1;
       if (!retryable || !hasNext) break;

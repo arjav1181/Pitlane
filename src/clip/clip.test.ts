@@ -20,7 +20,7 @@ import {
   escapeFilterPath,
 } from "./render.js";
 import type { SourceInfo } from "./source.js";
-import { downloadArgs, sourceWindow, ytdlpBinary } from "./source.js";
+import { downloadArgs, fatalError, sourceWindow, ytdlpBinary } from "./source.js";
 import { normalizeClipSpec } from "./spec.js";
 import type { TranscriptWord } from "./transcript.js";
 
@@ -51,6 +51,14 @@ function words(count: number, step = 0.4): TranscriptWord[] {
 }
 
 describe("yt-dlp discovery", () => {
+  it("explains the bot check instead of blaming the URL", () => {
+    const error = fatalError(
+      "ERROR: [youtube] abc: Sign in to confirm you are not a bot",
+    );
+    expect(error.message).toContain("OPENREELS_YTDLP_COOKIES");
+    expect(error.message).toContain("OPENREELS_YTDLP_PROXY");
+  });
+
   it("honours an explicit binary override", () => {
     const previous = process.env["OPENREELS_YTDLP_BINARY"];
     process.env["OPENREELS_YTDLP_BINARY"] = "/opt/bin/yt-dlp";

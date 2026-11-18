@@ -28,6 +28,9 @@ All notable changes to Pitlane will be documented in this file.
 - **yt-dlp is found even when the host replaces PATH**: the standalone binary is baked into the
   image, but a restricted PATH made `spawn("yt-dlp")` fail with ENOENT. The clipper now resolves
   the absolute image path, with an environment override for a proxy wrapper.
+- **A YouTube bot check now says what to do**: instead of dumping yt-dlp's "sign in to confirm"
+  text into the job error, the clipper points at `OPENREELS_YTDLP_COOKIES` and
+  `OPENREELS_YTDLP_PROXY`.
 
 ### Fixed
 - **Scripts can no longer run to 56 seconds**: the director's system prompt set a 72-88 word

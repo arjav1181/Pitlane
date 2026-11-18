@@ -1,0 +1,118 @@
+FROM node:22-bookworm-slim
+
+# System dependencies:
+#   ffmpeg       → audio/video assembly (includes ffprobe)
+#   redis-server → BullMQ backing store (runs inside the Space container)
+#   Chrome libs  → required by the Remotion headless renderer
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    espeak-ng \
+    ffmpeg \
+    redis-server \
+    fonts-liberation \
+    libnss3 \
+    libdbus-1-3 \
+    libatk1.0-0 \
+    libgbm-dev \
+    libasound2 \
+    libxrandr2 \
+    libxkbcommon-dev \
+    libxfixes3 \
+    libxcomposite1 \
+    libxdamage1 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+  && rm -rf /var/lib/apt/lists/*
+
+# ── yt-dlp ─────────────────────────────────────────────────────────────────
+# The clipper downloads its source at render time. The standalone binary needs
+# no Python interpreter, and Node is present for YouTube's JS challenges.
+RUN curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux" \
+      -o /usr/local/bin/yt-dlp \
+ && chmod 0755 /usr/local/bin/yt-dlp \
+ && /usr/local/bin/yt-dlp --version
+
+WORKDIR /app
+
+# ── Piper TTS ──────────────────────────────────────────────────────────────
+# A fast local neural narrator. The binary and two voices are baked into the
+# image so nothing is downloaded at render time. Piper synthesises at roughly
+# twenty times faster than real time, which takes the voiceover stage from
+# minutes to seconds on a CPU-only box.
+#
+#   alan   — British documentary narrator (default)
+#   ryan   — American documentary narrator, deeper
+ARG PIPER_VERSION=2023.11.14-2
+ARG PIPER_VOICES_BASE=https://huggingface.co/rhasspy/piper-voices/resolve/main
+RUN mkdir -p /opt/piper /opt/piper-voices \
+ && curl -fsSL "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_linux_x86_64.tar.gz" \
+      | tar xz -C /opt/piper --strip-components=1 \
+ && chmod 0755 /opt/piper/piper \
+ && for voice in "en/en_GB/alan/medium/en_GB-alan-medium" "en/en_US/ryan/high/en_US-ryan-high"; do \
+      name="$(basename "$voice")"; \
+      curl -fsSL "${PIPER_VOICES_BASE}/${voice}.onnx"      -o "/opt/piper-voices/${name}.onnx"; \
+      curl -fsSL "${PIPER_VOICES_BASE}/${voice}.onnx.json" -o "/opt/piper-voices/${name}.onnx.json"; \
+    done \
+ # Prove the engine works here, at build time. A schedule that runs at 00:00
+ # cannot tell anyone that the narrator is misconfigured, so the build does.
+ && (echo "Piper is ready." | /opt/piper/piper --model /opt/piper-voices/en_GB-alan-medium.onnx \
+      --output_file /tmp/piper-check.wav) \
+ && test -s /tmp/piper-check.wav \
+ && rm -f /tmp/piper-check.wav /opt/piper/*.tar.gz
+
+ENV PIPER_BINARY=/opt/piper/piper \
+    PIPER_MODEL=/opt/piper-voices/en_US-ryan-high.onnx
+
+# Enable pnpm via corepack
+RUN corepack enable pnpm
+
+# onnxruntime-node (pulled in by @huggingface/transformers) downloads a ~1GB CUDA
+# runtime by default, which OOMs the Space builder. The CPU build is all we need.
+ENV ONNXRUNTIME_NODE_INSTALL=skip \
+    ONNXRUNTIME_NODE_INSTALL_CUDA=skip
+
+# Runtime configuration
+ENV PORT=7860
+ENV HOST=0.0.0.0
+ENV REDIS_URL=redis://127.0.0.1:6379
+ENV JOBS_DIR=
+
+# Default LLM route. The gateway's quota is shared, so a route can be
+# exhausted for hours at a time; gemini/gemini-2.5-flash-lite was returning
+# 503 "quota_exhausted" for 20 hours. gemini/gemini-flash-lite-latest is the
+# same flash-lite tier and still had quota. The fallback chain below covers
+# the case where this one dies too.
+ENV OPENREELS_LLM_MODEL=gemini/gemini-flash-lite-latest
+ENV OPENREELS_LLM_FALLBACK_MODELS=auto/qwen,gemini/gemini-2.5-flash,auto/best-free
+
+# Install dependencies (pnpm workspace — root + web only, docs is not shipped)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY web/package.json ./web/
+RUN pnpm install --frozen-lockfile --filter=!docs
+
+# Install Chrome Headless Shell for Remotion rendering
+RUN npx remotion browser ensure
+
+# Copy full source
+COPY . .
+
+# Build the frontend (the API server serves it from web/dist)
+RUN cd web && npx vite build
+
+# Word-alignment model, baked in. transformers.js caches into its own package
+# directory, so this both warms the cache and proves the model downloads
+# cleanly at build time. A fresh container then never fetches it mid-render.
+RUN node scripts/prefetch-aligner.mjs \
+ && du -sh node_modules/@huggingface/transformers/.cache
+
+# The narrator, baked in. Kokoro is a local neural voice: it needs its model
+# files, its voice files and espeak-ng, and this step proves all three work
+# before a scheduled render ever asks for a voice.
+RUN node scripts/prefetch-kokoro.mjs
+
+RUN mkdir -p /app/jobs /output && chmod +x /app/docker-entrypoint.sh
+
+EXPOSE 7860
+
+CMD ["/app/docker-entrypoint.sh"]
