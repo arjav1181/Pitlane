@@ -150,7 +150,9 @@ async function recoverOrphanedJobs(force = false): Promise<void> {
       );
     };
 
-    const entries = await listQueueEntries(queue, redis, hasStarted, isFinalised);
+    // At boot the queue's own completed/failed lists are the only record of
+    // what happened to a job whose metadata was cut off mid-write.
+    const entries = await listQueueEntries(queue, redis, hasStarted, isFinalised, force);
     const sweep = planQueueSweep(
       force
         ? entries.map((entry) =>

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { DirectorScore, Scene } from "../schema/director-score.js";
-import { capTextCards, enforceMotionContinuity } from "./score-guards.js";
+import {
+  capTextCards,
+  enforceMotionContinuity,
+  enforceTransitionDiscipline,
+} from "./score-guards.js";
 
 const card = (script: string, prompt = "A heading"): Scene => ({
   visual_type: "text_card",
@@ -122,5 +126,47 @@ describe("enforceMotionContinuity", () => {
     const result = enforceMotionContinuity(score);
     expect(result.flipped).toEqual([]);
     expect(result.score.scenes.map((s) => s.motion)).toEqual(["pan_left", "static", "zoom_in"]);
+  });
+});
+
+describe("enforceTransitionDiscipline", () => {
+  const withTransition = (visual: Scene["visual_type"], transition: Scene["transition"]): Scene => ({
+    ...shot("A car."),
+    visual_type: visual,
+    transition,
+  });
+
+  it("turns a tour of effects into cuts", () => {
+    const score = scoreOf([
+      withTransition("stock_image", "wipe"),
+      withTransition("stock_image", "slide_left"),
+      withTransition("stock_image", "flip"),
+    ]);
+    const result = enforceTransitionDiscipline(score);
+    expect(result.score.scenes.map((s) => s.transition)).toEqual(["none", "none", "none"]);
+    expect(result.reset).toEqual([0, 1, 2]);
+  });
+
+  it("keeps the crossfade into a text card", () => {
+    const score = scoreOf([withTransition("stock_image", "crossfade"), card("The point.")]);
+    const result = enforceTransitionDiscipline(score);
+    expect(result.score.scenes[0]!.transition).toBe("crossfade");
+    expect(result.reset).toEqual([]);
+  });
+
+  it("cuts a crossfade between two shots", () => {
+    const score = scoreOf([
+      withTransition("stock_image", "crossfade"),
+      withTransition("stock_video", "none"),
+    ]);
+    const result = enforceTransitionDiscipline(score);
+    expect(result.score.scenes[0]!.transition).toBe("none");
+  });
+
+  it("makes a null transition explicit so no archetype default can fire", () => {
+    const score = scoreOf([shot("A car."), card("The point.")]);
+    const result = enforceTransitionDiscipline(score);
+    expect(result.score.scenes[0]!.transition).toBe("none");
+    expect(result.reset).toEqual([]);
   });
 });

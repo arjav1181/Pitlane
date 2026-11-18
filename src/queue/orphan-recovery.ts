@@ -120,7 +120,11 @@ export async function listActiveJobs(
 /** One entry in the queue, whatever list it is currently sitting in. */
 export interface QueueEntry {
   id: string;
-  state: "active" | "waiting" | "delayed";
+  /**
+   * `completed` and `failed` are only read at boot: they are the queue's own
+   * verdict on a job whose metadata can still say `running` after a restart.
+   */
+  state: "active" | "waiting" | "delayed" | "completed" | "failed";
   /** Active and still held by a worker that is alive. */
   locked: boolean;
   /** The metadata says the job already finished, one way or another. */
@@ -159,6 +163,16 @@ export function planQueueSweep(entries: QueueEntry[]): {
       remove.push(entry.id);
       continue;
     }
+    // The queue finished this job but its metadata never caught up. That can
+    // only be a restart in the middle of the final write, because a healthy
+    // run finalises its metadata before it returns.
+    if (entry.state === "completed" || entry.state === "failed") {
+      fail.push({
+        id: entry.id,
+        reason: "Job was interrupted by a server restart and never finished.",
+      });
+      continue;
+    }
     if (entry.state === "active" && !entry.locked) {
       fail.push({
         id: entry.id,
@@ -183,9 +197,12 @@ export async function listQueueEntries(
   redis: { exists(...keys: string[]): Promise<number> },
   hasStarted: (id: string) => boolean,
   isFinalised: (id: string) => boolean,
+  includeFinished = false,
 ): Promise<QueueEntry[]> {
   const entries: QueueEntry[] = [];
-  const states: QueueEntry["state"][] = ["active", "waiting", "delayed"];
+  const states: QueueEntry["state"][] = includeFinished
+    ? ["active", "waiting", "delayed", "completed", "failed"]
+    : ["active", "waiting", "delayed"];
 
   for (const state of states) {
     const jobs = await queue.getJobs([state], 0, 100);

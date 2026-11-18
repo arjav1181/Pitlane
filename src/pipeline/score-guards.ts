@@ -136,3 +136,43 @@ export function enforceMotionContinuity(score: DirectorScore): MotionContinuityR
 
   return { score: flipped.length > 0 ? { ...score, scenes } : score, flipped };
 }
+
+/**
+ * Keep the cuts a film, not a showreel of effects.
+ *
+ * A director that reads "vary transitions" varies them scene by scene, and a
+ * short with a wipe, then a slide, then a crossfade, then a flip reads as a
+ * template: the eye starts watching the effect instead of the machine. A cut
+ * is the default, and the only soft transition a chapter needs is a crossfade
+ * into a text card - the moment the film stops showing and starts telling.
+ */
+export interface TransitionDisciplineResult {
+  score: DirectorScore;
+  /** Indices of scenes whose transition was reduced to a hard cut. */
+  reset: number[];
+}
+
+export function enforceTransitionDiscipline(score: DirectorScore): TransitionDisciplineResult {
+  const reset: number[] = [];
+  let changed = false;
+  const scenes = score.scenes.map((scene, index) => {
+    const next = score.scenes[index + 1];
+    const intoCard = next?.visual_type === "text_card";
+    const choice = scene.transition ?? "none";
+
+    if (choice === "crossfade" && intoCard) return scene;
+    // A null transition falls back to the archetype default in the renderer,
+    // and one archetype defaults to a 3D flip. The cut is made explicit here
+    // so that fallback can never fire.
+    if (choice === "none") {
+      if (scene.transition === "none") return scene;
+      changed = true;
+      return { ...scene, transition: "none" as const };
+    }
+    reset.push(index);
+    changed = true;
+    return { ...scene, transition: "none" as const };
+  });
+
+  return { score: changed ? { ...score, scenes } : score, reset };
+}

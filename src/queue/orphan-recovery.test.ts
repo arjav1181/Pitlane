@@ -118,6 +118,19 @@ describe("planQueueSweep", () => {
     expect(sweep.fail).toEqual([]);
   });
 
+  it("fails a queue-completed job whose metadata still says running", () => {
+    const sweep = planQueueSweep([entry({ id: "stale", state: "completed", started: true })]);
+    expect(sweep.fail.map((j) => j.id)).toEqual(["stale"]);
+  });
+
+  it("removes a finished job before its queue state is considered", () => {
+    const sweep = planQueueSweep([
+      entry({ id: "done", state: "completed", finalised: true, started: true }),
+    ]);
+    expect(sweep.remove).toEqual(["done"]);
+    expect(sweep.fail).toEqual([]);
+  });
+
   it("fails an active job whose worker is gone", () => {
     const sweep = planQueueSweep([
       entry({ id: "dead", state: "active", locked: false, started: true }),

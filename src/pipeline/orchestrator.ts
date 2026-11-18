@@ -33,7 +33,11 @@ import type { ArchetypeConfig } from "../schema/archetype.js";
 import type { DirectorScore } from "../schema/director-score.js";
 import { sanitizeScoreForNoAiAssets } from "../schema/no-ai-assets.js";
 import { formatCreditLine, formatOnScreenCredit } from "./credits.js";
-import { capTextCards, enforceMotionContinuity } from "./score-guards.js";
+import {
+  capTextCards,
+  enforceMotionContinuity,
+  enforceTransitionDiscipline,
+} from "./score-guards.js";
 import type { Attribution, LLMUsage, WordTimestamp } from "../schema/providers.js";
 import { type MusicResolution, resolveMusic } from "./music-resolver.js";
 
@@ -284,7 +288,16 @@ function prepareScore(
     );
     cb.onProgress?.("director", { type: "motion_continuity", flipped: continuity.flipped });
   }
-  return continuity.score;
+  // A different transition on every cut is the loudest template tell there is.
+  // Cuts stay cuts; the one soft transition is a crossfade into a card.
+  const transitions = enforceTransitionDiscipline(continuity.score);
+  if (transitions.reset.length > 0) {
+    cb.onLog?.(
+      `[director] Reduced ${transitions.reset.length} showy transition(s) to hard cuts`,
+    );
+    cb.onProgress?.("director", { type: "transition_discipline", reset: transitions.reset });
+  }
+  return transitions.score;
 }
 
 async function resolveVisualAsset(
