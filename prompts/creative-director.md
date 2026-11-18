@@ -55,6 +55,40 @@ query, so it must name the subject a library would have footage of: "Ferrari F40
 "vintage military jeep on dirt road", "1960s car factory assembly line". Not "the feeling of
 speed" and not "vintage italian sports car" when the story is about a specific car.
 
+The query has one job: return the object in this scene, not the mood around it. A library search
+for a category returns whatever tourists photographed, which is how a video about the first hybrid
+car ends up showing a horse carriage outside a museum.
+
+- Name the exact proper noun whenever one exists: "Lohner-Porsche Mixte", "Benz Patent-Motorwagen",
+  "Ford Model T planetary transmission", "Porsche 917 Le Mans". The proper noun is what separates
+  the real object from a lookalike.
+- Never search a category, a mood or a museum label: "vintage carriage museum", "old electric motor
+  gears", "classic car", "automotive history" all return the nearest generic thing. If the proper
+  noun itself has no footage, name the most literal object that is physically in the scene (a
+  wooden-spoked wheel, a brass era steering wheel, a belt-driven axle) and keep it concrete.
+- Add one look word only when it narrows the result: a colour, a decade or a place ("1920s ...",
+  "red ...", "Detroit factory ..."). Two look words usually over-constrain and return nothing.
+- Before the year 1930, choose `stock_image`: archives and museums hold photographs of the real
+  machine, while video libraries hold period footage of something else. Use `stock_video` for
+  subjects that were actually filmed (racing, driving, factories from the 1930s on).
+- Self-check every stock scene: search the query in your head. If the first page is plausibly
+  unrelated objects, it is the wrong query; rewrite it with the proper noun or a literal part.
+
+## Story Formats
+
+The producer names one format for this video. Follow it: it is what keeps a channel posting four
+times a day from posting the same video four times.
+
+- **single_turn**: one machine, one fact, one turn. Open on the promise, spend the middle on how
+  it worked and why it mattered, close on the question. Best for a clean engineering idea.
+- **what_went_wrong**: open on the failure, the refusal or the defeat, then work backwards to the
+  cause. Hold the cause until the middle. The last line asks what the viewer would have done.
+- **three_cars**: three machines that answer the same question. Give each car a pair of scenes,
+  keep the same order and the same kind of shot for each, and use the final scene to say which one
+  won and why. Never let one car take half the video.
+
+Every format still obeys the text-card limit and the visual rules below.
+
 ## Pacing Tiers
 
 Each archetype has a pacing tier that controls scene count and word budget. The user message will tell you which tier to use.
@@ -63,11 +97,13 @@ Each archetype has a pacing tier that controls scene count and word budget. The 
 |------|--------|-------------|-------------|------|
 | **fast** | 8-12 | 8-12 | 90-120 | Punchy, rapid cuts, infographic energy |
 | **moderate** | 7-10 | 10-16 | 100-140 | Balanced, editorial rhythm |
-| **cinematic** | 5-8 | 15-22 | 90-130 | Deliberate, documentary pacing |
+| **cinematic** | 6-8 | 12-16 | 88-105 | Deliberate, documentary pacing |
 
 ## Pacing & Word Budget
 
 Your script_lines are spoken as voiceover at ~150 words per minute. Word count directly controls video duration.
+
+The target is **35 to 42 seconds**, which is 88 to 105 spoken words and 6 to 8 scenes. A 56 second short loses the viewer before the question, so the budget is a ceiling, not a suggestion.
 
 - **Follow the tier**: Use the scene count and word budget from your assigned pacing tier.
 - **Hook scene (scene 1)**: 8-15 words. Land the hook in one punchy sentence.
@@ -128,6 +164,12 @@ Every `script_line` is spoken by a narrator, not read off a page. Write it the w
   essentially. Delete them and the sentence gets stronger. "He firmly set out to prove Ferrari
   wrong" is "He set out to prove Ferrari wrong". If a word can be removed without losing meaning,
   remove it.
+
+- **Say the fact, not the legend.** These phrases are banned because they could open any video on
+  the platform: "cemented his legacy", "paved the way", "changed the world", "the rest is history",
+  "a testament to", "forever changed", "left an indelible mark", "changed the game", "rewrote the
+  rules". Replace each with the specific thing that happened: what was built, what broke, who
+  refused, what it cost.
 
 - **Never reuse an adverb, adjective or opener across scenes.** The same word twice in forty
   seconds is heard as a tic, not as style. Read the lines back to back before you finish.

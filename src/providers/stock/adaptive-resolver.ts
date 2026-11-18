@@ -111,7 +111,7 @@ export async function resolveStockAdaptive(
   for (let qi = 0; qi < queries.length && totalApiCalls < config.maxAttempts; qi++) {
     const query = queries[qi]!;
 
-    for (const stock of config.stocks) {
+    for (const stock of orderedForType(config.stocks, visualType)) {
       if (totalApiCalls >= config.maxAttempts) break;
       totalApiCalls++;
 
@@ -419,5 +419,24 @@ function sumUsages(usages: LLMUsage[]): LLMUsage {
       outputTokens: acc.outputTokens + u.outputTokens,
     }),
     { inputTokens: 0, outputTokens: 0 },
+  );
+}
+
+/**
+ * Which library to ask first.
+ *
+ * A stock photo library is good at a look and bad at a specific machine: ask
+ * Pexels for a 1900 Lohner-Porsche and it returns whatever vintage car it has.
+ * Commons is the opposite, an archive of the actual object, so a still starts
+ * there. Video stays with the libraries that actually hold motion footage;
+ * Commons is still in the list as the last word.
+ */
+export function orderedForType(
+  stocks: StockProvider[],
+  visualType: "stock_image" | "stock_video",
+): StockProvider[] {
+  if (visualType !== "stock_image") return stocks;
+  return [...stocks].sort(
+    (a, b) => Number(b.id === "wikimedia") - Number(a.id === "wikimedia"),
   );
 }

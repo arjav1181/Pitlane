@@ -18,7 +18,7 @@ import type {
   StockCandidate,
   StockProvider,
 } from "../../schema/providers.js";
-import { resolveStockAdaptive } from "./adaptive-resolver.js";
+import { orderedForType, resolveStockAdaptive } from "./adaptive-resolver.js";
 
 // Mock dependencies
 vi.mock("./query-reformer.js", () => ({
@@ -84,6 +84,20 @@ const mockArchetype = {
 } as unknown as ArchetypeConfig;
 
 const mockModel = {} as LanguageModel;
+
+describe("orderedForType", () => {
+  const library = (id: string) => ({ id }) as unknown as StockProvider;
+
+  it("asks Commons first for a still", () => {
+    const ordered = orderedForType([library("pexels"), library("pixabay"), library("wikimedia")], "stock_image");
+    expect(ordered.map((p) => p.id)).toEqual(["wikimedia", "pexels", "pixabay"]);
+  });
+
+  it("leaves the video order alone", () => {
+    const ordered = orderedForType([library("pexels"), library("wikimedia")], "stock_video");
+    expect(ordered.map((p) => p.id)).toEqual(["pexels", "wikimedia"]);
+  });
+});
 
 describe("resolveStockAdaptive", () => {
   beforeEach(() => {

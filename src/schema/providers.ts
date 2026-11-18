@@ -106,6 +106,8 @@ export interface StockAsset {
 }
 
 export interface StockProvider {
+  /** Stable library id, used to order providers for a subject. */
+  readonly id?: string;
   searchVideo(query: string): Promise<StockCandidate[]>;
   searchImage(query: string): Promise<StockCandidate[]>;
   download(candidate: StockCandidate): Promise<StockAsset>;

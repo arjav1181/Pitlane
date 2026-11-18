@@ -19,7 +19,9 @@ export const SceneGrade: React.FC<{
   children: React.ReactNode;
   /** How strongly the archetype colour is laid over the scene. */
   tint?: number;
-}> = ({ colorPalette, children, tint = 0.1 }) => {
+  /** Short credit burned into the frame, when the licence asks for one. */
+  credit?: string;
+}> = ({ colorPalette, children, tint = 0.1, credit }) => {
   const accent = colorPalette?.accent ?? "#c8a96e";
 
   return (
@@ -42,6 +44,33 @@ export const SceneGrade: React.FC<{
             "radial-gradient(105% 75% at 50% 45%, rgba(0,0,0,0) 42%, rgba(0,0,0,0.42) 100%)",
         }}
       />
+
+      {/* The credit, burned in rather than hidden in the description. It sits
+          above the picture and below the caption scrim, at the top of the safe
+          area where YouTube's own controls do not cover it. */}
+      {credit && (
+        <div
+          style={{
+            position: "absolute",
+            top: 96,
+            left: 54,
+            maxWidth: "84%",
+            padding: "7px 12px",
+            borderRadius: 6,
+            backgroundColor: "rgba(12,12,12,0.46)",
+            color: "rgba(255,255,255,0.9)",
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontSize: 19,
+            lineHeight: 1.3,
+            letterSpacing: "0.01em",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {credit}
+        </div>
+      )}
 
       {/* A scrim under the captions, so the words are always readable.
           It reaches up to the caption rail at 24%, because a gradient that

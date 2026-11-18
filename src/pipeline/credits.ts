@@ -43,3 +43,28 @@ export function formatCreditLine(credits: Attribution[] | null | undefined): str
   if (line.length <= MAX_CREDIT_LINE) return line;
   return `${line.slice(0, MAX_CREDIT_LINE - 1).trimEnd()}…`;
 }
+
+/**
+ * The credit a viewer can read on the frame itself.
+ *
+ * The description carries the full record (work, author, licence, file page),
+ * but a viewer who never opens the description has still seen a free-licensed
+ * photograph. The chip stays short enough to read at phone size: author,
+ * library and licence, with "Photo:" naming what is being credited. Public
+ * domain files keep their credit too, because a visible credit costs nothing
+ * and a missing one is the thing that causes trouble.
+ */
+export function formatOnScreenCredit(credit: Attribution | null | undefined): string {
+  if (!credit) return "";
+  const author = (credit.author ?? "").trim();
+  const license = (credit.license ?? "").trim();
+  const fromCommons = (credit.sourceUrl ?? "").includes("commons.wikimedia.org");
+  const library = fromCommons ? "Wikimedia Commons" : "";
+
+  const named = author && author.toLowerCase() !== "unknown author" ? author : "";
+  const shortened = named.length > 42 ? `${named.slice(0, 41).trimEnd()}…` : named;
+  const who = [shortened, library].filter(Boolean).join(" / ");
+
+  const base = `Photo: ${who || "Wikimedia Commons"}`;
+  return license ? `${base} · ${license}` : base;
+}

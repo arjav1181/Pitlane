@@ -13,6 +13,8 @@ const MAX_STOCK_VIDEO_BYTES = 40 * 1024 * 1024;
 const LIGHT_VIDEO_BYTES = 12 * 1024 * 1024;
 
 export class PexelsStock implements StockProvider {
+  readonly id = "pexels";
+
   private apiKey: string | null;
   private cacheDir: string;
 

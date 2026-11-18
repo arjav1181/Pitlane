@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WordTimestamp } from "../../schema/providers";
-import { getWordChunk } from "./caption-utils";
+import { captionToneAt, getWordChunk } from "./caption-utils";
 
 const words: WordTimestamp[] = [
   { word: "Hello", start: 1.0, end: 1.5 },
@@ -121,5 +121,29 @@ describe("getWordChunk", () => {
     const { chunk, chunkStart } = getWordChunk(words, 5.0, 3, 0.3);
     expect(chunk).toEqual([]);
     expect(chunkStart).toBe(words.length);
+  });
+});
+
+
+describe("captionToneAt", () => {
+  const timeline = [
+    { from: 0, onLight: true },
+    { from: 120, onLight: false },
+    { from: 300, onLight: true },
+  ];
+
+  it("follows the scene under the words", () => {
+    expect(captionToneAt(0, timeline, false)).toBe(true);
+    expect(captionToneAt(119, timeline, false)).toBe(true);
+    expect(captionToneAt(120, timeline, false)).toBe(false);
+    expect(captionToneAt(299, timeline, false)).toBe(false);
+    expect(captionToneAt(300, timeline, false)).toBe(true);
+    expect(captionToneAt(9999, timeline, false)).toBe(true);
+  });
+
+  it("falls back when there is no timeline", () => {
+    expect(captionToneAt(50, undefined, true)).toBe(true);
+    expect(captionToneAt(50, [], false)).toBe(false);
+    expect(captionToneAt(50, undefined, undefined)).toBe(false);
   });
 });

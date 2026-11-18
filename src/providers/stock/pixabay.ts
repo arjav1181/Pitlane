@@ -8,6 +8,8 @@ import { prepareStockVideo } from "./prepare.js";
 const PIXABAY_BASE = "https://pixabay.com/api";
 
 export class PixabayStock implements StockProvider {
+  readonly id = "pixabay";
+
   private apiKey: string | null;
   private cacheDir: string;
 

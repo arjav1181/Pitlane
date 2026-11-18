@@ -62,6 +62,7 @@ export const StockVideoBeat: React.FC<SceneProps> = ({
   visualType,
   colorPalette,
   motion,
+  credit,
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
@@ -103,7 +104,7 @@ export const StockVideoBeat: React.FC<SceneProps> = ({
   ) : null;
 
   return (
-    <SceneGrade colorPalette={colorPalette}>
+    <SceneGrade colorPalette={colorPalette} credit={credit}>
       {video &&
         (timing.needsLoop ? (
           <Loop durationInFrames={timing.loopDurationInFrames}>{video}</Loop>

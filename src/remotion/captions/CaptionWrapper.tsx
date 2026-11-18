@@ -1,8 +1,8 @@
 import type React from "react";
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { WordTimestamp } from "../../schema/providers";
-import type { WordRenderState } from "./caption-utils";
-import { computeWordStates, getWordChunk } from "./caption-utils";
+import type { CaptionTonePoint, WordRenderState } from "./caption-utils";
+import { captionToneAt, computeWordStates, getWordChunk } from "./caption-utils";
 
 export interface CaptionStyleProps {
   wordStates: WordRenderState[];
@@ -28,6 +28,11 @@ interface CaptionWrapperProps {
   StyleComponent: React.FC<CaptionStyleProps>;
   /** True when the scenes behind the captions are light. */
   onLight?: boolean;
+  /**
+   * Where the tone changes across the video. Takes precedence over `onLight`
+   * so a video that mixes a cream card with dark footage stays readable.
+   */
+  sceneTone?: CaptionTonePoint[];
 }
 
 /**
@@ -50,6 +55,7 @@ export const CaptionWrapper: React.FC<CaptionWrapperProps> = ({
   emphasisIndices,
   StyleComponent,
   onLight,
+  sceneTone,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -59,6 +65,11 @@ export const CaptionWrapper: React.FC<CaptionWrapperProps> = ({
   if (chunk.length === 0) return null;
 
   const emphasisSet = emphasisIndices ? new Set(emphasisIndices) : undefined;
+
+  // The words sit over one scene at a time, and the scene decides whether
+  // they are white or near-black. Reading the tone per frame means the cut to
+  // a cream card flips the captions with it.
+  const activeOnLight = captionToneAt(frame, sceneTone, onLight);
 
   // Spring function: pure frame-math, seek-safe (no useRef).
   // Each word's spring is computed from its start frame.
@@ -97,7 +108,7 @@ export const CaptionWrapper: React.FC<CaptionWrapperProps> = ({
           wordStates={wordStates}
           chunkEntryProgress={chunkEntryProgress}
           accentColor={accentColor}
-          onLight={onLight}
+          onLight={activeOnLight}
         />
       </div>
     </AbsoluteFill>

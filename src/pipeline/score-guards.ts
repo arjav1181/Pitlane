@@ -99,3 +99,40 @@ export function capTextCards(score: DirectorScore, max = MAX_TEXT_CARDS): TextCa
 
   return { score: { ...score, scenes }, merged: [...removed] };
 }
+
+/**
+ * Keep the camera moving one way across a cut.
+ *
+ * A zoom-out answered by a zoom-in is the most common seam error in a short:
+ * the eye reads the reversal as a mistake, not a transition, because the
+ * outgoing shot recedes and the incoming one pushes at the same instant. Stock
+ * clips carry a slow push by default, so a lone zoom-out in the middle of a
+ * film is the reversal, whether or not the director meant it.
+ *
+ * A pull is still allowed where it means something: the first shot after a
+ * card (a new chapter starts from rest) and the last footage before the closing
+ * card (the arrival beat). Everywhere else the scene is turned into a push.
+ */
+export interface MotionContinuityResult {
+  score: DirectorScore;
+  /** Indices of scenes whose zoom-out was turned into a zoom-in. */
+  flipped: number[];
+}
+
+export function enforceMotionContinuity(score: DirectorScore): MotionContinuityResult {
+  const flipped: number[] = [];
+  const scenes = score.scenes.map((scene, index) => {
+    if (scene.motion !== "zoom_out") return scene;
+
+    const previousIsCard = index === 0 || score.scenes[index - 1]!.visual_type === "text_card";
+    const isLastFootage = score.scenes
+      .slice(index + 1)
+      .every((later) => later.visual_type === "text_card");
+    if (previousIsCard || isLastFootage) return scene;
+
+    flipped.push(index);
+    return { ...scene, motion: "zoom_in" as const };
+  });
+
+  return { score: flipped.length > 0 ? { ...score, scenes } : score, flipped };
+}

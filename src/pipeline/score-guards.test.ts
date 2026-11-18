@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DirectorScore, Scene } from "../schema/director-score.js";
-import { capTextCards } from "./score-guards.js";
+import { capTextCards, enforceMotionContinuity } from "./score-guards.js";
 
 const card = (script: string, prompt = "A heading"): Scene => ({
   visual_type: "text_card",
@@ -90,5 +90,37 @@ describe("capTextCards", () => {
     const none = capTextCards(score, 0);
     expect(none.score.scenes.every((s) => s.visual_type === "stock_image")).toBe(true);
     expect(none.score.scenes.map((s) => s.script_line).join(" ")).toContain("C.");
+  });
+});
+
+describe("enforceMotionContinuity", () => {
+  const moving = (motion: Scene["motion"], type: Scene["visual_type"] = "stock_image"): Scene => ({
+    ...shot("A car."),
+    visual_type: type,
+    motion,
+  });
+
+  it("turns a zoom-out in the middle of a film into a push", () => {
+    const score = scoreOf([moving("zoom_in"), moving("zoom_out"), moving("zoom_in")]);
+    const result = enforceMotionContinuity(score);
+    expect(result.flipped).toEqual([1]);
+    expect(result.score.scenes[1]!.motion).toBe("zoom_in");
+  });
+
+  it("keeps a pull that opens a new chapter after a card", () => {
+    const score = scoreOf([moving("zoom_in"), card("Chapter."), moving("zoom_out")]);
+    expect(enforceMotionContinuity(score).flipped).toEqual([]);
+  });
+
+  it("keeps the arrival pull on the last footage before the closing card", () => {
+    const score = scoreOf([moving("zoom_in"), moving("zoom_out"), card("Question?")]);
+    expect(enforceMotionContinuity(score).flipped).toEqual([]);
+  });
+
+  it("leaves pans and static scenes alone", () => {
+    const score = scoreOf([moving("pan_left"), moving("static"), moving("zoom_in")]);
+    const result = enforceMotionContinuity(score);
+    expect(result.flipped).toEqual([]);
+    expect(result.score.scenes.map((s) => s.motion)).toEqual(["pan_left", "static", "zoom_in"]);
   });
 });

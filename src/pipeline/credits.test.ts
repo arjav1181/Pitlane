@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCreditLine } from "./credits.js";
+import { formatCreditLine, formatOnScreenCredit } from "./credits.js";
 
 describe("formatCreditLine", () => {
   it("names the work, the author, the licence and the source", () => {
@@ -42,5 +42,40 @@ describe("formatCreditLine", () => {
     const line = formatCreditLine(many);
     expect(line.length).toBeLessThanOrEqual(900);
     expect(line.endsWith("…")).toBe(true);
+  });
+});
+
+
+describe("formatOnScreenCredit", () => {
+  it("names the author, the library and the licence", () => {
+    const line = formatOnScreenCredit({
+      author: "Jane Doe",
+      license: "CC BY-SA 4.0",
+      sourceUrl: "https://commons.wikimedia.org/wiki/File:Lohner-Porsche.jpg",
+    });
+    expect(line).toBe("Photo: Jane Doe / Wikimedia Commons · CC BY-SA 4.0");
+  });
+
+  it("keeps the credit when the author is unknown", () => {
+    const line = formatOnScreenCredit({
+      author: "Unknown author",
+      license: "Public domain",
+      sourceUrl: "https://commons.wikimedia.org/wiki/File:Benz.jpg",
+    });
+    expect(line).toBe("Photo: Wikimedia Commons · Public domain");
+  });
+
+  it("shortens a long author instead of dropping the credit", () => {
+    const line = formatOnScreenCredit({
+      author: "A".repeat(80),
+      license: "CC BY 4.0",
+      sourceUrl: "https://commons.wikimedia.org/wiki/File:Long.jpg",
+    });
+    expect(line.length).toBeLessThan(90);
+    expect(line).toContain("…");
+  });
+
+  it("returns nothing when there is no credit", () => {
+    expect(formatOnScreenCredit(null)).toBe("");
   });
 });

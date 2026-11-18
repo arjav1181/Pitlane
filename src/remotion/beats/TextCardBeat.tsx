@@ -10,6 +10,7 @@ import {
 } from "remotion";
 import { TEXT_CARD_FONTS } from "../lib/fonts";
 import type { SceneProps } from "../lib/score-to-props";
+import { cardFigure } from "./card-figure";
 
 /**
  * A title card.
@@ -39,8 +40,8 @@ export const TextCardBeat: React.FC<SceneProps> = ({
   const text = colorPalette?.text ?? "#f2efe8";
 
   // The rule draws first, the words follow it.
-  const rule = spring({ frame: frame - 2, fps, config: { damping: 18, stiffness: 120 } });
-  const marker = spring({ frame: frame - 16, fps, config: { damping: 20, stiffness: 90 } });
+  const rule = spring({ frame: frame - 5, fps, config: { damping: 18, stiffness: 120 } });
+  const marker = spring({ frame: frame - 19, fps, config: { damping: 20, stiffness: 90 } });
 
   const family = (textCardFont && TEXT_CARD_FONTS[textCardFont]) ?? "Inter, sans-serif";
 
@@ -48,6 +49,12 @@ export const TextCardBeat: React.FC<SceneProps> = ({
   // headline for a card ("THE CAR THAT ALMOST WASNT"); the narration is
   // already on screen as a caption, so repeating it here wastes the card.
   const lines = splitLines(cardHeadline(visualPrompt, scriptLine), 24);
+
+  // A year in the spoken line becomes a timeline rather than being repeated
+  // as text. It gives a fallback card a diagram worth looking at, and it is
+  // drawn from the fact instead of invented around it.
+  const figure = cardFigure(scriptLine);
+  const figureSpring = spring({ frame: frame - 24, fps, config: { damping: 20, stiffness: 90 } });
 
   // A card that never moves looks like a slide that was left on screen: the
   // eye reads it in two seconds and then has nothing to do for the rest of the
@@ -103,7 +110,7 @@ export const TextCardBeat: React.FC<SceneProps> = ({
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {lines.map((line, i) => {
           const lineSpring = spring({
-            frame: frame - 10 - i * 4,
+            frame: frame - 13 - i * 4,
             fps,
             config: { damping: 18, stiffness: 120 },
           });
@@ -127,6 +134,89 @@ export const TextCardBeat: React.FC<SceneProps> = ({
           );
         })}
       </div>
+
+      {/* The year, drawn rather than repeated */}
+      {figure && (
+        <div
+          style={{
+            marginTop: 36,
+            width: 560,
+            opacity: interpolate(figureSpring, [0, 1], [0, 1]),
+            transform: `translateY(${interpolate(figureSpring, [0, 1], [12, 0])}px)`,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
+            <span
+              style={{
+                fontFamily: family,
+                fontSize: 38,
+                fontWeight: 700,
+                fontVariantNumeric: "tabular-nums",
+                color: accent,
+              }}
+            >
+              {figure.year}
+            </span>
+            <span
+              style={{
+                fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                fontSize: 15,
+                letterSpacing: "0.18em",
+                color: text,
+                opacity: 0.5,
+              }}
+            >
+              {figure.label}
+            </span>
+          </div>
+          <div
+            style={{
+              position: "relative",
+              height: 2,
+              marginTop: 16,
+              backgroundColor: "rgba(255,255,255,0.16)",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                width: `${figure.position * 100}%`,
+                height: 2,
+                backgroundColor: accent,
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                left: `${figure.position * 100}%`,
+                top: -4,
+                width: 10,
+                height: 10,
+                borderRadius: 5,
+                backgroundColor: accent,
+                transform: "translateX(-5px)",
+              }}
+            />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginTop: 9,
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+              fontSize: 13,
+              letterSpacing: "0.12em",
+              color: text,
+              opacity: 0.34,
+            }}
+          >
+            <span>1880</span>
+            <span>2030</span>
+          </div>
+        </div>
+      )}
 
       {/* Chapter marker */}
       <span

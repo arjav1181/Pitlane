@@ -32,7 +32,8 @@ import { resolveRenderOptions } from "./render-options.js";
 import type { ArchetypeConfig } from "../schema/archetype.js";
 import type { DirectorScore } from "../schema/director-score.js";
 import { sanitizeScoreForNoAiAssets } from "../schema/no-ai-assets.js";
-import { capTextCards } from "./score-guards.js";
+import { formatCreditLine, formatOnScreenCredit } from "./credits.js";
+import { capTextCards, enforceMotionContinuity } from "./score-guards.js";
 import type { Attribution, LLMUsage, WordTimestamp } from "../schema/providers.js";
 import { type MusicResolution, resolveMusic } from "./music-resolver.js";
 
@@ -260,18 +261,30 @@ function prepareScore(
     prepared = capped.score;
   }
 
-  if (!noAiAssets) return prepared;
-
-  const { score: sanitized, adjustments } = sanitizeScoreForNoAiAssets(prepared);
-  if (adjustments.length > 0) {
-    cb.onLog?.(
-      `[director] No-AI-assets mode rewrote ${adjustments.length} scene(s): ${adjustments
-        .map((a) => `${a.sceneIndex + 1}:${a.from}->${a.to}`)
-        .join(", ")}`,
-    );
-    cb.onProgress?.("director", { type: "no_ai_sanitized", adjustments });
+  if (noAiAssets) {
+    const { score: sanitized, adjustments } = sanitizeScoreForNoAiAssets(prepared);
+    if (adjustments.length > 0) {
+      cb.onLog?.(
+        `[director] No-AI-assets mode rewrote ${adjustments.length} scene(s): ${adjustments
+          .map((a) => `${a.sceneIndex + 1}:${a.from}->${a.to}`)
+          .join(", ")}`,
+      );
+      cb.onProgress?.("director", { type: "no_ai_sanitized", adjustments });
+    }
+    prepared = sanitized;
   }
-  return sanitized;
+
+  // The renderer gives every stock shot a push. A lone zoom-out in the middle
+  // of a film reverses that vector at the cut, which reads as a glitch rather
+  // than a transition, so the camera keeps one direction until a card resets it.
+  const continuity = enforceMotionContinuity(prepared);
+  if (continuity.flipped.length > 0) {
+    cb.onLog?.(
+      `[director] Kept the camera moving one way: turned ${continuity.flipped.length} zoom-out(s) into zoom-ins`,
+    );
+    cb.onProgress?.("director", { type: "motion_continuity", flipped: continuity.flipped });
+  }
+  return continuity.score;
 }
 
 async function resolveVisualAsset(
@@ -481,7 +494,9 @@ function buildPipelineWorkflow(
     musicResolution?: MusicResolution | null;
     /** Attribution for every asset that needed it. */
     credits: Attribution[];
-  } = { sceneAssets: [], sceneSourceDurations: [], credits: [] };
+    /** On-frame credit for each scene, aligned with sceneAssets. */
+    sceneCredits: (string | null)[];
+  } = { sceneAssets: [], sceneSourceDurations: [], credits: [], sceneCredits: [] };
 
   const assemblyResult: { videoPath?: string | null; thumbnailPath?: string | null } = {};
 
@@ -860,6 +875,10 @@ function buildPipelineWorkflow(
       visualsResult.credits = sceneResults
         .map((r) => r.credit)
         .filter((c): c is Attribution => Boolean(c));
+      // A credit that only lives in the description is a credit most viewers
+      // never see. The frame carries a short version, the description carries
+      // the file page and the licence.
+      visualsResult.sceneCredits = sceneResults.map((r) => formatOnScreenCredit(r.credit) || null);
       for (const r of sceneResults) {
         if (r.usage) llmUsages.push(r.usage);
         if (r.prompterUsage) llmUsages.push(r.prompterUsage);
@@ -1015,6 +1034,7 @@ function buildPipelineWorkflow(
           sceneWords: ttsResult.sceneWords!,
           allWords: ttsResult.words!,
           sceneSourceDurations: visualsResult.sceneSourceDurations,
+          sceneCredits: visualsResult.sceneCredits,
         },
         platformConfig.fps,
       );
@@ -1096,6 +1116,12 @@ function buildPipelineWorkflow(
         fs.writeFileSync(
           path.join(runDir, "credits.json"),
           JSON.stringify({ assets: visualsResult.credits }, null, 2),
+        );
+        // The same record in the form a person can paste into a video
+        // description or a licence file without parsing JSON.
+        fs.writeFileSync(
+          path.join(runDir, "credits.txt"),
+          `${formatCreditLine(visualsResult.credits)}\n`,
         );
       }
 

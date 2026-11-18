@@ -172,7 +172,17 @@ const Main: React.FC<CompositionProps> = ({
           accentColor={captionAccentColor}
           springConfig={style.springConfig}
           StyleComponent={style.component}
-          onLight={isLightBackground(scenes[0]?.colorPalette?.background)}
+          sceneTone={scenes.map((scene, i) => {
+            // A procedural card paints its own background; footage is assumed
+            // dark because every stock beat carries the caption scrim. This is
+            // what lets a cream opener and a dark road share one video without
+            // the captions disappearing over one of them.
+            const isCard = !scene.assetSrc || scene.visualType === "text_card";
+            return {
+              from: sceneStarts[i] ?? 0,
+              onLight: isCard && isLightBackground(scene.colorPalette?.background),
+            };
+          })}
         />
       )}
 

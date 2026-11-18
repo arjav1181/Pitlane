@@ -8,6 +8,7 @@ export const StockImageBeat: React.FC<SceneProps> = ({
   motion,
   motionIntensity = 1.2,
   colorPalette,
+  credit,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
@@ -41,7 +42,7 @@ export const StockImageBeat: React.FC<SceneProps> = ({
   })();
 
   return (
-    <SceneGrade colorPalette={colorPalette}>
+    <SceneGrade colorPalette={colorPalette} credit={credit}>
       {assetSrc && (
         <Img
           src={assetSrc}

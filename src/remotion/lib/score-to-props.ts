@@ -23,6 +23,8 @@ export interface SceneProps {
   sceneCount?: number;
   /** Whether the sound cues were copied next to the render. */
   sfxAvailable?: boolean;
+  /** Short on-frame credit for the asset, when the licence asks for one. */
+  credit?: string;
 }
 
 export interface CompositionProps {
@@ -47,6 +49,8 @@ export interface ResolvedAssets {
   sceneWords: WordTimestamp[][]; // per-scene words (for duration calculation only)
   allWords: WordTimestamp[]; // full absolute timestamps from TTS
   sceneSourceDurations: (number | null)[]; // source video durations in seconds (stock_video and ai_video)
+  /** On-frame credits, aligned with sceneAssets. */
+  sceneCredits?: (string | null)[];
 }
 
 export function mapScoreToProps(
@@ -112,6 +116,7 @@ export function mapScoreToProps(
       transitionDurationFrames: archetype.transitionDurationFrames ?? 15,
       sceneIndex: i,
       sceneCount: score.scenes.length,
+      credit: assets.sceneCredits?.[i] ?? undefined,
     };
   });
 

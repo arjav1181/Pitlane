@@ -107,3 +107,37 @@ export function isLightBackground(hex: string | undefined): boolean {
   const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
   return luminance > 0.6;
 }
+
+
+/**
+ * A point on the timeline where the caption tone changes.
+ *
+ * The tone follows the scene under the words, not the archetype: a video can
+ * open on a cream title card and cut to dark footage, and dark captions do
+ * not survive the cut. The frame is absolute, in the composition's timeline.
+ */
+export interface CaptionTonePoint {
+  from: number;
+  onLight: boolean;
+}
+
+/**
+ * The tone of the scene at a frame.
+ *
+ * Points are sorted by `from`; the last point at or before the frame wins.
+ * A missing timeline falls back to the single value the caller supplied,
+ * which keeps one-tone videos working exactly as before.
+ */
+export function captionToneAt(
+  frame: number,
+  timeline: readonly CaptionTonePoint[] | undefined,
+  fallback: boolean | undefined,
+): boolean {
+  if (!timeline?.length) return fallback === true;
+  let onLight = timeline[0]!.onLight;
+  for (const point of timeline) {
+    if (frame < point.from) break;
+    onLight = point.onLight;
+  }
+  return onLight;
+}

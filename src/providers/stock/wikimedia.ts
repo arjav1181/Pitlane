@@ -229,6 +229,8 @@ async function search(query: string, kind: "image" | "video", limit: number): Pr
 }
 
 export class WikimediaStock implements StockProvider {
+  readonly id = "wikimedia";
+
   private readonly creditById = new Map<string, WikimediaCredit>();
 
   async searchVideo(query: string): Promise<StockCandidate[]> {

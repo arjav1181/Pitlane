@@ -4,6 +4,29 @@ All notable changes to Pitlane will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **The channel rotates three story shapes**: a single turn, a what-went-wrong story and a
+  three-car comparison, one per six-hour slot, so four uploads a day stop reading as the same
+  video four times.
+- **A short is 35 to 42 seconds**: the brief now carries a ceiling of 88 to 105 spoken words and
+  6 to 8 scenes, because a 56 second short loses the viewer before the question.
+- **A stock query names the object, not the mood**: "Lohner-Porsche Mixte" instead of "vintage
+  carriage museum". Before 1930 the scene asks for a still, because archives hold photographs of
+  the real machine and video libraries hold something else.
+- **Commons is asked first for stills**: the archive is where the actual car is, while a stock
+  photo library answers a specific machine with whatever vintage car it has. Video keeps the
+  libraries that hold motion footage.
+- **The camera keeps one direction**: a zoom-out answered by a zoom-in at the cut reads as a
+  glitch, so a deterministic pass turns mid-film pull-backs into pushes and keeps a pull for a
+  new chapter or the closing arrival.
+- **The credit is on the frame, not only in the description**: every stock scene burns in a
+  short "Photo: author / Wikimedia Commons · licence" chip, writes `credits.txt` beside the
+  render and keeps the full record in `credits.json` and the job metadata.
+- **A fact card draws its year**: a card whose line contains a year renders a timeline with the
+  year marked, so a fallback card carries a diagram instead of a headline on an empty field.
+- **Captions follow the scene under them**: a cream opener and a dark road no longer share one
+  caption colour; the tone is resolved per frame as the film cuts.
+
 ### Fixed
 - **The API no longer defaults to Anthropic on a gateway server**: when a request names no
   LLM provider and the server has `OPENREELS_LLM_BASE_URL` configured, the job now uses the
