@@ -228,6 +228,13 @@ descriptions). Sources can be YouTube, Twitch, Kick, X, TikTok or a direct
 video URL; `startSeconds`/`endSeconds` limit a long stream, and
 `liveFromStart` reads a live broadcast from its beginning.
 
+The same request can be made from the **Clips** page in the web UI, which hands
+you to the normal job view with one playable vertical per clip. For automation,
+the n8n workflow `Pitlane Clipper` accepts `POST /webhook/pitlane-clips` with the
+same fields and can publish each finished clip as a Short when
+`uploadToYouTube` is explicitly true. Publishing is off by default because a
+clip is somebody else's footage.
+
 > YouTube refuses media downloads from many datacenter IPs with a 403 even when
 > the metadata call succeeds. Set `OPENREELS_YTDLP_PROXY` to route through a
 > proxy, or `OPENREELS_YTDLP_COOKIES` to a Netscape cookies file exported from a

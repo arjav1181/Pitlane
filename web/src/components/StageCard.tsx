@@ -26,6 +26,11 @@ export const STAGE_LABELS: Record<string, string> = {
   visuals: "Visuals",
   assembly: "Render",
   critic: "Review",
+  // Clip jobs run four stages instead of six.
+  source: "Source",
+  transcript: "Transcript",
+  select: "Select",
+  render: "Clips",
 };
 
 const STAGE_RUNNING_TEXT: Record<string, string> = {
@@ -35,6 +40,10 @@ const STAGE_RUNNING_TEXT: Record<string, string> = {
   visuals: "Gathering footage",
   assembly: "Rendering the short",
   critic: "Reviewing the cut",
+  source: "Downloading the source",
+  transcript: "Transcribing the audio",
+  select: "Finding the best moments",
+  render: "Cutting the verticals",
 };
 
 /* ------------------------------------------------------------------ */

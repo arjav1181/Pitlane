@@ -1,6 +1,7 @@
 import { AlertTriangle, Download, Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { ClipsPanel } from "@/components/pipeline/ClipsPanel";
 import { CompletedPanel } from "@/components/pipeline/CompletedPanel";
 import { CostBreakdownCard } from "@/components/pipeline/CostBreakdownCard";
 import { FailedPanel } from "@/components/pipeline/FailedPanel";
@@ -21,6 +22,7 @@ import type { SceneFallbacks } from "@/lib/scene-assets";
 import { formatArchetypeName } from "@/lib/utils";
 
 const STAGES = ["research", "director", "tts", "visuals", "assembly", "critic"] as const;
+const CLIP_STAGES = ["source", "transcript", "select", "render"] as const;
 
 interface MusicInfo {
   status: "idle" | "generating" | "generated" | "fallback";
@@ -255,14 +257,17 @@ export function JobPage() {
   const isCompleted = job.status === "completed";
   const isFailed = job.status === "failed";
   const isCancelled = job.status === "cancelled";
+  const isClip = job.kind === "clip";
+  const stages: readonly string[] = isClip ? CLIP_STAGES : STAGES;
+  const clips = isClip ? (job.clips ?? []) : [];
   const videoUrl = job.videoPath
     ? withApiKey(`/api/v1/jobs/${job.id}/artifacts/${job.videoPath}`)
     : null;
 
   // Find the failed stage for error display
   const failedStage = isFailed
-    ? (STAGES.find((s) => job.stages?.[s]?.status === "error") ??
-      STAGES.find((s) => job.stages?.[s]?.status === "running") ??
+    ? (stages.find((s) => job.stages?.[s]?.status === "error") ??
+      stages.find((s) => job.stages?.[s]?.status === "running") ??
       null)
     : null;
   const failedDetail = failedStage
@@ -270,7 +275,7 @@ export function JobPage() {
     : (job.error ?? null);
 
   // Compute total duration
-  const totalDuration = STAGES.reduce((sum, s) => {
+  const totalDuration = stages.reduce((sum, s) => {
     const d = job.stages?.[s]?.durationSec;
     return sum + (d ?? 0);
   }, 0);
@@ -299,7 +304,7 @@ export function JobPage() {
             {job.topic}
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-text-faint">
-            <span>YouTube Shorts</span>
+            <span>{isClip ? "Vertical clips" : "YouTube Shorts"}</span>
             {job.archetype && (
               <>
                 <span aria-hidden="true">·</span>
@@ -327,7 +332,7 @@ export function JobPage() {
           {isRunning && (
             <span className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5">
               <span className="size-1.5 rounded-full bg-tally" />
-              <span className="text-[13px] text-tally">Rendering</span>
+              <span className="text-[13px] text-tally">{isClip ? "Clipping" : "Rendering"}</span>
             </span>
           )}
           {isCompleted && (
@@ -354,7 +359,7 @@ export function JobPage() {
               {cancelling ? "Cancelling" : "Cancel"}
             </Button>
           )}
-          {isCompleted && videoUrl && (
+          {isCompleted && videoUrl && !isClip && (
             <a href={videoUrl} download>
               <Button size="sm" className="gap-2">
                 <Download className="size-4" strokeWidth={1.75} />
@@ -363,9 +368,13 @@ export function JobPage() {
             </a>
           )}
           {!isRunning && (
-            <Button variant="outline" size="sm" onClick={() => navigate("/")}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(isClip ? "/clips" : "/")}
+            >
               <Plus className="size-4" strokeWidth={1.75} />
-              New short
+              {isClip ? "New clip" : "New short"}
             </Button>
           )}
         </div>
@@ -375,9 +384,9 @@ export function JobPage() {
       <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
         {/* Left: Pipeline Timeline — sticky on desktop */}
         <ol className="m-0 w-full list-none p-0 lg:w-[248px] lg:shrink-0 lg:sticky lg:top-8 lg:self-start">
-          {STAGES.map((stage, i) => {
+          {stages.map((stage, i) => {
             const stageData = job.stages?.[stage];
-            const prevStageName = i > 0 ? STAGES[i - 1] : undefined;
+            const prevStageName = i > 0 ? stages[i - 1] : undefined;
             const prevStatus = prevStageName
               ? ((job.stages?.[prevStageName]?.status as
                   | "pending"
@@ -395,7 +404,7 @@ export function JobPage() {
                 detail={stageData?.detail}
                 durationSec={stageData?.durationSec}
                 isFirst={i === 0}
-                isLast={i === STAGES.length - 1}
+                isLast={i === stages.length - 1}
                 prevStatus={prevStatus}
                 subStatus={stage === "assembly" ? assemblySubStatus : undefined}
               />
@@ -406,7 +415,7 @@ export function JobPage() {
         {/* Right: Progressive Card Feed */}
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           {/* Completed: video player + stats at top */}
-          {isCompleted && (
+          {isCompleted && !isClip && (
             <CompletedPanel
               job={job}
               score={score}
@@ -414,6 +423,19 @@ export function JobPage() {
               costEstimate={costEstimate}
               totalDuration={totalDuration}
             />
+          )}
+
+          {/* Completed clip job: every vertical it cut */}
+          {isCompleted && isClip && clips.length > 0 && <ClipsPanel job={job} clips={clips} />}
+
+          {/* Clip job with no clips is a bug worth seeing, not an empty column */}
+          {isCompleted && isClip && clips.length === 0 && (
+            <div className="rounded-xl border border-status-warning/25 bg-card p-4">
+              <span className="text-[13px] text-status-warning">No clips returned</span>
+              <p className="mt-1 text-[11px] text-text-subtle">
+                The job completed without a clip record. Check the log for the selection stage.
+              </p>
+            </div>
           )}
 
           {/* Failed/cancelled error card */}
@@ -478,9 +500,11 @@ export function JobPage() {
 
           {/* Empty state while waiting */}
           {!researchData && !score && !costEstimate && isRunning && (
-            <div className="flex h-64 items-center justify-center">
+            <div className="flex h-64 items-center justify-center px-6 text-center">
               <p className="text-[13px] text-text-faint">
-                Each stage writes here as it finishes
+                {isClip
+                  ? "The clipper reports each stage here: the download, the transcript, the moments it picked, then the cuts."
+                  : "Each stage writes here as it finishes"}
               </p>
             </div>
           )}

@@ -12,7 +12,7 @@ import {
   toMoments,
   type ClipMoment,
 } from "./moments.js";
-import { runClipPipeline } from "./pipeline.js";
+import { attributionFor, runClipPipeline } from "./pipeline.js";
 import {
   buildClipArgs,
   buildFilterGraph,
@@ -352,6 +352,24 @@ function makeSourceVideo(dir: string, seconds = 24): string {
   );
   return file;
 }
+
+describe("source attribution", () => {
+  it("prefers the channel handle when the source has one", () => {
+    expect(attributionFor({ uploader: "@Motorsport" } as SourceInfo)).toBe("@Motorsport");
+  });
+
+  it("falls back to the source title so a direct URL is still credited on screen", () => {
+    expect(
+      attributionFor({ title: "Duck And Cover 1951.webm" } as SourceInfo),
+    ).toBe("Duck And Cover 1951");
+  });
+
+  it("keeps a long filename inside the watermark budget", () => {
+    const credit = attributionFor({ title: "A".repeat(90) } as SourceInfo);
+    expect(credit.length).toBeLessThanOrEqual(48);
+    expect(credit.endsWith("…")).toBe(true);
+  });
+});
 
 describe("runClipPipeline", () => {
   it("downloads, transcribes, selects and renders vertical clips end to end", async () => {

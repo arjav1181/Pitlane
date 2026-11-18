@@ -97,6 +97,15 @@ export function isDirectMediaUrl(url: string): boolean {
   }
 }
 
+/** A filename can contain a stray `%`, which must not fail the whole download. */
+function decodeFilename(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export class SourceUnavailableError extends Error {
   constructor(message: string) {
     super(message);
@@ -474,7 +483,11 @@ async function downloadDirect(
 
   return {
     path: finalPath,
-    title: path.basename(new URL(spec.sourceUrl).pathname, extension).replace(/[-_]+/g, " "),
+    // A Commons filename arrives percent-encoded, so decode it before it is
+    // used in the title, the watermark and the attribution line.
+    title: decodeFilename(path.basename(new URL(spec.sourceUrl).pathname, extension))
+      .replace(/[-_]+/g, " ")
+      .trim(),
     durationSeconds: Math.min(duration, window.end) - window.start,
     webpageUrl: spec.sourceUrl,
     wasLive: false,

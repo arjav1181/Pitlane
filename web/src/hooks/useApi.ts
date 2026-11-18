@@ -29,9 +29,44 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** One vertical clip cut out of a long video. */
+export interface ClipRecord {
+  index: number;
+  title: string;
+  hook: string;
+  /** Seconds into the downloaded source. */
+  start: number;
+  end: number;
+  /** Seconds into the original upload. */
+  sourceStart: number;
+  sourceEnd: number;
+  durationSeconds: number;
+  score: number;
+  reason: string;
+  path: string;
+  posterPath: string;
+  previewPath: string;
+  captionsPath: string;
+  suggestedTitle: string;
+  suggestedDescription: string;
+}
+
+/** What the clipper learned about the source it downloaded. */
+export interface ClipSource {
+  url: string;
+  webpageUrl: string;
+  title: string;
+  uploader?: string;
+  durationSeconds: number;
+  wasLive: boolean;
+  window: { start: number; end: number };
+}
+
 export interface JobSummary {
   id: string;
   topic: string;
+  /** `clip` jobs cut verticals out of somebody else's video. */
+  kind?: "video" | "clip";
   archetype?: string;
   status: string;
   createdAt?: string;
@@ -42,6 +77,8 @@ export interface JobSummary {
   links?: Record<string, string | null>;
   videoPath?: string;
   posterPath?: string;
+  source?: ClipSource;
+  clips?: ClipRecord[];
   stages?: Record<string, { status: string; detail?: string; durationSec?: number }>;
   costEstimate?: CostBreakdown;
   actualCost?: ActualCostBreakdown;
@@ -180,9 +217,53 @@ export interface CreateJobRequest {
   keys?: Record<string, string>;
 }
 
+/**
+ * The clip spec the API accepts on `POST /clips`.
+ *
+ * Every field is optional except the source, because the server resolves the
+ * defaults; the UI only sends what the operator changed.
+ */
+export interface CreateClipRequest {
+  sourceUrl: string;
+  count?: number;
+  minSeconds?: number;
+  maxSeconds?: number;
+  fit?: "blur" | "crop";
+  captions?: boolean;
+  hook?: boolean;
+  title?: string;
+  startSeconds?: number;
+  endSeconds?: number;
+  liveFromStart?: boolean;
+  maxSourceMinutes?: number;
+  providers?: {
+    llm?: string;
+    llmModel?: string;
+    llmBaseUrl?: string;
+    llmAuthType?: LLMAuthType;
+    llmFallbackModels?: string[];
+  };
+  keys?: Record<string, string>;
+  metadata?: Record<string, unknown>;
+}
+
 export const api = {
   createJob(data: CreateJobRequest) {
     return fetchJson<{ id: string }>("/jobs", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Cut vertical clips out of any video or stream.
+   *
+   * A clip job is a job, so the response is the same public job record the
+   * render endpoints return and the caller navigates to `/jobs/:id` the same
+   * way it does for a video.
+   */
+  createClip(data: CreateClipRequest) {
+    return fetchJson<JobSummary>("/clips", {
       method: "POST",
       body: JSON.stringify(data),
     });

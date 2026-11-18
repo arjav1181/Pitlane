@@ -33,6 +33,13 @@ import { WhisperAligner } from "../providers/tts/whisper-aligner.js";
 
 export { CLIP_STAGE_NAMES, type ClipStageName };
 
+/** The credit burned into every clip, even when the source has no channel. */
+export function attributionFor(source: SourceInfo): string {
+  if (source.uploader?.trim()) return `@${source.uploader.trim().replace(/^@/, "")}`;
+  const title = source.title.trim().replace(/\.[a-z0-9]{2,5}$/i, "");
+  return title.length > 48 ? `${title.slice(0, 47).trimEnd()}…` : title;
+}
+
 export interface ClipCallbacks {
   onStageStart?(stage: ClipStageName): void;
   onStageComplete?(stage: ClipStageName, detail: string, durationSec: number): void;
@@ -349,7 +356,13 @@ export async function runClipPipeline(options: ClipPipelineOptions): Promise<Cli
           width,
           height,
           ...(spec.hook && moment.hook ? { hook: moment.hook } : {}),
-          ...(source.uploader ? { watermark: `@${source.uploader.replace(/^@/, "")}` } : {}),
+          // A channel handle is the strongest credit. Direct media URLs have
+          // no uploader, so fall back to the source title: it is still the
+          // viewer's link back to where the footage came from, burned into
+          // the frame rather than buried in a description.
+          ...{
+            watermark: attributionFor(source),
+          },
         });
         fs.writeFileSync(assPath, ass);
       }

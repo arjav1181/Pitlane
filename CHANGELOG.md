@@ -14,8 +14,15 @@ All notable changes to Pitlane will be documented in this file.
 - **Streams are clipped from their start, not from "now"**: `liveFromStart` reads the beginning
   of a live broadcast and `startSeconds`/`endSeconds`/`maxSourceMinutes` bound how much is
   downloaded, because transcription cost scales with the source.
+- **A Clips page and clip-aware job view**: `web/src/pages/ClipsPage.tsx` submits a source URL and
+  the clip options, and the job page shows the four clip stages plus one playable vertical per
+  clip with its hook, download and copyable title and caption.
 
 ### Fixed
+- **Every clip carries a source credit in the frame**: direct media URLs have no uploader handle,
+  so they used to render without the burned-in attribution. The watermark now falls back to the
+  decoded source title, and a percent-encoded Commons filename reads as a title instead of a URL
+  fragment.
 - **Commons can finally return a still**: the MediaWiki API keys `query.pages` by page id, and
   the client iterated it as an array, so every still scene that asked Commons first threw
   "pages is not iterable" and fell back to a text card. The response is now read in both shapes,

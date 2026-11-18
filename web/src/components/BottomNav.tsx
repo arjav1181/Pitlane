@@ -1,10 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { PlusCircle, LayoutGrid, Settings } from "lucide-react";
+import { PlusCircle, LayoutGrid, Settings, Scissors } from "lucide-react";
 import type { StatsResponse } from "@/hooks/useApi";
 
 const NAV_ITEMS = [
   { path: "/", label: "New", icon: PlusCircle },
+  { path: "/clips", label: "Clips", icon: Scissors },
   { path: "/gallery", label: "Gallery", icon: LayoutGrid },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
