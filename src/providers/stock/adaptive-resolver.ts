@@ -115,11 +115,29 @@ export async function resolveStockAdaptive(
       if (totalApiCalls >= config.maxAttempts) break;
       totalApiCalls++;
 
-      const candidates = await stock[searchFn](query);
+      // A library that is down, rate-limited or answering in a shape the
+      // parser did not expect must cost this provider, not the scene: the
+      // next library still gets asked, and a scene is never turned into a
+      // card because one API had a bad minute.
+      let candidates: StockCandidate[] = [];
+      try {
+        candidates = await stock[searchFn](query);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(`[stock] ${stock.id ?? "provider"} failed for "${query}": ${message}`);
+        attempts.push({
+          query,
+          provider: stock.id ?? "unknown",
+          candidateId: "",
+          result: "not_found",
+          reason: `Search failed: ${message}`.slice(0, 200),
+        });
+        continue;
+      }
       if (candidates.length === 0) {
         attempts.push({
           query,
-          provider: "unknown",
+          provider: stock.id ?? "unknown",
           candidateId: "",
           result: "not_found",
         });
@@ -220,6 +238,7 @@ export async function resolveStockAdaptive(
         } else if (verification.confidence < 0 && !bestUnverified) {
           bestUnverified = { candidate, confidence: verification.confidence, asset };
         } else if (
+          verification.judged &&
           verification.confidence >= bestEffortFloor &&
           (!bestRejected || verification.confidence > bestRejected.confidence)
         ) {

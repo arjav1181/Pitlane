@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { distillCommonsQuery, WikimediaStock } from "./wikimedia.js";
+import { distillCommonsQuery, normalizePages, WikimediaStock } from "./wikimedia.js";
 
 const SEARCH_RESPONSE = {
   query: {
@@ -152,5 +152,49 @@ describe("WikimediaStock fallback", () => {
     // but with the same literal query there is nothing to try.
     await new WikimediaStock().searchImage("Porsche 917");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("normalizePages", () => {
+  const page = { pageid: 1, title: "File:Car.jpg" };
+
+  it("reads the object MediaWiki actually returns", () => {
+    // The live API keys the pages map by page id. Treating it as an array
+    // threw "pages is not iterable", which silently killed every still scene
+    // that asked Commons first.
+    expect(normalizePages({ "1": page })).toEqual([page]);
+  });
+
+  it("reads the array shape a formatversion=2 caller gets", () => {
+    expect(normalizePages([page])).toEqual([page]);
+  });
+
+  it("treats a missing or empty map as no results", () => {
+    expect(normalizePages(undefined)).toEqual([]);
+    expect(normalizePages({})).toEqual([]);
+  });
+});
+
+describe("WikimediaStock search fallback", () => {
+  it("shortens a prompt until the proper noun finds the car", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        const q = new URL(url).searchParams.get("gsrsearch") ?? "";
+        calls.push(q);
+        const hit = q.startsWith("Ford RS200");
+        return Promise.resolve({
+          ok: true,
+          json: async () => (hit ? SEARCH_RESPONSE : { batchcomplete: "" }),
+        });
+      }),
+    );
+
+    const stock = new WikimediaStock();
+    const found = await stock.searchImage("Ford RS200 rally car parked in service area");
+
+    expect(found.length).toBeGreaterThan(0);
+    expect(calls.some((q) => q.toLowerCase().startsWith("ford rs200 filetype"))).toBe(true);
   });
 });

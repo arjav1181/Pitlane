@@ -1,3 +1,4 @@
+import type { ClipSpec } from "../clip/spec.js";
 import type { LLMAuthType, SearchProviderKey } from "../schema/providers.js";
 import type { CallbackEvent } from "./callbacks.js";
 
@@ -30,8 +31,20 @@ export interface JobCallbackData {
   events?: CallbackEvent[];
 }
 
+/**
+ * What a job produces.
+ *
+ * `video` is the researched short-form render. `clip` cuts vertical clips out
+ * of an existing long video or stream, which shares the queue, the status API
+ * and the artifact storage but none of the creative stages.
+ */
+export type JobKind = "video" | "clip";
+
 /** BullMQ job payload created by the API server and consumed by the worker. */
 export interface JobData {
+  kind?: JobKind;
+  /** Present only for `clip` jobs; already validated by the API. */
+  clip?: ClipSpec;
   topic: string;
   archetype?: string;
   pacing?: string;

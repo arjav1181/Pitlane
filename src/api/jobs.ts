@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { CLIP_STAGE_NAMES } from "../clip/stages.js";
 import type { Queue } from "bullmq";
 import type { JobData } from "./job-data.js";
 import type { JobMeta } from "./job-meta.js";
@@ -108,6 +109,10 @@ export interface JobLinks {
   artifacts: string;
   video: string | null;
   poster: string | null;
+  /** One URL per vertical clip, for clip jobs. */
+  clips: string[] | null;
+  /** The full clip record (titles, hooks, source times) as JSON. */
+  clipsIndex: string | null;
   score: string;
   log: string;
   cancel: string | null;
@@ -124,6 +129,13 @@ export function buildJobLinks(meta: JobMeta): JobLinks {
     artifacts: `${base}/artifacts`,
     video: meta.videoPath ? `${base}/artifacts/${encodeArtifactPath(meta.videoPath)}` : null,
     poster: meta.posterPath ? `${base}/artifacts/${encodeArtifactPath(meta.posterPath)}` : null,
+    clips:
+      meta.clips && meta.clips.length > 0
+        ? meta.clips.map((clip) => `${base}/artifacts/${encodeArtifactPath(clip.path)}`)
+        : null,
+    clipsIndex: meta.clipRecords
+      ? `${base}/artifacts/${encodeArtifactPath(meta.clipRecords)}`
+      : null,
     score: `${base}/score`,
     log: `${base}/log`,
     cancel: terminal || cancelled ? null : `${base}/cancel`,
@@ -150,7 +162,12 @@ export function buildPlaceholderMeta(
     topic: data.topic,
     status: "queued",
     createdAt: options.createdAt ?? new Date().toISOString(),
-    stages: Object.fromEntries(STAGE_NAMES.map((stage) => [stage, { status: "pending" }])),
+    stages: Object.fromEntries(
+      (data.kind === "clip" ? CLIP_STAGE_NAMES : STAGE_NAMES).map((stage) => [
+        stage,
+        { status: "pending" },
+      ]),
+    ),
     request: {
       providers: data.providers,
       platform: data.platform,
@@ -161,6 +178,8 @@ export function buildPlaceholderMeta(
       noAiAssets: data.noAiAssets,
     },
   };
+  if (data.kind) meta.kind = data.kind;
+  if (data.clip) meta.clip = data.clip;
   if (data.archetype) meta.archetype = data.archetype;
   if (data.pacing) meta.pacing = data.pacing;
   if (data.platform) meta.platform = data.platform;

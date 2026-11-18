@@ -442,6 +442,7 @@ export async function retryJob(
   const data: JobData = originalData
     ? { ...originalData, jobsDir: ctx.jobsDir }
     : {
+        ...(meta.kind === "clip" && meta.clip ? { kind: "clip" as const, clip: meta.clip } : {}),
         topic,
         ...(meta.archetype ? { archetype: meta.archetype } : {}),
         ...(meta.pacing ? { pacing: meta.pacing } : {}),

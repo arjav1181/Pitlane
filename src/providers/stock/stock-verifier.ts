@@ -8,6 +8,17 @@ import type { LLMUsage } from "../../schema/providers.js";
 
 export interface VerificationResult {
   relevant: boolean;
+  /**
+   * What the judge said before the threshold was applied.
+   *
+   * `relevant` is already gated: the judge can say "yes, that is the car" at
+   * 0.5 confidence and still fail the threshold. That is a near miss worth
+   * using. A judge that says "no, that is the wrong car" is not a near miss
+   * whatever its confidence, and its certainty must never be read as
+   * similarity - that is how a Lancia Delta Integrale ended up standing in
+   * for a Delta S4.
+   */
+  judged: boolean;
   confidence: number;
   reason: string;
   usage: LLMUsage;
@@ -65,6 +76,7 @@ export function parseVerdict(text: string): VerificationResult | null {
 
   return {
     relevant: record["relevant"] === true,
+    judged: record["relevant"] === true,
     confidence: Math.max(0, Math.min(1, confidence)),
     reason: String(record["reason"] ?? "").slice(0, 400),
     usage: { inputTokens: 0, outputTokens: 0 },
@@ -148,11 +160,18 @@ export async function verifyStockResult(
 
     const parsed = parseVerdict(result.text);
     if (!parsed) {
-      return { relevant: false, confidence: 0, reason: "The judge did not answer", usage };
+      return {
+        relevant: false,
+        judged: false,
+        confidence: 0,
+        reason: "The judge did not answer",
+        usage,
+      };
     }
 
     return {
       relevant: parsed.relevant && parsed.confidence >= confidenceThreshold,
+      judged: parsed.relevant,
       confidence: parsed.confidence,
       reason: parsed.reason,
       usage,
@@ -161,6 +180,7 @@ export async function verifyStockResult(
     console.warn(`[stock] Verification failed, using asset unverified: ${err}`);
     return {
       relevant: true, // stock_unverified: use it with warning
+      judged: false,
       confidence: -1, // sentinel for "unverified"
       reason: `Verification unavailable: ${err}`,
       usage: { inputTokens: 0, outputTokens: 0 },

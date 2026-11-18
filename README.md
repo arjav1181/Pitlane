@@ -188,6 +188,7 @@ The server exposes a REST API designed for automation:
 - **Signed webhooks** — HMAC-SHA256 callbacks for `job.completed`, `job.failed`, and `job.cancelled`
 - **Full lifecycle** — filter/list, inspect, retry, cancel, delete, list artifacts, download video/score/log, and stream SSE progress
 - **Stock-only mode** — `"noAiAssets": true` disables AI image/video generation and uses stock media plus procedural text cards
+- **Vertical clipper** — cut 9:16 clips with burned word-timed captions out of any long video or stream (`POST /api/v1/clips`)
 - **YouTube integration** — read channel analytics with a Data API key and publish finished videos from the server
 
 A ready-made n8n workflow that runs the whole loop on a schedule (research topics → render → publish)
@@ -202,6 +203,35 @@ curl -X POST http://localhost:3000/api/v1/jobs \
   -H "Idempotency-Key: coffee-001" \
   -d '{"topic":"The history of coffee","noAiAssets":true}'
 ```
+
+### Clip an existing video or stream
+
+```bash
+curl -X POST http://localhost:3000/api/v1/clips \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $OPENREELS_API_KEY" \
+  -d '{
+    "sourceUrl": "https://www.youtube.com/watch?v=...",
+    "count": 3,
+    "minSeconds": 20,
+    "maxSeconds": 45,
+    "fit": "blur"
+  }'
+```
+
+The job downloads the source with `yt-dlp`, transcribes it locally, chooses
+self-contained moments, and renders each one at 1080x1920 with word-timed
+karaoke captions, a hook line and a blurred or cropped reframe. It is a normal
+job: poll `GET /api/v1/jobs/:id` for progress, read `clips` for each file, and
+use `clipsIndex` for the full record (titles, hooks, source times, suggested
+descriptions). Sources can be YouTube, Twitch, Kick, X, TikTok or a direct
+video URL; `startSeconds`/`endSeconds` limit a long stream, and
+`liveFromStart` reads a live broadcast from its beginning.
+
+> YouTube refuses media downloads from many datacenter IPs with a 403 even when
+> the metadata call succeeds. Set `OPENREELS_YTDLP_PROXY` to route through a
+> proxy, or `OPENREELS_YTDLP_COOKIES` to a Netscape cookies file exported from a
+> signed-in browser.
 
 See the [REST API reference](https://openreels.tsensei.dev/docs/api/rest) for the complete surface.
 

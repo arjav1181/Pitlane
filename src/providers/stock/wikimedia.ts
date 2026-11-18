@@ -159,6 +159,22 @@ export function distillCommonsQuery(prompt: string, maxWords = 5): string {
   return words.slice(0, maxWords).join(" ");
 }
 
+/**
+ * Read `query.pages` in either shape.
+ *
+ * MediaWiki keys the pages map by page id, so the real response is an object:
+ * `{"156576299": {"title": ...}}`. It only looks like an array when a caller
+ * asks for `formatversion=2`. Iterating the object threw "pages is not
+ * iterable", which killed every still scene that asked Commons first - the
+ * one library that has the historic cars - and left the video to fall back to
+ * text cards. Accept both shapes so that can never happen again.
+ */
+export function normalizePages(pages: unknown): CommonsPage[] {
+  if (Array.isArray(pages)) return pages as CommonsPage[];
+  if (pages && typeof pages === "object") return Object.values(pages as Record<string, CommonsPage>);
+  return [];
+}
+
 async function searchOnce(query: string, kind: "image" | "video", limit: number): Promise<StockCandidate[]> {
   const params: Record<string, string> = {
     action: "query",
@@ -174,7 +190,7 @@ async function searchOnce(query: string, kind: "image" | "video", limit: number)
   };
 
   const data = await fetchJson(params);
-  const pages = (data["query"] as { pages?: CommonsPage[] } | undefined)?.pages ?? [];
+  const pages = normalizePages((data["query"] as { pages?: unknown } | undefined)?.pages);
 
   const candidates: StockCandidate[] = [];
   for (const page of pages) {
@@ -214,17 +230,41 @@ async function searchOnce(query: string, kind: "image" | "video", limit: number)
  * decides the scene has no footage at all.
  */
 async function search(query: string, kind: "image" | "video", limit: number): Promise<StockCandidate[]> {
-  const results = await searchOnce(query, kind, limit);
-  if (results.length >= 2) return results;
+  const byId = new Map<string, StockCandidate>();
+  const add = (found: StockCandidate[]) => {
+    for (const candidate of found) {
+      if (!byId.has(candidate.id)) byId.set(candidate.id, candidate);
+    }
+  };
 
+  add(await searchOnce(query, kind, limit));
+  if (byId.size >= 2) return [...byId.values()];
+
+  // Commons is a keyword archive: every extra word narrows the set, and a
+  // prompt written for a stock library ("ford rs200 rally car parked in
+  // service area") can return nothing while "ford rs200" returns the car.
+  // So the query is shortened from the end until something is found, and the
+  // proper noun the director leads with is what survives.
   const distilled = distillCommonsQuery(query);
-  if (!distilled || distilled === query.trim().toLowerCase()) return results;
-
-  const more = await searchOnce(distilled, kind, limit);
-  const byId = new Map(results.map((candidate) => [candidate.id, candidate]));
-  for (const candidate of more) {
-    if (!byId.has(candidate.id)) byId.set(candidate.id, candidate);
+  const variants: string[] = [];
+  if (distilled && distilled !== query.trim().toLowerCase()) variants.push(distilled);
+  const words = distilled.split(" ").filter(Boolean);
+  for (let n = words.length - 1; n >= 2; n--) {
+    variants.push(words.slice(0, n).join(" "));
   }
+
+  for (const variant of [...new Set(variants)]) {
+    if (byId.size >= 4) break;
+    if (variant === query.trim().toLowerCase()) continue;
+    try {
+      add(await searchOnce(variant, kind, limit));
+    } catch {
+      // Keep whatever the earlier queries found; a failed variant is not a
+      // reason to lose the results already in hand.
+    }
+    if (byId.size >= 2) break;
+  }
+
   return [...byId.values()];
 }
 

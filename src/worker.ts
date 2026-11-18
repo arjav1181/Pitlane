@@ -18,6 +18,9 @@ import {
 import type { PipelineCallbacks, StageName } from "./pipeline/orchestrator.js";
 import { runPipeline } from "./pipeline/orchestrator.js";
 import { createProviders, createVerificationModel } from "./providers/factory.js";
+import { runClipPipeline } from "./clip/pipeline.js";
+import { normalizeClipSpec } from "./clip/spec.js";
+import { CLIP_STAGE_NAMES, type ClipStageName } from "./clip/stages.js";
 import {
   listQueueEntries,
   planQueueSweep,
@@ -228,6 +231,7 @@ const worker = new Worker<JobData>(
       createdAt: existingMeta?.createdAt ?? new Date().toISOString(),
       stages: existingMeta?.stages ?? {},
     };
+    if (job.data.kind === "clip") meta.kind = "clip";
     if (archetype) meta.archetype = archetype;
     if (pacing) meta.pacing = pacing;
     if (platform) meta.platform = platform;
@@ -237,8 +241,9 @@ const worker = new Worker<JobData>(
     if (skipReview) meta.skipReview = true;
     if (metadata) meta.metadata = metadata;
 
-    // Initialize all stages as pending
-    for (const name of STAGE_NAMES) {
+    // Initialize all stages as pending. A clip job has its own stage list:
+    // there is no research, no director, and no review to wait for.
+    for (const name of job.data.kind === "clip" ? CLIP_STAGE_NAMES : STAGE_NAMES) {
       if (!meta.stages[name]) meta.stages[name] = { status: "pending" };
     }
     writeMeta(jobDir, meta);
@@ -263,6 +268,83 @@ const worker = new Worker<JobData>(
       searchProvider: providers.searchProvider,
       noAiAssets: noAiAssets === true,
     });
+
+    // ── Clip jobs ─────────────────────────────────────────────────────────
+    // Cutting clips out of somebody else's video shares the queue, the job
+    // record, the artifact store and the cancel flag with a render, and shares
+    // none of the creative stages. It branches here so a clip never pays for
+    // research or a director call it does not use.
+    if (job.data.kind === "clip") {
+      if (!job.data.clip) throw new Error("Clip job is missing its spec");
+      const spec = normalizeClipSpec(job.data.clip);
+
+      const isCancelled = () => {
+        try {
+          const current = JSON.parse(fs.readFileSync(path.join(jobDir, "meta.json"), "utf-8"));
+          if (current.cancelRequested === true) {
+            meta.cancelRequested = true;
+            return true;
+          }
+        } catch {
+          // An unreadable meta is not a cancellation.
+        }
+        return false;
+      };
+
+      const result = await runClipPipeline({
+        spec,
+        jobDir,
+        llm: providerInstances.llm,
+        callbacks: {
+          onStageStart(stage: ClipStageName) {
+            meta.stages[stage] = { status: "running" };
+            writeMeta(jobDir, meta);
+            job.updateProgress({ stage, type: "start" });
+          },
+          onStageComplete(stage: ClipStageName, detail: string, durationSec: number) {
+            meta.stages[stage] = { status: "done", detail, durationSec };
+            writeMeta(jobDir, meta);
+            job.updateProgress({ stage, type: "complete", detail, durationSec });
+          },
+          onStageError(stage: ClipStageName, error: string) {
+            meta.stages[stage] = { status: "error", detail: error };
+            writeMeta(jobDir, meta);
+          },
+          onProgress(stage: ClipStageName, data: Record<string, unknown>) {
+            job.updateProgress({ stage, ...data });
+          },
+          onLog(message: string) {
+            console.log(`[clip:${job.id}] ${message}`);
+          },
+          isCancelled,
+        },
+      });
+
+      meta.kind = "clip";
+      meta.source = result.source;
+      meta.clips = result.clips;
+      meta.clipRecords = path.join("clips", "clips.json");
+      // `videoPath` stays the first clip so clients that only know how to play
+      // one render keep working; `clips` is the full set.
+      meta.videoPath = result.clips[0]!.path;
+      meta.posterPath = result.clips[0]!.posterPath;
+      meta.status = "completed";
+      meta.completedAt = new Date().toISOString();
+      if (result.warnings.length > 0) {
+        meta.metadata = { ...(meta.metadata ?? {}), warnings: result.warnings };
+      }
+      writeMeta(jobDir, meta);
+
+      try {
+        await deliverJobCallback(job, meta, "job.completed");
+      } catch (err) {
+        console.warn(`[job:${meta.id}] callback delivery error:`, err);
+      }
+
+      if (MAX_JOBS > 0) pruneOldJobs(JOBS_DIR, MAX_JOBS);
+
+      return { kind: "clip", clips: result.clips.length };
+    }
 
     // Build callbacks that emit BullMQ progress events and update meta.json
     const callbacks: PipelineCallbacks = {

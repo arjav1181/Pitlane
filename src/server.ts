@@ -21,6 +21,7 @@ import {
   MAX_TOPIC_LENGTH,
   retryJob,
 } from "./api/create-job.js";
+import { createClipFromBody } from "./api/create-clip.js";
 import { createIdempotencyStore } from "./api/idempotency.js";
 import type { JobData } from "./api/job-data.js";
 import type { JobMeta } from "./api/job-meta.js";
@@ -330,6 +331,23 @@ const createJobContext = {
 app.post("/api/v1/jobs", async (request, reply) => {
   const headerKey = request.headers["idempotency-key"];
   const result = await createJobFromBody(
+    request.body,
+    Array.isArray(headerKey) ? headerKey[0] : headerKey,
+    createJobContext,
+  );
+  if (result.headers) {
+    for (const [name, value] of Object.entries(result.headers)) reply.header(name, value);
+  }
+  return reply.status(result.status).send(result.body);
+});
+
+// --- Clip creation ---
+// A clip job shares the queue and the status API with a render; only the
+// request shape differs, so it gets its own endpoint rather than overloading
+// `POST /jobs` with two incompatible bodies.
+app.post("/api/v1/clips", async (request, reply) => {
+  const headerKey = request.headers["idempotency-key"];
+  const result = await createClipFromBody(
     request.body,
     Array.isArray(headerKey) ? headerKey[0] : headerKey,
     createJobContext,

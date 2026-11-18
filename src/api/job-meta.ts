@@ -15,7 +15,13 @@ export interface JobStageMeta {
  */
 export interface JobMeta {
   id: string;
+  kind?: "video" | "clip";
   topic: string;
+  /**
+   * The clip request, stored so a retry does not need the (prunable) queue
+   * payload. It holds a URL and options only, never a key.
+   */
+  clip?: import("../clip/spec.js").ClipSpec;
   archetype?: string;
   pacing?: string;
   platform?: string;
@@ -56,6 +62,40 @@ export interface JobMeta {
    */
   creditsLine?: string;
   runDir?: string;
+  /**
+   * Clip jobs: the source video and the clips cut from it.
+   *
+   * `videoPath` still points at the first clip so every client that already
+   * knows how to play a render keeps working; `clips` is the full set.
+   */
+  source?: {
+    url: string;
+    webpageUrl: string;
+    title: string;
+    uploader?: string;
+    durationSeconds: number;
+    wasLive: boolean;
+    window: { start: number; end: number };
+  };
+  clips?: Array<{
+    index: number;
+    title: string;
+    hook: string;
+    start: number;
+    end: number;
+    sourceStart: number;
+    sourceEnd: number;
+    durationSeconds: number;
+    score: number;
+    reason: string;
+    path: string;
+    posterPath: string;
+    previewPath: string;
+    captionsPath: string;
+    suggestedTitle: string;
+    suggestedDescription: string;
+  }>;
+  clipRecords?: string;
   researchData?: { summary: string; key_facts: string[]; mood: string; sources?: string[] };
   score?: unknown;
   criticReview?: { score: number; strengths: string[]; weaknesses: string[] };

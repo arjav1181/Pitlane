@@ -108,6 +108,7 @@ describe("resolveStockAdaptive", () => {
     const stock = makeStockProvider([makeCandidate("pexels-image-1")]);
     mockVerify.mockResolvedValueOnce({
       relevant: true,
+      judged: true,
       confidence: 0.85,
       reason: "Good match",
       usage: { inputTokens: 200, outputTokens: 30 },
@@ -140,6 +141,7 @@ describe("resolveStockAdaptive", () => {
     const stock = makeStockProvider([makeCandidate("pexels-image-1")]);
     mockVerify.mockResolvedValue({
       relevant: false,
+      judged: false,
       confidence: 0.12,
       reason: "Toy rocket",
       usage: { inputTokens: 200, outputTokens: 30 },
@@ -172,6 +174,7 @@ describe("resolveStockAdaptive", () => {
     const stock = makeStockProvider([makeCandidate("pexels-image-1")]);
     mockVerify.mockResolvedValue({
       relevant: false,
+      judged: false,
       confidence: 0.12,
       reason: "Toy rocket",
       usage: { inputTokens: 200, outputTokens: 30 },
@@ -208,12 +211,14 @@ describe("resolveStockAdaptive", () => {
     mockVerify
       .mockResolvedValueOnce({
         relevant: false,
+        judged: false,
         confidence: 0.1,
         reason: "Wrong",
         usage: { inputTokens: 200, outputTokens: 30 },
       })
       .mockResolvedValueOnce({
         relevant: true,
+        judged: true,
         confidence: 0.9,
         reason: "Perfect",
         usage: { inputTokens: 200, outputTokens: 30 },
@@ -298,6 +303,7 @@ describe("resolveStockAdaptive", () => {
 
     mockVerify.mockResolvedValue({
       relevant: false,
+      judged: false,
       confidence: 0.2,
       reason: "Wrong",
       usage: { inputTokens: 200, outputTokens: 30 },
@@ -332,6 +338,7 @@ describe("resolveStockAdaptive", () => {
 
     mockVerify.mockResolvedValue({
       relevant: false,
+      judged: false,
       confidence: 0.2,
       reason: "Wrong",
       usage: { inputTokens: 200, outputTokens: 30 },
@@ -357,6 +364,7 @@ describe("resolveStockAdaptive", () => {
     const stock = makeStockProvider([makeCandidate("pexels-image-1")]);
     mockVerify.mockResolvedValueOnce({
       relevant: true,
+      judged: true,
       confidence: 0.9,
       reason: "Good",
       usage: { inputTokens: 200, outputTokens: 30 },
@@ -374,5 +382,67 @@ describe("resolveStockAdaptive", () => {
 
     expect(result.usage).not.toBeNull();
     expect(result.usage!.inputTokens).toBeGreaterThan(0);
+  });
+});
+
+describe("resolveStockAdaptive resilience", () => {
+  const failing: StockProvider = {
+    id: "wikimedia",
+    searchVideo: vi.fn().mockRejectedValue(new Error("pages is not iterable")),
+    searchImage: vi.fn().mockRejectedValue(new Error("pages is not iterable")),
+    download: vi.fn(),
+  };
+
+  it("moves on when a library throws instead of losing the scene", async () => {
+    const stock = makeStockProvider([makeCandidate("pexels-image-1")]);
+    mockVerify.mockResolvedValue({
+      relevant: true,
+      judged: true,
+      confidence: 0.9,
+      reason: "Right car",
+      usage: { inputTokens: 10, outputTokens: 5 },
+    });
+
+    const result = await resolveStockAdaptive("stock_image", "test", "Test", 0, 6, "/tmp/assets", {
+      llm: mockLLM,
+      imageGen: mockImageGen,
+      stocks: [failing, stock],
+      verifyModel: mockModel,
+      confidenceThreshold: 0.6,
+      maxAttempts: 6,
+      archetype: mockArchetype,
+    });
+
+    expect(result.path).not.toBeNull();
+    expect(result.resolution.attempts.some((a) => /Search failed/.test(a.reason ?? ""))).toBe(true);
+  });
+
+  it("never uses a frame the judge confidently called the wrong thing", async () => {
+    const stock = makeStockProvider([makeCandidate("pexels-image-1")]);
+    mockVerify.mockResolvedValue({
+      relevant: false,
+      judged: false,
+      confidence: 0.95,
+      reason: "A Lancia Delta Integrale, not the Delta S4",
+      usage: { inputTokens: 10, outputTokens: 5 },
+    });
+    mockLLM.generate = vi.fn().mockResolvedValue({
+      data: { queries: ["reform1"] },
+      usage: { inputTokens: 5, outputTokens: 5 },
+    });
+
+    const result = await resolveStockAdaptive("stock_image", "test", "Test", 0, 6, "/tmp/assets", {
+      llm: mockLLM,
+      imageGen: mockImageGen,
+      stocks: [stock],
+      verifyModel: mockModel,
+      confidenceThreshold: 0.6,
+      maxAttempts: 4,
+      archetype: mockArchetype,
+      noAiFallback: true,
+    });
+
+    expect(result.path).toBeNull();
+    expect(result.resolution.method).toBe("procedural_fallback");
   });
 });

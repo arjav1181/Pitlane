@@ -46,6 +46,38 @@ export class WhisperAligner {
   }
 
   /**
+   * Transcribe audio that has no known text, returning word timestamps.
+   *
+   * `align` needs the narration up front; a clip comes from somebody else's
+   * video, so the words and their times both have to come from the audio.
+   * The model is the same one, so a clip job costs no extra download.
+   */
+  async transcribe(audio: Buffer): Promise<WordTimestamp[]> {
+    const float32 = this.audioToFloat32(audio);
+    const transcriber = await this.getTranscriber();
+
+    const result = await transcriber(float32, {
+      return_timestamps: "word",
+      chunk_length_s: 30,
+      stride_length_s: 5,
+    });
+
+    return (result.chunks ?? [])
+      .map((chunk) => ({
+        word: chunk.text.trim(),
+        start: chunk.timestamp[0],
+        end: chunk.timestamp[1],
+      }))
+      .filter(
+        (word) =>
+          word.word.length > 0 &&
+          Number.isFinite(word.start) &&
+          Number.isFinite(word.end) &&
+          word.end > word.start,
+      );
+  }
+
+  /**
    * Align audio to known transcript text, producing word-level timestamps.
    * Throws if Whisper produces 0 usable words (hard fail — broken captions are
    * worse than no video).

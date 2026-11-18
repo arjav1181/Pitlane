@@ -64,6 +64,7 @@ describe("buildOpenApiDocument", () => {
       [
         "/api/v1/archetypes",
         "/api/v1/capabilities",
+        "/api/v1/clips",
         "/api/v1/docs",
         "/api/v1/health",
         "/api/v1/jobs",

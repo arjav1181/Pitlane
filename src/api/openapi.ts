@@ -10,6 +10,7 @@ const jobSchema = {
     "Job metadata persisted in meta.json. Provider API keys and webhook secrets are never included.",
   properties: {
     id: { type: "string" },
+    kind: { type: "string", enum: ["video", "clip"] },
     topic: { type: "string" },
     archetype: { type: "string" },
     pacing: { type: "string" },
@@ -31,6 +32,18 @@ const jobSchema = {
       description: "Still frame of the finished short.",
     },
     runDir: { type: "string", nullable: true },
+    source: {
+      type: "object",
+      nullable: true,
+      additionalProperties: true,
+      description: "Clip jobs: the downloaded source and the window that was fetched.",
+    },
+    clips: {
+      type: "array",
+      nullable: true,
+      description: "Clip jobs: every vertical clip that was cut.",
+      items: { type: "object", additionalProperties: true },
+    },
     score: { type: "object", additionalProperties: true },
     costEstimate: { type: "object", additionalProperties: true },
     actualCost: { type: "object", additionalProperties: true },
@@ -141,10 +154,60 @@ const jobLinksSchema = {
     events: { type: "string" },
     artifacts: { type: "string" },
     video: { type: "string", nullable: true },
+    poster: { type: "string", nullable: true },
+    clips: { type: "array", nullable: true, items: { type: "string" } },
+    clipsIndex: { type: "string", nullable: true },
     score: { type: "string" },
     log: { type: "string" },
     cancel: { type: "string", nullable: true },
     retry: { type: "string", nullable: true },
+  },
+} as const;
+
+const createClipSchema = {
+  type: "object",
+  required: ["sourceUrl"],
+  properties: {
+    sourceUrl: {
+      type: "string",
+      format: "uri",
+      description:
+        "Any yt-dlp-supported source: YouTube, Twitch, Kick, X, TikTok, or a direct video URL.",
+    },
+    count: { type: "integer", minimum: 1, maximum: 10, default: 3 },
+    minSeconds: { type: "number", minimum: 5, maximum: 120, default: 20 },
+    maxSeconds: { type: "number", minimum: 10, maximum: 180, default: 60 },
+    fit: {
+      type: "string",
+      enum: ["blur", "crop"],
+      default: "blur",
+      description: "How a landscape source is shaped to 9:16. Blur keeps the whole frame.",
+    },
+    captions: {
+      type: "boolean",
+      default: true,
+      description: "Burn word-timed captions. Turn off when the source already has them.",
+    },
+    hook: { type: "boolean", default: true, description: "Burn the clip's hook line for 3s." },
+    title: { type: "string", maxLength: 120 },
+    startSeconds: { type: "number", minimum: 0 },
+    endSeconds: { type: "number", minimum: 0 },
+    liveFromStart: {
+      type: "boolean",
+      default: false,
+      description: "For a live stream, read from the start of the broadcast instead of from now.",
+    },
+    maxSourceMinutes: {
+      type: "number",
+      minimum: 1,
+      maximum: 240,
+      default: 60,
+      description: "Hard cap on downloaded source length.",
+    },
+    providers: { type: "object", additionalProperties: true },
+    keys: { type: "object", additionalProperties: { type: "string" } },
+    metadata: { type: "object", additionalProperties: true },
+    idempotencyKey: { type: "string", maxLength: 255 },
   },
 } as const;
 
@@ -204,6 +267,7 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
         Job: jobSchema,
         JobLinks: jobLinksSchema,
         CreateJobRequest: createJobSchema,
+        CreateClipRequest: createClipSchema,
         Error: errorSchema,
       },
       responses: {
@@ -356,6 +420,42 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
             "200": {
               description:
                 "Existing job returned for a replayed Idempotency-Key (Idempotency-Replayed: true)",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/Job" } },
+              },
+            },
+            ...standardErrors,
+          },
+        },
+      },
+      "/api/v1/clips": {
+        post: {
+          tags: ["Clips"],
+          summary: "Cut vertical clips from a video or stream",
+          description:
+            "Downloads the source, transcribes it, chooses self-contained moments, and renders each one at 1080x1920 with burned captions. Returns a normal job, so progress, cancel, retry and artifacts use the same endpoints.",
+          parameters: [
+            {
+              name: "Idempotency-Key",
+              in: "header",
+              schema: { type: "string", maxLength: 255 },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/CreateClipRequest" } },
+            },
+          },
+          responses: {
+            "201": {
+              description: "Clip job queued",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/Job" } },
+              },
+            },
+            "200": {
+              description: "Existing job returned for a replayed Idempotency-Key",
               content: {
                 "application/json": { schema: { $ref: "#/components/schemas/Job" } },
               },

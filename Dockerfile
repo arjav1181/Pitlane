@@ -1,11 +1,13 @@
 FROM node:22-bookworm-slim
 
-# Install system dependencies: ffmpeg (includes ffprobe) and Chrome Headless Shell shared libs
+# Install system dependencies: ffmpeg (includes ffprobe), fonts for burned
+# captions, and Chrome Headless Shell shared libs.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     espeak-ng \
     ffmpeg \
+    fonts-liberation \
     libnss3 \
     libdbus-1-3 \
     libatk1.0-0 \
@@ -19,6 +21,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libatk-bridge2.0-0 \
     libcups2 \
   && rm -rf /var/lib/apt/lists/*
+
+# ── yt-dlp ─────────────────────────────────────────────────────────────────
+# The clipper downloads its source at render time. The standalone binary is
+# used instead of `pip install yt-dlp` because node:bookworm-slim has no Python,
+# and adding a whole interpreter to run one tool is a poor trade. Node is
+# already present, so yt-dlp can use it for YouTube's signature challenges.
+RUN curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux" \
+      -o /usr/local/bin/yt-dlp \
+ && chmod 0755 /usr/local/bin/yt-dlp \
+ && /usr/local/bin/yt-dlp --version
 
 
 # ── Piper TTS ──────────────────────────────────────────────────────────────
