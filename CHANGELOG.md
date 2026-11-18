@@ -19,6 +19,10 @@ All notable changes to Pitlane will be documented in this file.
   clip with its hook, download and copyable title and caption.
 
 ### Fixed
+- **Scripts can no longer run to 56 seconds**: the director's system prompt set a 72-88 word
+  budget, but the user message injected a competing 100-140 word budget from a stale pacing
+  config. The model followed the larger one. Both tiers now agree on 68-88 words, which is a
+  35-42 second read.
 - **Every clip carries a source credit in the frame**: direct media URLs have no uploader handle,
   so they used to render without the burned-in attribution. The watermark now falls back to the
   decoded source title, and a percent-encoded Commons filename reads as a title instead of a URL

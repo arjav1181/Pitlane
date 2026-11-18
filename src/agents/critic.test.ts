@@ -67,7 +67,7 @@ describe("evaluate pacing tier derivation", () => {
     const score = { ...baseScore, archetype: "warm_narrative" };
     await evaluate(llm, score, "test topic");
     expect(llm.lastUserMessage).toContain("**cinematic** pacing");
-    expect(llm.lastUserMessage).toContain("5-8 scenes");
+    expect(llm.lastUserMessage).toContain("6-8 scenes");
   });
 
   it("explicit pacing override wins over archetype", async () => {

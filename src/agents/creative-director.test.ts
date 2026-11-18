@@ -23,7 +23,7 @@ describe("buildPacingInstruction", () => {
   it("returns single tier instruction for known archetype (cinematic)", () => {
     const result = buildPacingInstruction("cinematic_documentary");
     expect(result).toContain("cinematic");
-    expect(result).toContain("5-8");
+    expect(result).toContain("6-8");
   });
 
   // Path 3: no archetype — full tier lookup table
@@ -55,7 +55,7 @@ describe("buildPacingInstruction", () => {
   it("uses explicit pacing override without archetype", () => {
     const result = buildPacingInstruction(undefined, "cinematic");
     expect(result).toContain("cinematic");
-    expect(result).toContain("5-8");
+    expect(result).toContain("6-8");
     expect(result).not.toContain("After choosing your archetype");
   });
 
@@ -66,17 +66,26 @@ describe("buildPacingInstruction", () => {
     expect(result).toContain("8-12");
   });
 
-  // Word budget inclusion
+  // Word budget inclusion — must agree with prompts/creative-director.md
   it("includes word budget in tier instruction", () => {
     const result = buildPacingInstruction("infographic");
-    expect(result).toContain("90-120");
-    expect(result).toContain("8-12 words");
+    expect(result).toContain("68-84");
+    expect(result).toContain("6-8 words");
   });
 
   it("includes word budget for moderate tier", () => {
     const result = buildPacingInstruction("warm_editorial");
-    expect(result).toContain("100-140");
-    expect(result).toContain("10-16");
+    expect(result).toContain("68-88");
+    expect(result).toContain("7-10");
+  });
+
+  it("keeps every tier inside the 35-42 second script budget", () => {
+    // The director prompt measures 88 words as roughly 42 seconds on this
+    // pipeline. A higher ceiling here is what produced 56-second shorts.
+    for (const cfg of Object.values(PACING_CONFIG)) {
+      const upper = Number(cfg.totalWords.split("-")[1]);
+      expect(upper).toBeLessThanOrEqual(88);
+    }
   });
 });
 
@@ -92,13 +101,12 @@ describe("PACING_CONFIG", () => {
     expect(PACING_CONFIG.fast.min).toBeGreaterThanOrEqual(3);
   });
 
-  it("word budget math closes for fast tier typical case", () => {
-    // Typical fast tier: hook(10) + N middle scenes at avg words + CTA(10)
-    // With 10 scenes (typical): 10 + 8*10 + 10 = 100 words — within 90-120 budget
-    const middleScenes = PACING_CONFIG.fast.max - 2; // minus hook + CTA
-    const avgWordsPerScene = 10; // middle of 8-12 range
-    const hookCta = 20; // 10 words each
-    const totalBudgetMax = parseInt(PACING_CONFIG.fast.totalWords.split("-")[1]!);
+  it("word budget math closes for a typical fast-tier script", () => {
+    // Typical fast tier: hook(10) + 6 middle scenes at 7 words + CTA(10) = 62.
+    const middleScenes = 6;
+    const avgWordsPerScene = 7;
+    const hookCta = 20;
+    const totalBudgetMax = Number(PACING_CONFIG.fast.totalWords.split("-")[1]);
     expect(middleScenes * avgWordsPerScene + hookCta).toBeLessThanOrEqual(totalBudgetMax);
   });
 

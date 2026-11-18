@@ -191,19 +191,23 @@ Write every script_line for the ear, not the page:
 
 // --- Pacing tier configuration ---
 
+// These numbers must match the pacing table in prompts/creative-director.md.
+// The director reads that table as its system prompt and this config as its
+// user message; when they disagreed, the model followed the larger user budget
+// and produced 55-second shorts instead of 35-42 second ones.
 const PACING_CONFIG: Record<
   ScenePacing,
   { min: number; max: number; wordsPerScene: string; totalWords: string }
 > = {
-  fast: { min: 8, max: 12, wordsPerScene: "8-12", totalWords: "90-120" },
-  moderate: { min: 7, max: 10, wordsPerScene: "10-16", totalWords: "100-140" },
-  cinematic: { min: 5, max: 8, wordsPerScene: "15-22", totalWords: "90-130" },
+  fast: { min: 8, max: 12, wordsPerScene: "6-8", totalWords: "68-84" },
+  moderate: { min: 7, max: 10, wordsPerScene: "7-10", totalWords: "68-88" },
+  cinematic: { min: 6, max: 8, wordsPerScene: "9-13", totalWords: "72-88" },
 };
 
 const PACING_TIER_TABLE = `After choosing your archetype, use the matching pacing tier from this table:
-- fast (8-12 scenes, 8-12 words/scene, 90-120 words total): infographic, bold_illustration, comic_book
-- moderate (7-10 scenes, 10-16 words/scene, 100-140 words total): warm_editorial, editorial_caricature, anime_illustration, vintage_snapshot, surreal_dreamscape, gothic_fantasy
-- cinematic (5-8 scenes, 15-22 words/scene, 90-130 words total): cinematic_documentary, moody_cinematic, studio_realism, warm_narrative, pastoral_watercolor`;
+- fast (8-12 scenes, 6-8 words/scene, 68-84 words total): infographic, bold_illustration, comic_book
+- moderate (7-10 scenes, 7-10 words/scene, 68-88 words total): warm_editorial, editorial_caricature, anime_illustration, vintage_snapshot, surreal_dreamscape, gothic_fantasy
+- cinematic (6-8 scenes, 9-13 words/scene, 72-88 words total): cinematic_documentary, moody_cinematic, studio_realism, warm_narrative, pastoral_watercolor`;
 
 export function buildPacingInstruction(archetype?: string, pacingOverride?: string): string {
   // Path 1: Explicit --pacing override always wins
