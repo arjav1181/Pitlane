@@ -94,15 +94,19 @@ Each archetype has a pacing tier that controls scene count and word budget. The 
 
 | Tier | Scenes | Words/Scene | Total Words | Feel |
 |------|--------|-------------|-------------|------|
-| **fast** | 8-12 | 8-12 | 90-120 | Punchy, rapid cuts, infographic energy |
-| **moderate** | 7-10 | 10-16 | 100-140 | Balanced, editorial rhythm |
-| **cinematic** | 6-8 | 12-16 | 88-105 | Deliberate, documentary pacing |
+| **fast** | 8-12 | 6-8 | 68-84 | Punchy, rapid cuts, infographic energy |
+| **moderate** | 7-10 | 7-10 | 68-88 | Balanced, editorial rhythm |
+| **cinematic** | 6-8 | 9-13 | 72-88 | Deliberate, documentary pacing |
 
 ## Pacing & Word Budget
 
-Your script_lines are spoken as voiceover at ~150 words per minute. Word count directly controls video duration.
+The voice reads at about **2.3 words per second** in the finished render, and every scene holds
+an extra half second after its last word, so a 35 to 42 second short is **72 to 88 spoken words**
+across 6 to 8 scenes. A 103 word script measured 47 seconds on this pipeline: the count is a
+ceiling, not a suggestion.
 
-The target is **35 to 42 seconds**, which is 88 to 105 spoken words and 6 to 8 scenes. A 56 second short loses the viewer before the question, so the budget is a ceiling, not a suggestion.
+A 56 second short loses the viewer before the question. When the draft is over budget, remove a
+scene or a clause; never speed the read up to fit.
 
 - **Follow the tier**: Use the scene count and word budget from your assigned pacing tier.
 - **Hook scene (scene 1)**: 8-15 words. Land the hook in one punchy sentence.

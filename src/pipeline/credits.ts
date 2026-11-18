@@ -10,6 +10,16 @@ import type { Attribution } from "../schema/providers.js";
 const MAX_CREDIT_LINE = 1800;
 
 /**
+ * CC BY and CC BY-SA ask for an indication when the work was changed.
+ *
+ * Every asset here is cropped to a vertical frame, colour-graded and resized,
+ * so the description says so once, after the credits, instead of pretending
+ * the work is shown as published.
+ */
+const CHANGES_NOTE =
+  "Images and footage are cropped, colour-graded and resized for a vertical video.";
+
+/**
  * Turn the licence records into one line a description can carry.
  *
  * A CC BY or CC BY-SA work asks for four things: the title, the author, the
@@ -43,8 +53,10 @@ export function formatCreditLine(credits: Attribution[] | null | undefined): str
 
   // Keep whole entries. Dropping one credit is honest; printing half a URL is
   // a broken attribution, and YouTube would still count it against the limit.
+  // The changes note is short and legally useful, so its space is reserved
+  // before the credits are packed.
   const kept: string[] = [];
-  let length = "Credits: ".length;
+  let length = "Credits: ".length + CHANGES_NOTE.length + 1;
   for (const part of parts) {
     const added = (kept.length > 0 ? " | ".length : 0) + part.length;
     if (length + added > MAX_CREDIT_LINE) break;
@@ -52,7 +64,8 @@ export function formatCreditLine(credits: Attribution[] | null | undefined): str
     length += added;
   }
 
-  return kept.length > 0 ? `Credits: ${kept.join(" | ")}` : "";
+  if (kept.length === 0) return "";
+  return `Credits: ${kept.join(" | ")}. ${CHANGES_NOTE}`;
 }
 
 /**

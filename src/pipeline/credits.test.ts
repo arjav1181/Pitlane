@@ -12,7 +12,7 @@ describe("formatCreditLine", () => {
       },
     ]);
     expect(line).toBe(
-      'Credits: "Bertha Benz 1889.jpg", Unknown author (CC BY-SA 4.0) https://commons.wikimedia.org/wiki/File:Bertha_Benz_1889.jpg',
+      'Credits: "Bertha Benz 1889.jpg", Unknown author (CC BY-SA 4.0) https://commons.wikimedia.org/wiki/File:Bertha_Benz_1889.jpg. Images and footage are cropped, colour-graded and resized for a vertical video.',
     );
   });
 
@@ -41,9 +41,11 @@ describe("formatCreditLine", () => {
     }));
     const line = formatCreditLine(many);
     expect(line.length).toBeLessThanOrEqual(1800);
-    // A line that ends mid-URL is broken attribution, so the last thing on
-    // the line is always a complete file page.
-    expect(line.endsWith(".jpg")).toBe(true);
+    // A line that ends mid-URL is broken attribution, so every link that
+    // survives is a complete file page.
+    for (const url of line.match(/https:\/\/\S+/g) ?? []) {
+      expect(url.replace(/\.$/, "").endsWith(".jpg")).toBe(true);
+    }
   });
 });
 
@@ -118,7 +120,7 @@ describe("formatCreditLine limits", () => {
     expect(line.length).toBeLessThanOrEqual(1800);
     // Every URL that remains is complete.
     for (const url of line.match(/https:\/\/\S+/g) ?? []) {
-      expect(url).toMatch(/^https:\/\/commons\.wikimedia\.org\/wiki\/File:Car_\d+\.jpg$/);
+      expect(url).toMatch(/^https:\/\/commons\.wikimedia\.org\/wiki\/File:Car_\d+\.jpg\.?$/);
     }
   });
 
@@ -131,6 +133,7 @@ describe("formatCreditLine limits", () => {
     const line = formatCreditLine([
       { author: "Jane Doe", license: "Pexels License", sourceUrl: "https://www.pexels.com/video/1/" },
     ]);
-    expect(line).toBe("Credits: Jane Doe (Pexels License) https://www.pexels.com/video/1/");
+    expect(line).toContain("Credits: Jane Doe (Pexels License) https://www.pexels.com/video/1/");
+    expect(line).toContain("cropped");
   });
 });
